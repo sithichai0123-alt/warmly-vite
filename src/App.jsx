@@ -578,6 +578,10 @@ function VoiceRoomsPage({user}){
     if(connected&&me&&me.mic===false&&micOn)voice.setMic(false);
   },[connected,me&&me.mic,micOn]); // eslint-disable-line
 
+  // มีเพลงเริ่มเล่น → เปิดแผงเพลงให้ทุกคนเห็นอัตโนมัติ (รวม Guest)
+  const nowPlayingId=inRoom?inRoom.nowPlaying:null;
+  useEffect(()=>{ if(nowPlayingId)setShowPL(true); },[nowPlayingId]);
+
   function onMicClick(){
     if(me&&me.mic===false&&!micOn){alert("โฮสต์ปิดไมค์ของคุณอยู่");return;}
     toggleMic();
@@ -595,7 +599,7 @@ function VoiceRoomsPage({user}){
   async function join(r){
     // เชื่อมต่อเสียงทันทีในจังหวะที่กดปุ่ม (ต้องมี user gesture ถึงจะได้ยินเสียงและขอไมค์ได้)
     seenRef.current=false;
-    setInRoomId(r.id);setInRoomName(r.name);setShowPL(false);
+    setInRoomId(r.id);setInRoomName(r.name);setShowPL(true);
     voice.connect(r.id,myUid,user.name);
     const members=Array.isArray(r.members)?r.members:[];
     if(!members.find(m=>m.uid===myUid)){
@@ -643,7 +647,7 @@ function VoiceRoomsPage({user}){
         playlist:[],nowPlaying:null,songStartedAt:null,
         createdAt:serverTimestamp()
       });
-      setInRoomId(r.id);setInRoomName(nm);
+      setInRoomId(r.id);setInRoomName(nm);setShowPL(true);
       voice.connect(r.id,myUid,user.name);
     }catch(e){console.error(e);setNameErr("สร้างห้องไม่สำเร็จ: "+(e.message||e));return;}
     setNewName("");setCreating(false);setNameErr("");
