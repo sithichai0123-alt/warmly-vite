@@ -14,6 +14,28 @@ const firebaseConfig = {
   appId: "1:340884704147:web:86ab4e1a8aceab0daeb666"
 };
 
+// ── Cloudinary (อัปโหลดวิดีโอฟรี ไม่ต้องผูกบัตร) ───────────
+const CLOUDINARY={cloud:"ochjk9uo",preset:"warmly_video"};
+
+function uploadVideo(file,onProgress){
+  return new Promise((resolve,reject)=>{
+    if(!CLOUDINARY.cloud||!CLOUDINARY.preset){reject(new Error("ยังไม่ได้ตั้งค่า Cloudinary"));return;}
+    const fd=new FormData();
+    fd.append("file",file);
+    fd.append("upload_preset",CLOUDINARY.preset);
+    const x=new XMLHttpRequest();
+    x.open("POST","https://api.cloudinary.com/v1_1/"+CLOUDINARY.cloud+"/video/upload");
+    x.upload.onprogress=e=>{if(e.lengthComputable&&onProgress)onProgress(Math.round(e.loaded/e.total*100));};
+    x.onload=()=>{
+      let j={};try{j=JSON.parse(x.responseText);}catch(e){}
+      if(x.status>=200&&x.status<300&&j.secure_url)resolve(j.secure_url);
+      else reject(new Error((j.error&&j.error.message)||("อัปโหลดไม่สำเร็จ ("+x.status+")")));
+    };
+    x.onerror=()=>reject(new Error("เครือข่ายขัดข้อง"));
+    x.send(fd);
+  });
+}
+
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const auth = getAuth(firebaseApp);
@@ -111,6 +133,28 @@ function Input({value,onChange,placeholder,type="text",onKeyDown,style={}}){
     onFocus={e=>e.target.style.borderColor=T.borderHi} onBlur={e=>e.target.style.borderColor=T.border}/>);
 }
 
+// วิดีโอในฟีด: เล่นเองแบบปิดเสียงเมื่อเลื่อนมาถึง หยุดเมื่อเลื่อนผ่าน (กดที่วิดีโอเพื่อเปิดเสียง/ควบคุม)
+function FeedVideo({src}){
+  const ref=useRef();
+  useEffect(()=>{
+    const v=ref.current;
+    if(!v)return;
+    v.muted=true;
+    if(typeof IntersectionObserver==="undefined")return;
+    const io=new IntersectionObserver(([en])=>{
+      if(en.isIntersecting&&en.intersectionRatio>=0.6){
+        const pr=v.play();
+        if(pr&&pr.catch)pr.catch(()=>{});
+      }else{
+        v.pause();
+      }
+    },{threshold:[0,0.6,1]});
+    io.observe(v);
+    return()=>io.disconnect();
+  },[src]);
+  return <video ref={ref} src={src} controls muted loop playsInline preload="metadata" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",minHeight:130}}/>;
+}
+
 function ImgGrid({images,mediaTypes}){
   if(!images?.length)return null;
   const n=images.length;
@@ -120,7 +164,7 @@ function ImgGrid({images,mediaTypes}){
       return(
         <div key={i} style={{overflow:"hidden",position:"relative",gridColumn:n===3&&i===0?"1/3":undefined,background:"#000",minHeight:130}}>
           {isVid
-            ? <video src={src} controls style={{width:"100%",height:"100%",objectFit:"cover",display:"block",minHeight:130}} preload="metadata"/>
+            ? <FeedVideo src={src}/>
             : <img src={src} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",minHeight:130}} onError={e=>e.target.style.display="none"}/>
           }
           {i===3&&n>4&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:22,fontWeight:700}}>+{n-4}</div>}
@@ -952,23 +996,22 @@ function NewPostBox({user}){
   const [err,setErr]=useState("");
   const [showM,setShowM]=useState(false);
   const [posting,setPosting]=useState(false);
+  const [progress,setProgress]=useState(0);
   const fileRef=useRef();
 
   function handleFiles(e){
     Array.from(e.target.files).forEach(f=>{
       if(f.type.startsWith("video/")){
-        // ตรวจสอบขนาดไฟล์วิดีโอ (สูงสุด 30MB สำหรับ 30 วินาที)
-        if(f.size > 30*1024*1024){setErr("วิดีโอใหญ่เกิน 30MB กรุณาบีบอัดก่อน");return;}
+        if(f.size>100*1024*1024){setErr("วิดีโอใหญ่เกิน 100MB");return;}
+        const url=URL.createObjectURL(f);
         const vid=document.createElement("video");
         vid.preload="metadata";
         vid.onloadedmetadata=()=>{
-          URL.revokeObjectURL(vid.src);
-          if(vid.duration>30){setErr("วิดีโอต้องไม่เกิน 30 วินาที (ของคุณ: "+Math.round(vid.duration)+"วิ)");return;}
-          const r=new FileReader();
-          r.onload=ev=>setImages(p=>[...p,{src:ev.target.result,name:f.name,isVideo:true,duration:Math.round(vid.duration)}]);
-          r.readAsDataURL(f);
+          if(vid.duration>30){URL.revokeObjectURL(url);setErr("วิดีโอต้องไม่เกิน 30 วินาที (ของคุณ: "+Math.round(vid.duration)+"วิ)");return;}
+          setImages(p=>[...p,{src:url,file:f,name:f.name,isVideo:true,duration:Math.round(vid.duration)}]);
         };
-        vid.src=URL.createObjectURL(f);
+        vid.onerror=()=>setErr("อ่านวิดีโอนี้ไม่ได้ ลองไฟล์อื่น (MP4)");
+        vid.src=url;
       } else {
         compressImage(f,1000,0.7)
           .then(src=>setImages(p=>[...p,{src,name:f.name,isVideo:false}]))
@@ -980,7 +1023,19 @@ function NewPostBox({user}){
 
   async function submit(){
     if(!text.trim()&&!images.length){setErr("เขียนหรือเพิ่มรูปก่อนนะ");return;}
-    setPosting(true);
+    setPosting(true);setErr("");setProgress(0);
+    // อัปโหลดวิดีโอขึ้น Cloudinary ก่อน แล้วเก็บแค่ลิงก์ในโพสต์
+    const urls=[];
+    try{
+      for(const i of images){
+        if(i.isVideo&&i.file)urls.push(await uploadVideo(i.file,setProgress));
+        else urls.push(i.src);
+      }
+    }catch(e){
+      setErr("อัปโหลดวิดีโอไม่สำเร็จ: "+(e&&e.message?e.message:e));
+      setPosting(false);setProgress(0);
+      return;
+    }
     try{
       const postName = user.name;
       const postInit = postName.slice(0,2).toUpperCase();
@@ -988,7 +1043,7 @@ function NewPostBox({user}){
         author:postName, authorInit:postInit,
         authorUid:getUid(),
         content:text.trim(), mood, privacy,
-        images:images.map(i=>i.src),
+        images:urls,
         mediaTypes:images.map(i=>i.isVideo?"video":"image"),
         likes:0, liked:false, comments:[],
         createdAt:serverTimestamp()
@@ -1031,7 +1086,7 @@ function NewPostBox({user}){
             <option value="friends">👥 เพื่อนเท่านั้น</option>
             <option value="only_me">🔒 ฉันเท่านั้น</option>
           </select>
-          <Btn onClick={submit} v="primary" sz="sm" style={{marginLeft:"auto"}} disabled={posting}>{posting?"กำลังโพสต์...":"โพสต์"}</Btn>
+          <Btn onClick={submit} v="primary" sz="sm" style={{marginLeft:"auto"}} disabled={posting}>{posting?(progress>0&&progress<100?"อัปโหลด "+progress+"%":"กำลังโพสต์..."):"โพสต์"}</Btn>
         </div>
         {showM&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:10,marginLeft:54}}>{MOODS.map(m=><Btn key={m} onClick={()=>{setMood(m);setShowM(false);}} v={mood===m?"outline":"ghost"} sz="sm">{m}</Btn>)}</div>}
       </div>
