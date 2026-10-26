@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, Component, createContext, use
 import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion } from "firebase/firestore";
 
 // ── Firebase Config ──────────────────────────────────────
 const firebaseConfig = {
@@ -37,6 +37,7 @@ const ls = {
 
 // ── ผู้ใช้ทั้งหมด (แชร์รูป/ชื่อให้ทุกคนเห็น) ─────────────
 const UsersCtx=createContext({});
+const ProfileCtx=createContext(null);
 
 // ย่อรูปก่อนเก็บ (Firestore จำกัด 1MB ต่อเอกสาร)
 function compressImage(file,max=160,q=0.72){
@@ -603,6 +604,7 @@ function VoiceRoomsPage({user}){
     if(me){seenRef.current=true;return;}
     if(seenRef.current){
       seenRef.current=false;
+      if(inRoom&&Array.isArray(inRoom.kicked)&&inRoom.kicked.includes(myUid))alert("คุณถูกเจ้าของห้องเตะออกจากห้อง");
       voice.disconnect();setInRoomId(null);setShowPL(false);
     }
   },[inRoomId,loading,rooms]); // eslint-disable-line
@@ -631,6 +633,10 @@ function VoiceRoomsPage({user}){
   },[]);
 
   async function join(r){
+    if(Array.isArray(r.kicked)&&r.kicked.includes(myUid)){
+      alert("คุณถูกเจ้าของห้องเตะออก เข้าห้องนี้ไม่ได้");
+      return;
+    }
     // เชื่อมต่อเสียงทันทีในจังหวะที่กดปุ่ม (ต้องมี user gesture ถึงจะได้ยินเสียงและขอไมค์ได้)
     seenRef.current=false;
     setInRoomId(r.id);setInRoomName(r.name);setShowPL(true);
@@ -666,8 +672,12 @@ function VoiceRoomsPage({user}){
 
   async function kick(key){
     if(!isHost||key===myUid)return;
+    const target=memberList.find(m=>(m.uid||m.init)===key);
+    if(!window.confirm("เตะ "+((target&&target.name)||"คนนี้")+" ออกจากห้อง? (เข้าห้องนี้ใหม่ไม่ได้)"))return;
     const members=memberList.filter(m=>(m.uid||m.init)!==key);
-    await updateDoc(doc(db,"voiceRooms",inRoomId),{members});
+    try{
+      await updateDoc(doc(db,"voiceRooms",inRoomId),{members,kicked:arrayUnion(key)});
+    }catch(e){console.error(e);alert("เตะไม่สำเร็จ: "+(e.code||e.message));}
   }
 
   async function create(){
@@ -728,6 +738,7 @@ function VoiceRoomsPage({user}){
                   {" • "}{(inRoom.members||[]).length} คน
                 </div>
                 {voiceError&&<div style={{fontSize:11,color:T.red,marginTop:3}}>⚠️ {voiceError}</div>}
+                {isHost&&(inRoom.members||[]).length>1&&<div style={{fontSize:11,color:T.brand2,marginTop:3}}>👑 คุณเป็นเจ้าของห้อง — กด 🚫 ที่มุมรูปสมาชิกเพื่อเตะออก</div>}
                 {needAudio&&<div onClick={enableAudio} style={{fontSize:12,color:T.yellow,marginTop:4,cursor:"pointer",fontWeight:700}}>🔊 แตะที่นี่เพื่อเปิดเสียงห้อง</div>}
               </div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -748,9 +759,9 @@ function VoiceRoomsPage({user}){
                 return(
                   <div key={key+i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,position:"relative"}}>
                     {isHost&&!isMe&&(
-                      <div style={{position:"absolute",top:-6,right:-4,display:"flex",gap:2,zIndex:2}}>
-                        <button onClick={()=>hostToggleMic(key)} style={{width:16,height:16,borderRadius:"50%",background:m.mic!==false?"#1A3A2A":"#2A2A1A",border:"1px solid "+T.border,cursor:"pointer",fontSize:8,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>{m.mic!==false?"🎙":"🔇"}</button>
-                        <button onClick={()=>kick(key)} style={{width:16,height:16,borderRadius:"50%",background:T.redBg,border:"1px solid rgba(244,63,94,.3)",cursor:"pointer",fontSize:8,display:"flex",alignItems:"center",justifyContent:"center",color:T.red,fontFamily:"inherit"}}>✕</button>
+                      <div style={{position:"absolute",top:-10,right:-12,display:"flex",gap:3,zIndex:2}}>
+                        <button onClick={()=>hostToggleMic(key)} style={{width:26,height:26,borderRadius:"50%",background:m.mic!==false?"#1A3A2A":"#2A2A1A",border:"1px solid "+T.border,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>{m.mic!==false?"🎙":"🔇"}</button>
+                        <button onClick={()=>kick(key)} style={{width:26,height:26,borderRadius:"50%",background:T.redBg,border:"1px solid rgba(244,63,94,.5)",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",color:T.red,fontFamily:"inherit"}}>🚫</button>
                       </div>
                     )}
                     <div style={{padding:3,borderRadius:"50%",
@@ -834,6 +845,7 @@ function VoiceRoomsPage({user}){
 // ── Post Card ─────────────────────────────────────────────
 function PostCard({p,user}){
   const users=useContext(UsersCtx);
+  const openProfile=useContext(ProfileCtx);
   const myUid=getUid();
   const [open,setOpen]=useState(false);
   const [cmt,setCmt]=useState("");
@@ -869,9 +881,9 @@ function PostCard({p,user}){
     <Card style={{marginBottom:12}}>
       <div style={{padding:"16px 16px 0"}}>
         <div style={{display:"flex",gap:12,marginBottom:12}}>
-          <Av uid={p.authorUid} init={p.authorInit||p.author?.slice(0,2)||"??"} bg={T.card} tc={T.brand2} size={42}/>
+          <div onClick={()=>openProfile&&openProfile(p.authorUid)} style={{cursor:p.authorUid?"pointer":"default"}}><Av uid={p.authorUid} init={p.authorInit||p.author?.slice(0,2)||"??"} bg={T.card} tc={T.brand2} size={42}/></div>
           <div style={{flex:1}}>
-            <div style={{fontSize:14,fontWeight:700,color:T.text}}>{(p.authorUid&&users[p.authorUid]&&users[p.authorUid].name)||p.author}</div>
+            <div onClick={()=>openProfile&&openProfile(p.authorUid)} style={{fontSize:14,fontWeight:700,color:T.text,cursor:p.authorUid?"pointer":"default"}}>{(p.authorUid&&users[p.authorUid]&&users[p.authorUid].name)||p.author}</div>
             <div style={{fontSize:12,color:T.muted,display:"flex",flexWrap:"wrap",gap:6,marginTop:3}}>
               <span>{p.createdAt?timeAgo(p.createdAt):"เมื่อกี้"}</span><span>·</span>
               <span style={{background:T.surface,borderRadius:20,padding:"1px 8px",border:"1px solid "+T.border}}>{PV_ICO[p.privacy||"public"]} {PV_LBL[p.privacy||"public"]}</span>
@@ -1129,13 +1141,14 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
 }
 
 // ── Chat: ห้องรวม + แชทส่วนตัว ────────────────────────────
-function ChatPage({user}){
+function ChatPage({user,openPeer,onPeerOpened}){
   const users=useContext(UsersCtx);
   const myUid=getUid();
   const [tab,setTab]=useState("group");
   const [peer,setPeer]=useState(null);
   const [convs,setConvs]=useState([]);
   const [search,setSearch]=useState("");
+  useEffect(()=>{ if(openPeer){setTab("dm");setPeer(openPeer);onPeerOpened&&onPeerOpened();} },[openPeer]); // eslint-disable-line
 
   useEffect(()=>{
     const q=query(collection(db,"dms"),where("uids","array-contains",myUid));
@@ -1247,7 +1260,7 @@ function ProfilePage({user,posts,onUpdateName}){
   const myPosts=posts.filter(p=>p.authorUid?p.authorUid===getUid():(p.author===user.name||p.author===displayName));
   const saveBio=()=>{setBio(bioInput);ls.set("bio",bioInput);saveMyProfile({bio:bioInput}).catch(()=>{});setEditing(false);};
   const saveMood=m=>{setMood(m);ls.set("mood",m);saveMyProfile({mood:m}).catch(()=>{});setShowMP(false);};
-  const saveCover=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{setCoverImg(ev.target.result);ls.set("coverImg",ev.target.result);};r.readAsDataURL(f);e.target.value="";};
+  const saveCover=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,900,0.6).then(src=>{setCoverImg(src);ls.set("coverImg",src);return setDoc(doc(db,"covers",getUid()),{cover:src,lastSeen:serverTimestamp()});}).catch(err=>console.error("cover",err));};
   const saveAvatar=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,160,0.72).then(src=>{setAvatarImg(src);ls.set("avatarImg",src);return saveMyProfile({avatar:src});}).catch(err=>console.error("avatar",err));};
   return(
     <div>
@@ -1270,6 +1283,7 @@ function ProfilePage({user,posts,onUpdateName}){
                   :<div style={{fontSize:19,fontWeight:800,color:T.text,display:"flex",alignItems:"center",gap:8}}>{displayName}{!user.isGuest&&<span onClick={()=>{setEditName(true);setNameInput(displayName);}} style={{fontSize:13,cursor:"pointer",color:T.muted}}>✏️</span>}</div>
                 }
                 {user.isGuest&&<span style={{fontSize:11,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 8px",fontWeight:600}}>👋 Guest</span>}
+                {!user.isGuest&&user.email&&<div style={{fontSize:12,color:T.muted,marginTop:3}}>🔗 เชื่อมกับ {user.email}</div>}
                 {editing?<div style={{marginTop:7,display:"flex",gap:7}}><Input value={bioInput} onChange={e=>setBioInput(e.target.value)} style={{width:220,padding:"6px 11px",fontSize:13}}/><Btn onClick={saveBio} v="primary" sz="sm">บันทึก</Btn></div>
                 :<div style={{fontSize:13,color:T.sub,marginTop:5,lineHeight:1.6}}>{bio}</div>}
                 <div style={{marginTop:9}}>
@@ -1311,6 +1325,86 @@ function ProfilePage({user,posts,onUpdateName}){
   );
 }
 
+// ── ตั้งชื่อครั้งแรกหลังล็อกอิน Google ───────────────────
+function NamePrompt({user,onDone}){
+  const [name,setName]=useState(user.name||"");
+  const [err,setErr]=useState("");
+  const [busy,setBusy]=useState(false);
+  async function ok(){
+    const n=name.trim().slice(0,30);
+    if(!n){setErr("ใส่ชื่อก่อนนะ");return;}
+    setBusy(true);
+    const init=n.slice(0,2).toUpperCase();
+    try{
+      await saveMyProfile({name:n,init,isGuest:false,photo:user.photo||"",nameSet:true});
+      onDone({...user,name:n,init,needName:false});
+    }catch(e){
+      console.error(e);
+      setErr("บันทึกไม่ได้ ("+(e.code||e.message)+")");
+      setBusy(false);
+    }
+  }
+  return(
+    <div style={{minHeight:"100dvh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
+      <div style={{width:"100%",maxWidth:360,background:T.surface,border:"1px solid "+T.borderHi,borderRadius:20,padding:"26px 22px",textAlign:"center"}}>
+        <div style={{fontSize:34,marginBottom:8}}>👋</div>
+        <div style={{fontSize:18,fontWeight:800,color:T.text}}>ตั้งชื่อที่ใช้แสดง</div>
+        <div style={{fontSize:13,color:T.sub,marginTop:8,lineHeight:1.6}}>โปรไฟล์ของคุณผูกกับบัญชี<br/><b style={{color:T.brand2}}>{user.email}</b><br/>ส่วนชื่อที่คนอื่นเห็น ตั้งเองได้ (แก้ภายหลังได้)</div>
+        <div style={{marginTop:16}}>
+          <Input value={name} onChange={e=>{setName(e.target.value);setErr("");}} placeholder="ชื่อที่ต้องการแสดง..." onKeyDown={e=>e.key==="Enter"&&ok()}/>
+        </div>
+        {err&&<div style={{fontSize:12,color:T.red,marginTop:8}}>{err}</div>}
+        <div style={{marginTop:14}}><Btn onClick={ok} v="primary" sz="md" full>{busy?"กำลังบันทึก...":"ตกลง ✨"}</Btn></div>
+      </div>
+    </div>
+  );
+}
+
+// ── ดูโปรไฟล์คนอื่น (รูปปก รูปโปรไฟล์ โพสต์) ───────────────
+function ProfileModal({uid,posts,user,onClose,onChat}){
+  const users=useContext(UsersCtx);
+  const u=users[uid]||{};
+  const [cover,setCover]=useState("");
+  useEffect(()=>{
+    setCover("");
+    getDoc(doc(db,"covers",uid)).then(sn=>{if(sn.exists())setCover(sn.data().cover||"");}).catch(()=>{});
+  },[uid]);
+  const list=posts.filter(p=>p.authorUid===uid&&(p.privacy||"public")==="public");
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",zIndex:60,display:"flex",alignItems:"flex-start",justifyContent:"center",overflowY:"auto",padding:"20px 12px"}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:440,background:T.card,border:"1px solid "+T.borderHi,borderRadius:20,overflow:"hidden"}}>
+        <div style={{height:120,background:cover?`url(${cover}) center/cover`:T.brandGrad,position:"relative"}}>
+          <button onClick={onClose} style={{position:"absolute",top:10,right:10,width:30,height:30,borderRadius:"50%",border:"none",background:"rgba(0,0,0,.5)",color:"#fff",cursor:"pointer",fontSize:14,fontFamily:"inherit"}}>✕</button>
+        </div>
+        <div style={{padding:"0 18px 18px",position:"relative"}}>
+          <div style={{position:"absolute",top:-34,left:18,border:"4px solid "+T.card,borderRadius:"50%",background:T.card}}>
+            <Av uid={uid} init={u.init||"??"} bg={T.surface} tc={T.brand2} size={64}/>
+          </div>
+          <div style={{paddingTop:40}}>
+            <div style={{fontSize:19,fontWeight:800,color:T.text}}>{u.name||"ผู้ใช้"}
+              {u.isGuest&&<span style={{fontSize:11,marginLeft:8,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 8px",fontWeight:600}}>👋 Guest</span>}
+            </div>
+            <div style={{fontSize:13,color:T.sub,marginTop:5,lineHeight:1.6}}>{u.bio||"ชอบคุยเล่น • ฟังเพื่อนใหม่ 💜"}</div>
+            {u.mood&&<div style={{marginTop:8}}><span style={{background:T.brand+"22",color:T.brand2,borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,border:"1px solid "+T.borderHi}}>✦ {u.mood}</span></div>}
+            {uid!==getUid()&&<div style={{marginTop:14}}><Btn onClick={()=>onChat(uid)} v="primary" sz="sm">💬 แชทส่วนตัว</Btn></div>}
+          </div>
+          <div style={{marginTop:16,paddingTop:12,borderTop:"1px solid "+T.border}}>
+            <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:10}}>โพสต์ ({list.length})</div>
+            {list.length===0&&<div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"10px 0"}}>ยังไม่มีโพสต์สาธารณะ</div>}
+            {list.map(pp=>(
+              <div key={pp.id} style={{borderBottom:"1px solid "+T.border,paddingBottom:10,marginBottom:10}}>
+                {pp.images?.length>0&&<div style={{display:"flex",gap:5,marginBottom:6,flexWrap:"wrap"}}>{pp.images.slice(0,4).map((src,i)=>(pp.mediaTypes&&pp.mediaTypes[i]==="video")?null:<img key={i} src={src} alt="" style={{width:56,height:56,borderRadius:10,objectFit:"cover",border:"1px solid "+T.border}}/>)}</div>}
+                {pp.content&&<div style={{fontSize:13,color:T.sub,lineHeight:1.6}}>{pp.content}</div>}
+                <div style={{fontSize:11,color:T.muted,marginTop:4}}>{pp.createdAt?timeAgo(pp.createdAt):"เมื่อกี้"} • ❤️{pp.likes||0}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Privacy ───────────────────────────────────────────────
 function PrivacyPage(){
   const [s,setS]=useState({postDef:"public",whoSee:"public",whoCmt:"everyone",whoMsg:"everyone",showMood:true,showOnline:true,showLast:true,friendList:"friends"});
@@ -1347,6 +1441,8 @@ export default function App(){
   const [page,setPage]=useState("feed");
   const [posts,setPosts]=useState([]);
   const [users,setUsers]=useState({});
+  const [viewUid,setViewUid]=useState(null);
+  const [dmTarget,setDmTarget]=useState(null);
 
   // ติดตามสถานะล็อกอิน Google จริง (Firebase Auth) + ผู้เยี่ยมชม
   useEffect(()=>{
@@ -1356,10 +1452,13 @@ export default function App(){
         let saved={};
         try{const sn=await getDoc(doc(db,"users",fb.uid));if(sn.exists())saved=sn.data();}catch(e){console.error("load profile",e);}
         const name=(saved.name&&String(saved.name).trim())||fb.displayName||(fb.email?fb.email.split("@")[0]:"ผู้ใช้");
+        let cv="";
+        try{const cs=await getDoc(doc(db,"covers",fb.uid));if(cs.exists())cv=cs.data().cover||"";}catch(e){}
+        ls.set("coverImg",cv);
         ls.set("avatarImg",saved.avatar||"");
         ls.set("bio",saved.bio||"ชอบคุยเล่น • ฟังเพื่อนใหม่ 💜");
         ls.set("mood",saved.mood||"สบายดี 😊");
-        const u={name,email:fb.email||"",isGuest:false,init:name.slice(0,2).toUpperCase(),provider:"google",uid:fb.uid,photo:fb.photoURL||""};
+        const u={name,email:fb.email||"",isGuest:false,init:name.slice(0,2).toUpperCase(),provider:"google",uid:fb.uid,photo:fb.photoURL||"",needName:!saved.nameSet};
         ls.set("user",u);
         setUser(u);
       }else{
@@ -1372,9 +1471,9 @@ export default function App(){
 
   // บันทึกโปรไฟล์สาธารณะ (ชื่อ/รูป) ให้คนอื่นเห็น
   useEffect(()=>{
-    if(!user)return;
+    if(!user||user.needName)return;
     saveMyProfile({name:user.name,init:user.init,isGuest:!!user.isGuest,photo:user.photo||""}).catch(e=>console.error("saveProfile",e));
-  },[user&&user.name,user&&user.isGuest]); // eslint-disable-line
+  },[user&&user.name,user&&user.isGuest,user&&user.needName]); // eslint-disable-line
 
   useEffect(()=>{
     if(!user)return;
@@ -1409,9 +1508,12 @@ export default function App(){
 
   if(!authReady)return<div style={{minHeight:"100dvh",background:T.bg,color:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif"}}>💜 กำลังโหลด...</div>;
   if(!user)return<AuthPage onLogin={setUser}/>;
+  if(user.needName)return<NamePrompt user={user} onDone={u=>{ls.set("user",u);setUser(u);}}/>;
+  const openProfile=uid=>{ if(!uid)return; if(uid===getUid()){setPage("profile");return;} setViewUid(uid); };
 
   return(
     <UsersCtx.Provider value={users}>
+    <ProfileCtx.Provider value={openProfile}>
     <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",minHeight:"100dvh",background:T.bg,display:"flex",flexDirection:"column",maxWidth:480,margin:"0 auto"}}>
       <style>{`*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:dark}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
       <div style={{background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid "+T.border,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:30}}>
@@ -1428,7 +1530,7 @@ export default function App(){
       <div style={{flex:1,overflowY:page==="chat"?"hidden":"auto",display:"flex",flexDirection:"column"}}>
         <div style={{flex:1,padding:page==="chat"?"0":"14px 12px 80px"}}>
           {page==="feed"    &&<FeedPage user={user}/>}
-          {page==="chat"    &&<ChatPage user={user}/>}
+          {page==="chat"    &&<ChatPage user={user} openPeer={dmTarget} onPeerOpened={()=>setDmTarget(null)}/>}
           <div style={{display:page==="voice"?"block":"none"}}><VoiceErrorBoundary><VoiceRoomsPage user={user}/></VoiceErrorBoundary></div>
           {page==="profile" &&<ProfilePage user={user} posts={posts} onUpdateName={n=>{const u={...user,name:n,init:n.slice(0,2).toUpperCase()};ls.set("user",u);setUser(u);}}/>}
           {page==="privacy" &&<PrivacyPage/>}
@@ -1443,7 +1545,9 @@ export default function App(){
           </button>
         ))}
       </div>
+    {viewUid&&<ProfileModal uid={viewUid} posts={posts} user={user} onClose={()=>setViewUid(null)} onChat={id=>{setViewUid(null);setDmTarget(id);setPage("chat");}}/>}
     </div>
+    </ProfileCtx.Provider>
     </UsersCtx.Provider>
   );
 }
