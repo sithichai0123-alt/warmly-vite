@@ -139,6 +139,7 @@ function AuthPage({onLogin}){
   const [err,setErr]=useState("");
 
   const [busy,setBusy]=useState(false);
+  const inApp=/Line\/|FBAN|FBAV|Instagram|MicroMessenger|; wv\)|WebView/i.test(navigator.userAgent||"");
   async function loginGoogle(){
     if(busy)return;
     setBusy(true);setGErr("");
@@ -182,6 +183,13 @@ function AuthPage({onLogin}){
       </div>
       <div style={{width:"100%",maxWidth:360}}>
         {mode==="main"&&(<>
+          {inApp&&(
+            <div style={{background:"rgba(245,158,11,.12)",border:"1px solid rgba(245,158,11,.35)",borderRadius:14,padding:"12px 14px",marginBottom:14,fontSize:12,color:T.yellow,lineHeight:1.6}}>
+              ⚠️ ดูเหมือนคุณเปิดผ่านแอปอื่น (เช่น LINE/Facebook) ซึ่งมักล็อกอิน Google ไม่ได้ (จอขาว)
+              <br/>กดจุดสามจุด (⋮) แล้วเลือก <b>เปิดใน Chrome / Safari</b> หรือคัดลอกลิงก์ไปเปิดเอง
+              <div style={{marginTop:8}}><Btn onClick={()=>{try{navigator.clipboard.writeText(window.location.origin);setGErr("คัดลอกลิงก์แล้ว — ไปวางในเบราว์เซอร์ Chrome/Safari");}catch(e){setGErr(window.location.origin);}}} v="outline" sz="sm">📋 คัดลอกลิงก์</Btn></div>
+            </div>
+          )}
           <button onClick={loginGoogle} disabled={busy}
             style={{width:"100%",padding:"14px 20px",borderRadius:16,border:"1px solid "+T.border,background:T.card,color:T.text,cursor:"pointer",fontSize:15,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginBottom:16,fontFamily:"inherit"}}
             onMouseOver={e=>e.currentTarget.style.borderColor=T.borderHi}
@@ -1257,11 +1265,20 @@ function ProfilePage({user,posts,onUpdateName}){
   const [coverImg,setCoverImg]=useState(()=>ls.get("coverImg",""));
   const [avatarImg,setAvatarImg]=useState(()=>ls.get("avatarImg",""));
   const coverRef=useRef();const avatarRef=useRef();
+  const _allUsers=useContext(UsersCtx);
+  // ซิงค์รูปปก/รูปโปรไฟล์ข้ามอุปกรณ์แบบเรียลไทม์
+  useEffect(()=>{
+    return onSnapshot(doc(db,"covers",getUid()),sn=>{
+      if(sn.exists()){const c=sn.data().cover||"";setCoverImg(c);ls.set("coverImg",c);}
+    },()=>{});
+  },[]);
+  const _myAv=_allUsers[getUid()]&&_allUsers[getUid()].avatar;
+  useEffect(()=>{ if(_myAv){setAvatarImg(_myAv);ls.set("avatarImg",_myAv);} },[_myAv]);
   const myPosts=posts.filter(p=>p.authorUid?p.authorUid===getUid():(p.author===user.name||p.author===displayName));
   const saveBio=()=>{setBio(bioInput);ls.set("bio",bioInput);saveMyProfile({bio:bioInput}).catch(()=>{});setEditing(false);};
   const saveMood=m=>{setMood(m);ls.set("mood",m);saveMyProfile({mood:m}).catch(()=>{});setShowMP(false);};
-  const saveCover=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,900,0.6).then(src=>{setCoverImg(src);ls.set("coverImg",src);return setDoc(doc(db,"covers",getUid()),{cover:src,lastSeen:serverTimestamp()});}).catch(err=>console.error("cover",err));};
-  const saveAvatar=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,160,0.72).then(src=>{setAvatarImg(src);ls.set("avatarImg",src);return saveMyProfile({avatar:src});}).catch(err=>console.error("avatar",err));};
+  const saveCover=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,900,0.6).then(src=>{setCoverImg(src);ls.set("coverImg",src);return setDoc(doc(db,"covers",getUid()),{cover:src,lastSeen:serverTimestamp()});}).catch(err=>{console.error("cover",err);alert("เปลี่ยนรูปปกไม่สำเร็จ: "+((err&&(err.code||err.message))||"ไฟล์รูปนี้ไม่รองรับ ลองรูป JPG/PNG"));});};
+  const saveAvatar=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,160,0.72).then(src=>{setAvatarImg(src);ls.set("avatarImg",src);return saveMyProfile({avatar:src});}).catch(err=>{console.error("avatar",err);alert("เปลี่ยนรูปโปรไฟล์ไม่สำเร็จ: "+((err&&(err.code||err.message))||"ไฟล์รูปนี้ไม่รองรับ ลองรูป JPG/PNG"));});};
   return(
     <div>
       <Card style={{marginBottom:14,overflow:"hidden"}}>
@@ -1367,7 +1384,7 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
   const [cover,setCover]=useState("");
   useEffect(()=>{
     setCover("");
-    getDoc(doc(db,"covers",uid)).then(sn=>{if(sn.exists())setCover(sn.data().cover||"");}).catch(()=>{});
+    return onSnapshot(doc(db,"covers",uid),sn=>{setCover(sn.exists()?(sn.data().cover||""):"");},()=>{});
   },[uid]);
   const list=posts.filter(p=>p.authorUid===uid&&(p.privacy||"public")==="public");
   return(
