@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, Component, createContext, use
 import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction } from "firebase/firestore";
 
 // ── Firebase Config ──────────────────────────────────────
 const firebaseConfig = {
@@ -86,6 +86,120 @@ function saveMyProfile(patch){
   return setDoc(doc(db,"users",getUid()),{...patch,lastSeen:serverTimestamp()},{merge:true});
 }
 
+// ── ระบบเหรียญฟรี / ของขวัญ / ไอเทม (ขั้นที่ 1: ฟรีทั้งหมด) ────
+const WELCOME_COINS=50;
+const DAILY_COINS=20;
+const GIFTS=[
+  {id:"heart",emoji:"💜",name:"หัวใจ",price:3},
+  {id:"rose",emoji:"🌹",name:"กุหลาบ",price:5},
+  {id:"coffee",emoji:"☕",name:"กาแฟ",price:8},
+  {id:"bear",emoji:"🧸",name:"หมีน้อย",price:10},
+  {id:"cake",emoji:"🎂",name:"เค้ก",price:15},
+  {id:"star",emoji:"🌟",name:"ดาว",price:20},
+  {id:"rocket",emoji:"🚀",name:"จรวด",price:40},
+  {id:"crown",emoji:"👑",name:"มงกุฎ",price:80},
+];
+const GIFT_BY_ID=Object.fromEntries(GIFTS.map(g=>[g.id,g]));
+const FRAMES={
+  gold:{bg:"linear-gradient(135deg,#FDE68A,#F59E0B,#B45309)",glow:"0 0 12px rgba(245,158,11,.6)"},
+  neon:{bg:"linear-gradient(135deg,#22D3EE,#7C5CFC)",glow:"0 0 12px rgba(34,211,238,.6)"},
+  rainbow:{bg:"linear-gradient(135deg,#f43f5e,#f59e0b,#10b981,#3b82f6,#a855f7)",glow:"0 0 12px rgba(168,85,247,.5)"},
+  heart:{bg:"linear-gradient(135deg,#F9A8D4,#EC4899)",glow:"0 0 12px rgba(236,72,153,.55)"},
+  fire:{bg:"linear-gradient(135deg,#FDE047,#F97316,#DC2626)",glow:"0 0 14px rgba(249,115,22,.7)"},
+};
+const NAME_COLORS={
+  gold:{color:"#FBBF24"},
+  pink:{color:"#F472B6"},
+  cyan:{color:"#22D3EE"},
+  rainbow:{background:"linear-gradient(90deg,#f43f5e,#f59e0b,#10b981,#3b82f6,#a855f7)",WebkitBackgroundClip:"text",backgroundClip:"text",WebkitTextFillColor:"transparent",color:"transparent"},
+};
+const BADGES={star:"🌟",dj:"🎧",crown:"👑",fire:"🔥"};
+const ITEMS=[
+  {id:"frame:gold",type:"frame",key:"gold",name:"กรอบทอง",price:60},
+  {id:"frame:neon",type:"frame",key:"neon",name:"กรอบนีออน",price:60},
+  {id:"frame:heart",type:"frame",key:"heart",name:"กรอบชมพูหวาน",price:40},
+  {id:"frame:rainbow",type:"frame",key:"rainbow",name:"กรอบรุ้ง",price:100},
+  {id:"frame:fire",type:"frame",key:"fire",name:"กรอบเปลวไฟ",special:"ล็อกอินครบ 7 วันติดกัน"},
+  {id:"nameColor:pink",type:"nameColor",key:"pink",name:"ชื่อสีชมพู",price:30},
+  {id:"nameColor:cyan",type:"nameColor",key:"cyan",name:"ชื่อสีฟ้า",price:30},
+  {id:"nameColor:gold",type:"nameColor",key:"gold",name:"ชื่อสีทอง",price:40},
+  {id:"nameColor:rainbow",type:"nameColor",key:"rainbow",name:"ชื่อสีรุ้ง",price:80},
+  {id:"badge:star",type:"badge",key:"star",name:"ป้ายดาว 🌟",price:30},
+  {id:"badge:dj",type:"badge",key:"dj",name:"ป้าย DJ 🎧",price:40},
+  {id:"badge:crown",type:"badge",key:"crown",name:"ป้ายมงกุฎ 👑",price:120},
+  {id:"badge:fire",type:"badge",key:"fire",name:"ป้ายไฟ 🔥",special:"ล็อกอินครบ 7 วันติดกัน"},
+];
+
+function todayBkk(offsetDays=0){
+  return new Date(Date.now()+7*3600*1000+offsetDays*86400000).toISOString().slice(0,10);
+}
+
+// เหรียญต้อนรับ (ครั้งแรก)
+async function ensureWallet(){
+  const ref=doc(db,"users",getUid());
+  await runTransaction(db,async tx=>{
+    const sn=await tx.get(ref);
+    if(!sn.exists()||sn.data().coins===undefined){
+      tx.set(ref,{coins:WELCOME_COINS,inventory:[],giftCount:0},{merge:true});
+    }
+  });
+}
+
+// รับเหรียญรายวัน (นับตามเวลาไทย) + ล็อกอินครบ 7 วันติดกันได้ไอเทมพิเศษ
+async function claimDaily(){
+  const ref=doc(db,"users",getUid());
+  return runTransaction(db,async tx=>{
+    const sn=await tx.get(ref);
+    const d=sn.exists()?sn.data():{};
+    const today=todayBkk(),yest=todayBkk(-1);
+    if(d.lastDaily===today)throw new Error("วันนี้รับไปแล้ว");
+    const streak=d.lastDaily===yest?(d.streak||0)+1:1;
+    const bonus=DAILY_COINS+(streak%7===0?50:0);
+    const patch={coins:(d.coins||0)+bonus,lastDaily:today,streak};
+    const inv=Array.isArray(d.inventory)?d.inventory:[];
+    let unlocked=false;
+    if(streak>=7&&!inv.includes("badge:fire")){patch.inventory=[...inv,"badge:fire","frame:fire"];unlocked=true;}
+    tx.set(ref,patch,{merge:true});
+    return{bonus,streak,unlocked};
+  });
+}
+
+async function buyItem(item){
+  const ref=doc(db,"users",getUid());
+  await runTransaction(db,async tx=>{
+    const sn=await tx.get(ref);
+    const d=sn.exists()?sn.data():{};
+    const inv=Array.isArray(d.inventory)?d.inventory:[];
+    if(inv.includes(item.id))throw new Error("มีไอเทมนี้แล้ว");
+    if((d.coins||0)<item.price)throw new Error("เหรียญไม่พอ");
+    tx.set(ref,{coins:(d.coins||0)-item.price,inventory:[...inv,item.id]},{merge:true});
+  });
+}
+
+function equipItem(item,on){
+  return setDoc(doc(db,"users",getUid()),{[item.type]:on?item.key:null},{merge:true});
+}
+
+// ส่งของขวัญในแชทส่วนตัว (หักเหรียญผู้ส่ง + เพิ่มจำนวนของขวัญผู้รับ + ขึ้นข้อความในแชท)
+async function sendGift(gift,fromUser,toUid,toName){
+  const myUid=getUid();
+  if(toUid===myUid)throw new Error("ส่งให้ตัวเองไม่ได้");
+  const meRef=doc(db,"users",myUid),toRef=doc(db,"users",toUid);
+  await runTransaction(db,async tx=>{
+    const sn=await tx.get(meRef);
+    const coins=(sn.exists()&&sn.data().coins)||0;
+    if(coins<gift.price)throw new Error("เหรียญไม่พอ");
+    tx.set(meRef,{coins:coins-gift.price,giftsSent:increment(1)},{merge:true});
+    tx.set(toRef,{giftCount:increment(1)},{merge:true});
+  });
+  const pid=[myUid,toUid].sort().join("_");
+  await addDoc(collection(db,"dms",pid,"messages"),{
+    uid:myUid,author:fromUser.name,init:fromUser.init,gift:gift.id,
+    text:"ส่ง "+gift.emoji+" "+gift.name+" ให้ "+toName,t:serverTimestamp()
+  });
+  await setDoc(doc(db,"dms",pid),{uids:[myUid,toUid].sort(),last:"🎁 "+gift.emoji+" "+gift.name,lastFrom:myUid,lastT:serverTimestamp()},{merge:true});
+}
+
 // ── Static Data ───────────────────────────────────────────
 const FRIENDS=[
   {id:1,name:"หนูนก",init:"NK",bg:"#1A3A2A",tc:"#6EE7B7",online:true, mood:"เหงา 🌙"},
@@ -108,15 +222,28 @@ function timeAgo(ts){if(!ts)return"เมื่อกี้";const s=Math.floor(
 function Av({init,bg,tc,size=40,online,grad,isSelf,uid}){
   const _users=useContext(UsersCtx);
   const _u=uid?_users[uid]:null;
-  // ถ้าเป็น avatar ของตัวเอง (isSelf) ให้ดึงรูปจาก localStorage
+  // รูปของตัวเอง/คนอื่นดึงจากฐานข้อมูล (ทุกคนเห็นเหมือนกัน) สำรองจากเครื่องตัวเอง
   const selfImg = (_u&&(_u.avatar||_u.photo)) || (isSelf ? ls.get("avatarImg","") : "");
+  const frame = _u&&_u.frame&&FRAMES[_u.frame];
+  const core = selfImg
+    ? <img src={selfImg} alt={init} referrerPolicy="no-referrer" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",display:"block",border:"2px solid "+(grad?T.brand:T.border)}}/>
+    : <div style={{width:size,height:size,borderRadius:"50%",background:grad?T.brandGrad:(bg||T.card),color:grad?"#fff":(tc||T.brand2),display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.32,fontWeight:700,boxShadow:grad?"0 0 16px rgba(124,92,252,.5)":"none"}}>{init}</div>;
   return(<div style={{position:"relative",flexShrink:0}}>
-    {selfImg
-      ? <img src={selfImg} alt={init} referrerPolicy="no-referrer" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",display:"block",border:"2px solid "+(grad?T.brand:T.border)}}/>
-      : <div style={{width:size,height:size,borderRadius:"50%",background:grad?T.brandGrad:(bg||T.card),color:grad?"#fff":(tc||T.brand2),display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.32,fontWeight:700,boxShadow:grad?"0 0 16px rgba(124,92,252,.5)":"none"}}>{init}</div>
-    }
+    {frame
+      ? <div style={{padding:Math.max(2,Math.round(size*.07)),borderRadius:"50%",background:frame.bg,boxShadow:frame.glow,display:"inline-block",lineHeight:0}}>{core}</div>
+      : core}
     {online&&<div style={{position:"absolute",bottom:1,right:1,width:Math.max(8,size*.2),height:Math.max(8,size*.2),borderRadius:"50%",background:T.green,border:"2px solid "+T.bg}}/>}
   </div>);
+}
+
+// ชื่อผู้ใช้ (ใช้ชื่อล่าสุด + สีชื่อ + ป้ายที่ใส่ไว้)
+function Nm({uid,name,own,style}){
+  const users=useContext(UsersCtx);
+  const u=uid?users[uid]:null;
+  const nm=own?(name||(u&&u.name)):((u&&u.name)||name);
+  const col=u&&u.nameColor&&NAME_COLORS[u.nameColor];
+  const badge=u&&u.badge&&BADGES[u.badge];
+  return <span style={style}><span style={col||undefined}>{nm||"ผู้ใช้"}</span>{badge&&<span style={{marginLeft:4}}>{badge}</span>}</span>;
 }
 
 function Btn({children,onClick,v="primary",sz="md",full,style={}}){
@@ -935,7 +1062,7 @@ function PostCard({p,user}){
         <div style={{display:"flex",gap:12,marginBottom:12}}>
           <div onClick={()=>openProfile&&openProfile(p.authorUid)} style={{cursor:p.authorUid?"pointer":"default"}}><Av uid={p.authorUid} init={p.authorInit||p.author?.slice(0,2)||"??"} bg={T.card} tc={T.brand2} size={42}/></div>
           <div style={{flex:1}}>
-            <div onClick={()=>openProfile&&openProfile(p.authorUid)} style={{fontSize:14,fontWeight:700,color:T.text,cursor:p.authorUid?"pointer":"default"}}>{(p.authorUid&&users[p.authorUid]&&users[p.authorUid].name)||p.author}</div>
+            <div onClick={()=>openProfile&&openProfile(p.authorUid)} style={{fontSize:14,fontWeight:700,color:T.text,cursor:p.authorUid?"pointer":"default"}}><Nm uid={p.authorUid} name={p.author}/></div>
             <div style={{fontSize:12,color:T.muted,display:"flex",flexWrap:"wrap",gap:6,marginTop:3}}>
               <span>{p.createdAt?timeAgo(p.createdAt):"เมื่อกี้"}</span><span>·</span>
               <span style={{background:T.surface,borderRadius:20,padding:"1px 8px",border:"1px solid "+T.border}}>{PV_ICO[p.privacy||"public"]} {PV_LBL[p.privacy||"public"]}</span>
@@ -1125,7 +1252,7 @@ function fmtTime(ms){
 }
 
 // ── แชทแบบฟองข้อความ (ใช้ทั้งห้องรวมและแชทส่วนตัว) ────────
-function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent}){
+function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo}){
   const users=useContext(UsersCtx);
   const myUid=getUid();
   const pathKey=path.join("/");
@@ -1133,12 +1260,28 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
   const [input,setInput]=useState("");
   const [img,setImg]=useState(null);
   const [err,setErr]=useState("");
+  const [giftOpen,setGiftOpen]=useState(false);
+  const [fx,setFx]=useState(null);
   const fileRef=useRef();const endRef=useRef();
 
   useEffect(()=>{
     setMsgs([]);setErr("");
+    let first=true;
     const q=query(collection(db,...path),orderBy("t","desc"),limit(150));
     return onSnapshot(q,snap=>{
+      if(!first){
+        snap.docChanges().forEach(ch=>{
+          if(ch.type==="added"){
+            const d=ch.doc.data();
+            if(d.gift&&GIFT_BY_ID[d.gift]){
+              const id=Date.now()+Math.random();
+              setFx({id,emoji:GIFT_BY_ID[d.gift].emoji});
+              setTimeout(()=>setFx(f=>(f&&f.id===id?null:f)),2400);
+            }
+          }
+        });
+      }
+      first=false;
       setMsgs(snap.docs.map(d=>({id:d.id,...d.data({serverTimestamps:"estimate"})})).reverse());
     },e=>{console.error("chat",e);setErr("โหลดแชทไม่ได้ ("+(e.code||e.message)+") — ตรวจ Firestore rules");});
   },[pathKey]); // eslint-disable-line
@@ -1164,10 +1307,18 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
   }
 
   return(
-    <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
+    <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0,position:"relative"}}>
+      {fx&&<div key={fx.id} style={{position:"absolute",inset:0,pointerEvents:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:20}}><div style={{fontSize:110,animation:"giftfly 2.2s ease-out forwards"}}>{fx.emoji}</div></div>}
       <div style={{flex:1,overflowY:"auto",padding:"12px 12px",display:"flex",flexDirection:"column",gap:6}}>
         {msgs.length===0&&!err&&<div style={{textAlign:"center",color:T.muted,fontSize:13,padding:"30px 0"}}>ยังไม่มีข้อความ — ทักทายกันได้เลย 👋</div>}
         {msgs.map((m,i)=>{
+          if(m.gift){
+            const g=GIFT_BY_ID[m.gift];
+            return(<div key={m.id} style={{textAlign:"center",padding:"8px 0"}}>
+              <div style={{fontSize:46,lineHeight:1.1,animation:"giftpop .6s ease-out"}}>{g?g.emoji:"🎁"}</div>
+              <div style={{fontSize:12,color:T.sub,marginTop:2}}>🎁 <Nm uid={m.uid} name={m.author}/> {m.text}</div>
+            </div>);
+          }
           const me=m.uid===myUid;
           const prev=msgs[i-1];
           const head=!me&&showNames&&(!prev||prev.uid!==m.uid);
@@ -1177,7 +1328,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
             <div key={m.id} style={{display:"flex",gap:8,alignItems:"flex-end",flexDirection:me?"row-reverse":"row"}}>
               {!me&&<Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={28}/>}
               <div style={{maxWidth:"74%",display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start"}}>
-                {head&&<div style={{fontSize:11,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px"}}>{nm}</div>}
+                {head&&<div style={{fontSize:11,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px"}}><Nm uid={m.uid} name={m.author}/></div>}
                 {m.image&&<img src={m.image} alt="" style={{maxWidth:"100%",borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
                 {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me?T.brandGrad:T.card,color:me?"#fff":T.text,border:me?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{m.text}</div>}
                 <div style={{fontSize:10,color:T.muted,margin:"2px 4px 0"}}>{fmtTime(ms)}</div>
@@ -1193,12 +1344,14 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
         <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,900,0.6).then(setImg).catch(()=>setErr("อ่านรูปไม่ได้"));}}/>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <button onClick={()=>fileRef.current.click()} style={{width:36,height:36,borderRadius:"50%",border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:15,flexShrink:0,fontFamily:"inherit"}}>📷</button>
+          {giftTo&&!user.isGuest&&<button onClick={()=>setGiftOpen(true)} style={{width:36,height:36,borderRadius:"50%",border:"1px solid "+T.borderHi,background:T.brand+"22",cursor:"pointer",fontSize:15,flexShrink:0,fontFamily:"inherit"}}>🎁</button>}
           <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder}
             style={{flex:1,minWidth:0,border:"1px solid "+T.border,borderRadius:20,padding:"9px 16px",fontSize:14,color:T.text,background:T.card,outline:"none",fontFamily:"inherit"}}
             onFocus={e=>e.target.style.borderColor=T.borderHi} onBlur={e=>e.target.style.borderColor=T.border}/>
           <button onClick={send} style={{width:38,height:38,borderRadius:"50%",background:T.brandGrad,border:"none",cursor:"pointer",color:"#fff",flexShrink:0,fontSize:17,fontFamily:"inherit"}}>↑</button>
         </div>
       </div>
+      {giftOpen&&giftTo&&<GiftPicker user={user} to={giftTo} onClose={()=>setGiftOpen(false)}/>}
     </div>
   );
 }
@@ -1289,7 +1442,7 @@ function ChatPage({user,openPeer,onPeerOpened}){
             <Av uid={peer} init={pu.init||"??"} bg={T.card} tc={T.brand2} size={34}/>
             <div style={{fontSize:14,fontWeight:700,color:T.text}}>{pu.name||"ผู้ใช้"}</div>
           </div>
-          <BubbleChat path={["dms",pairId(peer),"messages"]} user={user} placeholder={"ข้อความถึง "+(pu.name||"เพื่อน")+"..."} onSent={onDmSent}/>
+          <BubbleChat path={["dms",pairId(peer),"messages"]} user={user} giftTo={{uid:peer,name:pu.name||"เพื่อน"}} placeholder={"ข้อความถึง "+(pu.name||"เพื่อน")+"..."} onSent={onDmSent}/>
         </div>
       )}
     </div>
@@ -1352,7 +1505,7 @@ function ProfilePage({user,posts,onUpdateName}){
               <div>
                 {editName
                   ?<div style={{marginTop:2,display:"flex",gap:7}}><Input value={nameInput} onChange={e=>setNameInput(e.target.value)} style={{width:180,padding:"6px 11px",fontSize:16,fontWeight:700}}/><Btn onClick={saveName} v="primary" sz="sm">บันทึก</Btn></div>
-                  :<div style={{fontSize:19,fontWeight:800,color:T.text,display:"flex",alignItems:"center",gap:8}}>{displayName}{!user.isGuest&&<span onClick={()=>{setEditName(true);setNameInput(displayName);}} style={{fontSize:13,cursor:"pointer",color:T.muted}}>✏️</span>}</div>
+                  :<div style={{fontSize:19,fontWeight:800,color:T.text,display:"flex",alignItems:"center",gap:8}}><Nm uid={getUid()} name={displayName} own/>{!user.isGuest&&<span onClick={()=>{setEditName(true);setNameInput(displayName);}} style={{fontSize:13,cursor:"pointer",color:T.muted}}>✏️</span>}</div>
                 }
                 {user.isGuest&&<span style={{fontSize:11,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 8px",fontWeight:600}}>👋 Guest</span>}
                 {!user.isGuest&&user.email&&<div style={{fontSize:12,color:T.muted,marginTop:3}}>🔗 เชื่อมกับ {user.email}</div>}
@@ -1366,7 +1519,7 @@ function ProfilePage({user,posts,onUpdateName}){
               <Btn onClick={()=>{setEditing(!editing);setBioInput(bio);}} v="ghost" sz="sm">✏️</Btn>
             </div>
             <div style={{display:"flex",gap:28,marginTop:16,paddingTop:14,borderTop:"1px solid "+T.border}}>
-              {[["48","เพื่อน"],[String(myPosts.length),"โพสต์"],["—","เข้าชม"]].map(([n,l])=>(
+              {[["48","เพื่อน"],[String(myPosts.length),"โพสต์"],[String((_allUsers[getUid()]&&_allUsers[getUid()].giftCount)||0),"ของขวัญ"]].map(([n,l])=>(
                 <div key={l} style={{textAlign:"center"}}>
                   <div style={{fontSize:19,fontWeight:800,background:T.brandGrad,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{n}</div>
                   <div style={{fontSize:12,color:T.muted}}>{l}</div>
@@ -1393,6 +1546,121 @@ function ProfilePage({user,posts,onUpdateName}){
           ))}
         </div>
       </Card>
+    </div>
+  );
+}
+
+// ── เลือกของขวัญ ────────────────────────────────────────
+function GiftPicker({user,to,onClose,onSent}){
+  const users=useContext(UsersCtx);
+  const coins=(users[getUid()]&&users[getUid()].coins)||0;
+  const [busy,setBusy]=useState(false);
+  const [msg,setMsg]=useState("");
+  async function pick(g){
+    if(busy)return;
+    setBusy(true);setMsg("");
+    try{
+      await sendGift(g,user,to.uid,to.name);
+      onSent&&onSent(g);
+      onClose();
+      return;
+    }catch(e){
+      setMsg(e.message==="เหรียญไม่พอ"?"เหรียญไม่พอ — รับเหรียญฟรีรายวันได้ที่ปุ่ม 🪙 มุมขวาบน":"ส่งไม่ได้: "+(e.code||e.message));
+    }
+    setBusy(false);
+  }
+  return(
+    <div onClick={e=>{e.stopPropagation();onClose();}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",zIndex:70,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:480,background:T.card,borderTop:"1px solid "+T.borderHi,borderRadius:"20px 20px 0 0",padding:"16px 16px 24px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontSize:15,fontWeight:800,color:T.text}}>🎁 ส่งของขวัญให้ {to.name}</div>
+          <div style={{fontSize:13,color:T.yellow,fontWeight:700}}>🪙 {coins}</div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+          {GIFTS.map(g=>(
+            <button key={g.id} onClick={()=>pick(g)} disabled={busy} style={{background:T.surface,border:"1px solid "+(coins>=g.price?T.border:"rgba(244,63,94,.3)"),borderRadius:14,padding:"10px 2px",cursor:"pointer",opacity:coins>=g.price?1:.55,fontFamily:"inherit"}}>
+              <div style={{fontSize:30}}>{g.emoji}</div>
+              <div style={{fontSize:11,color:T.text,marginTop:2}}>{g.name}</div>
+              <div style={{fontSize:11,color:T.yellow,fontWeight:700}}>🪙 {g.price}</div>
+            </button>
+          ))}
+        </div>
+        {msg&&<div style={{fontSize:12,color:T.red,marginTop:10,textAlign:"center"}}>{msg}</div>}
+        <div style={{marginTop:12,textAlign:"center"}}><Btn onClick={onClose} v="ghost" sz="sm">ปิด</Btn></div>
+      </div>
+    </div>
+  );
+}
+
+// ── ร้านค้า + กระเป๋าเหรียญ + รับเหรียญรายวัน ────────────────
+function ShopModal({user,onClose}){
+  const users=useContext(UsersCtx);
+  const me=users[getUid()]||{};
+  const coins=me.coins||0;
+  const inv=Array.isArray(me.inventory)?me.inventory:[];
+  const [tab,setTab]=useState("frame");
+  const [msg,setMsg]=useState("");
+  const [busy,setBusy]=useState(false);
+  const claimed=me.lastDaily===todayBkk();
+
+  async function run(fn,okMsg){
+    if(busy)return;
+    setBusy(true);setMsg("");
+    try{const r=await fn();setMsg(typeof okMsg==="function"?okMsg(r):okMsg||"");}
+    catch(e){setMsg("⚠️ "+(e.message||e.code));}
+    setBusy(false);
+  }
+
+  const tabs=[["frame","🖼️ กรอบรูป"],["nameColor","🎨 สีชื่อ"],["badge","🏅 ป้าย"]];
+  const list=ITEMS.filter(i=>i.type===tab);
+
+  function preview(i){
+    if(i.type==="frame")return<div style={{width:44,height:44,borderRadius:"50%",padding:4,background:FRAMES[i.key].bg,boxShadow:FRAMES[i.key].glow}}><div style={{width:"100%",height:"100%",borderRadius:"50%",background:T.card,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:T.brand2,fontWeight:700}}>{user.init}</div></div>;
+    if(i.type==="nameColor")return<div style={{fontSize:14,fontWeight:800,width:44,textAlign:"center"}}><span style={NAME_COLORS[i.key]}>ชื่อ</span></div>;
+    return<div style={{fontSize:30,width:44,textAlign:"center"}}>{BADGES[i.key]}</div>;
+  }
+
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",zIndex:60,display:"flex",alignItems:"flex-start",justifyContent:"center",overflowY:"auto",padding:"20px 12px"}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:440,background:T.card,border:"1px solid "+T.borderHi,borderRadius:20,overflow:"hidden"}}>
+        <div style={{padding:"16px 16px 12px",background:"linear-gradient(135deg,"+T.brand+"33,"+T.card+")"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:17,fontWeight:800,color:T.text}}>🛍️ ร้านค้า</div>
+            <button onClick={onClose} style={{width:30,height:30,borderRadius:"50%",border:"none",background:"rgba(0,0,0,.4)",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
+          </div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:12,gap:10,flexWrap:"wrap"}}>
+            <div style={{fontSize:24,fontWeight:800,color:T.yellow}}>🪙 {coins}</div>
+            <Btn onClick={()=>run(claimDaily,r=>"🎉 ได้ +"+r.bonus+" เหรียญ (ติดต่อกัน "+r.streak+" วัน)"+(r.unlocked?" ปลดล็อกไอเทมพิเศษ 🔥 กรอบและป้ายเปลวไฟ!":""))} v={claimed?"ghost":"primary"} sz="sm">{claimed?"รับแล้ววันนี้ ✓ (ติดต่อกัน "+(me.streak||1)+" วัน)":"🎁 รับเหรียญรายวัน +"+DAILY_COINS}</Btn>
+          </div>
+          <div style={{fontSize:11,color:T.muted,marginTop:8}}>กลับมารับทุกวัน ครบ 7 วันติดกันได้โบนัส +50 และไอเทมสุดพิเศษ 🔥</div>
+          {msg&&<div style={{fontSize:12,color:msg.startsWith("⚠️")?T.red:T.green,marginTop:8,lineHeight:1.5}}>{msg}</div>}
+        </div>
+        <div style={{display:"flex",borderTop:"1px solid "+T.border,borderBottom:"1px solid "+T.border}}>
+          {tabs.map(([k,l])=>(
+            <button key={k} onClick={()=>setTab(k)} style={{flex:1,padding:"10px 4px",border:"none",borderBottom:"2px solid "+(tab===k?T.brand:"transparent"),background:"transparent",color:tab===k?T.brand2:T.muted,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>
+          ))}
+        </div>
+        <div style={{padding:"10px 14px 16px"}}>
+          {list.map(i=>{
+            const owned=inv.includes(i.id);
+            const on=me[i.type]===i.key;
+            return(
+              <div key={i.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 4px",borderBottom:"1px solid "+T.border}}>
+                {preview(i)}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,fontWeight:700,color:T.text}}>{i.name}{i.special&&<span style={{fontSize:10,marginLeft:6,background:T.yellow+"22",color:T.yellow,borderRadius:20,padding:"1px 7px"}}>สุดพิเศษ</span>}</div>
+                  <div style={{fontSize:11,color:T.muted}}>{i.special?("ปลดล็อก: "+i.special):("🪙 "+i.price)}</div>
+                </div>
+                {owned
+                  ? <Btn onClick={()=>run(()=>equipItem(i,!on),on?"ถอดแล้ว":"ใส่แล้ว ✨")} v={on?"outline":"primary"} sz="sm">{on?"ถอด":"ใส่"}</Btn>
+                  : i.special
+                    ? <span style={{fontSize:11,color:T.muted}}>🔒</span>
+                    : <Btn onClick={()=>run(()=>buyItem(i),"ซื้อแล้ว! กด ใส่ ได้เลย")} v="ghost" sz="sm">ซื้อ</Btn>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1437,6 +1705,8 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
   const users=useContext(UsersCtx);
   const u=users[uid]||{};
   const [cover,setCover]=useState("");
+  const [giftOpen,setGiftOpen]=useState(false);
+  const [note,setNote]=useState("");
   useEffect(()=>{
     setCover("");
     return onSnapshot(doc(db,"covers",uid),sn=>{setCover(sn.exists()?(sn.data().cover||""):"");},()=>{});
@@ -1453,12 +1723,18 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
             <Av uid={uid} init={u.init||"??"} bg={T.surface} tc={T.brand2} size={64}/>
           </div>
           <div style={{paddingTop:40}}>
-            <div style={{fontSize:19,fontWeight:800,color:T.text}}>{u.name||"ผู้ใช้"}
+            <div style={{fontSize:19,fontWeight:800,color:T.text}}><Nm uid={uid} name={u.name}/>
               {u.isGuest&&<span style={{fontSize:11,marginLeft:8,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 8px",fontWeight:600}}>👋 Guest</span>}
             </div>
             <div style={{fontSize:13,color:T.sub,marginTop:5,lineHeight:1.6}}>{u.bio||"ชอบคุยเล่น • ฟังเพื่อนใหม่ 💜"}</div>
             {u.mood&&<div style={{marginTop:8}}><span style={{background:T.brand+"22",color:T.brand2,borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,border:"1px solid "+T.borderHi}}>✦ {u.mood}</span></div>}
-            {uid!==getUid()&&<div style={{marginTop:14}}><Btn onClick={()=>onChat(uid)} v="primary" sz="sm">💬 แชทส่วนตัว</Btn></div>}
+            <div style={{marginTop:10,fontSize:12,color:T.muted}}>🎁 ได้รับของขวัญ {u.giftCount||0} ชิ้น</div>
+            {uid!==getUid()&&<div style={{marginTop:12,display:"flex",gap:8,flexWrap:"wrap"}}>
+              <Btn onClick={()=>onChat(uid)} v="primary" sz="sm">💬 แชทส่วนตัว</Btn>
+              {!user.isGuest&&<Btn onClick={()=>{setNote("");setGiftOpen(true);}} v="outline" sz="sm">🎁 ส่งของขวัญ</Btn>}
+            </div>}
+            {note&&<div style={{marginTop:8,fontSize:12,color:T.green}}>{note}</div>}
+            {giftOpen&&<GiftPicker user={user} to={{uid,name:u.name||"เพื่อน"}} onClose={()=>setGiftOpen(false)} onSent={g=>setNote("ส่ง "+g.emoji+" "+g.name+" ให้แล้ว ✅ (ไปดูในแชทส่วนตัว)")}/>}
           </div>
           <div style={{marginTop:16,paddingTop:12,borderTop:"1px solid "+T.border}}>
             <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:10}}>โพสต์ ({list.length})</div>
@@ -1515,6 +1791,7 @@ export default function App(){
   const [users,setUsers]=useState({});
   const [viewUid,setViewUid]=useState(null);
   const [dmTarget,setDmTarget]=useState(null);
+  const [shopOpen,setShopOpen]=useState(false);
 
   // ติดตามสถานะล็อกอิน Google จริง (Firebase Auth) + ผู้เยี่ยมชม
   useEffect(()=>{
@@ -1546,6 +1823,12 @@ export default function App(){
     if(!user||user.needName)return;
     saveMyProfile({name:user.name,init:user.init,isGuest:!!user.isGuest,photo:user.photo||""}).catch(e=>console.error("saveProfile",e));
   },[user&&user.name,user&&user.isGuest,user&&user.needName]); // eslint-disable-line
+
+  // เหรียญต้อนรับสำหรับผู้ใช้ Google
+  useEffect(()=>{
+    if(!user||user.isGuest||user.needName)return;
+    ensureWallet().catch(e=>console.error("wallet",e));
+  },[user&&user.isGuest,user&&user.needName,user&&user.uid]); // eslint-disable-line
 
   useEffect(()=>{
     if(!user)return;
@@ -1587,14 +1870,15 @@ export default function App(){
     <UsersCtx.Provider value={users}>
     <ProfileCtx.Provider value={openProfile}>
     <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",minHeight:"100dvh",background:T.bg,display:"flex",flexDirection:"column",maxWidth:480,margin:"0 auto"}}>
-      <style>{`*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:dark}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+      <style>{`*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:dark}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}`}</style>
       <div style={{background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid "+T.border,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:30}}>
         <div style={{display:"flex",alignItems:"center",gap:9}}>
           <div style={{width:30,height:30,borderRadius:9,background:T.brandGrad,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>💜</div>
           <span style={{fontSize:18,fontWeight:800,background:T.brandGrad,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:-.5}}>Warmly</span>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:7}}>
-          <span style={{fontSize:13,color:T.sub,fontWeight:500}}>{user.name}</span>
+          {!user.isGuest&&<button onClick={()=>setShopOpen(true)} style={{border:"1px solid rgba(245,158,11,.4)",background:"rgba(245,158,11,.12)",color:T.yellow,borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🪙 {(users[getUid()]&&users[getUid()].coins)||0}</button>}
+          <Nm uid={getUid()} name={user.name} own style={{fontSize:13,color:T.sub,fontWeight:500}}/>
           {user.isGuest&&<span style={{fontSize:10,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 7px",fontWeight:700}}>Guest</span>}
           <button onClick={handleLogout} style={{border:"1px solid "+T.border,borderRadius:9,background:"transparent",color:T.muted,cursor:"pointer",padding:"4px 9px",fontSize:11,fontFamily:"inherit"}}>ออก</button>
         </div>
@@ -1617,6 +1901,7 @@ export default function App(){
           </button>
         ))}
       </div>
+    {shopOpen&&!user.isGuest&&<ShopModal user={user} onClose={()=>setShopOpen(false)}/>}
     {viewUid&&<ProfileModal uid={viewUid} posts={posts} user={user} onClose={()=>setViewUid(null)} onChat={id=>{setViewUid(null);setDmTarget(id);setPage("chat");}}/>}
     </div>
     </ProfileCtx.Provider>
