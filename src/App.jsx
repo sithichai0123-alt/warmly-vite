@@ -98,7 +98,21 @@ const GIFTS=[
   {id:"star",emoji:"🌟",name:"ดาว",price:20},
   {id:"rocket",emoji:"🚀",name:"จรวด",price:40},
   {id:"crown",emoji:"👑",name:"มงกุฎ",price:80},
+  // ไอเทมพิเศษ 3 มิติ
+  {id:"diamond",emoji:"💎",name:"เพชร 3D",price:120,model:"diamond"},
+  {id:"crown3d",emoji:"👑",name:"มงกุฎทอง 3D",price:200,model:"crown"},
+  // ของขวัญ 3 มิติตามเทศกาล (เปิดเฉพาะช่วงที่กำหนด — แก้วันที่ได้ทุกปี)
+  {id:"pumpkin",emoji:"🎃",name:"ฟักทอง 3D",price:60,model:"pumpkin",event:{label:"ฮาโลวีน",from:"2026-10-20",to:"2026-11-02"}},
+  {id:"krathong",emoji:"🪷",name:"กระทง 3D",price:60,model:"krathong",event:{label:"ลอยกระทง",from:"2026-11-15",to:"2026-11-28"}},
+  {id:"firework",emoji:"🎆",name:"พลุปีใหม่ 3D",price:80,model:"firework",event:{label:"ปีใหม่",from:"2026-12-25",to:"2027-01-03"}},
 ];
+const TH_M=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+function fmtD(str){const [,m,d]=str.split("-").map(Number);return d+" "+TH_M[m-1];}
+function giftAvailable(g){
+  if(!g.event)return true;
+  const t=todayBkk();
+  return t>=g.event.from&&t<=g.event.to;
+}
 const GIFT_BY_ID=Object.fromEntries(GIFTS.map(g=>[g.id,g]));
 const FRAMES={
   gold:{bg:"linear-gradient(135deg,#FDE68A,#F59E0B,#B45309)",glow:"0 0 12px rgba(245,158,11,.6)"},
@@ -114,6 +128,11 @@ const NAME_COLORS={
   rainbow:{background:"linear-gradient(90deg,#f43f5e,#f59e0b,#10b981,#3b82f6,#a855f7)",WebkitBackgroundClip:"text",backgroundClip:"text",WebkitTextFillColor:"transparent",color:"transparent"},
 };
 const BADGES={star:"🌟",dj:"🎧",crown:"👑",fire:"🔥"};
+const ENTRANCES={
+  sparkle:{emoji:"✨",text:"เข้าห้องมาแล้ว",bg:"linear-gradient(90deg,#7C5CFC,#EC4899)"},
+  rainbow:{emoji:"🌈",text:"มาพร้อมสายรุ้ง",bg:"linear-gradient(90deg,#f43f5e,#f59e0b,#10b981,#3b82f6,#a855f7)"},
+  royal:{emoji:"👑",text:"เสด็จเข้าห้อง",bg:"linear-gradient(90deg,#B45309,#FBBF24,#B45309)"},
+};
 const ITEMS=[
   {id:"frame:gold",type:"frame",key:"gold",name:"กรอบทอง",price:60},
   {id:"frame:neon",type:"frame",key:"neon",name:"กรอบนีออน",price:60},
@@ -128,6 +147,9 @@ const ITEMS=[
   {id:"badge:dj",type:"badge",key:"dj",name:"ป้าย DJ 🎧",price:40},
   {id:"badge:crown",type:"badge",key:"crown",name:"ป้ายมงกุฎ 👑",price:120},
   {id:"badge:fire",type:"badge",key:"fire",name:"ป้ายไฟ 🔥",special:"ล็อกอินครบ 7 วันติดกัน"},
+  {id:"entrance:sparkle",type:"entrance",key:"sparkle",name:"ประกายดาว ✨",price:50},
+  {id:"entrance:rainbow",type:"entrance",key:"rainbow",name:"สายรุ้ง 🌈",price:90},
+  {id:"entrance:royal",type:"entrance",key:"royal",name:"ราชาเข้าห้อง 👑",price:150},
 ];
 
 function todayBkk(offsetDays=0){
@@ -181,9 +203,10 @@ function equipItem(item,on){
 }
 
 // ส่งของขวัญในแชทส่วนตัว (หักเหรียญผู้ส่ง + เพิ่มจำนวนของขวัญผู้รับ + ขึ้นข้อความในแชท)
-async function sendGift(gift,fromUser,toUid,toName){
+async function sendGift(gift,fromUser,toUid,toName,ctx){
   const myUid=getUid();
   if(toUid===myUid)throw new Error("ส่งให้ตัวเองไม่ได้");
+  if(!giftAvailable(gift))throw new Error("ของขวัญนี้ยังไม่ถึงช่วงเทศกาล");
   const meRef=doc(db,"users",myUid),toRef=doc(db,"users",toUid);
   await runTransaction(db,async tx=>{
     const sn=await tx.get(meRef);
@@ -192,11 +215,20 @@ async function sendGift(gift,fromUser,toUid,toName){
     tx.set(meRef,{coins:coins-gift.price,giftsSent:increment(1)},{merge:true});
     tx.set(toRef,{giftCount:increment(1)},{merge:true});
   });
-  const pid=[myUid,toUid].sort().join("_");
-  await addDoc(collection(db,"dms",pid,"messages"),{
+  const msg={
     uid:myUid,author:fromUser.name,init:fromUser.init,gift:gift.id,
     text:"ส่ง "+gift.emoji+" "+gift.name+" ให้ "+toName,t:serverTimestamp()
-  });
+  };
+  if(ctx&&ctx.type==="room"){
+    await addDoc(collection(db,"voiceRooms",ctx.roomId,"chat"),msg);
+    return;
+  }
+  if(ctx&&ctx.type==="group"){
+    await addDoc(collection(db,"groupChat"),msg);
+    return;
+  }
+  const pid=[myUid,toUid].sort().join("_");
+  await addDoc(collection(db,"dms",pid,"messages"),msg);
   await setDoc(doc(db,"dms",pid),{uids:[myUid,toUid].sort(),last:"🎁 "+gift.emoji+" "+gift.name,lastFrom:myUid,lastT:serverTimestamp()},{merge:true});
 }
 
@@ -547,7 +579,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
 }
 
 // ── Room Chat (text chat ในห้องเสียง) ────────────────────
-function RoomChat({roomId,user}){
+function RoomChat({roomId,user,onGift}){
   const [msgs,setMsgs]=useState([]);
   const [input,setInput]=useState("");
   const endRef=useRef();
@@ -555,8 +587,17 @@ function RoomChat({roomId,user}){
   useEffect(()=>{
     if(!roomId)return;
     const q=query(collection(db,"voiceRooms",roomId,"chat"),orderBy("t","asc"));
+    let first=true;
     const unsub=onSnapshot(q,
-      snap=>setMsgs(snap.docs.map(d=>({id:d.id,...d.data()}))),
+      snap=>{
+        if(!first&&onGift){
+          snap.docChanges().forEach(ch=>{
+            if(ch.type==="added"){const d=ch.doc.data();if(d.gift)onGift(d.gift);}
+          });
+        }
+        first=false;
+        setMsgs(snap.docs.map(d=>({id:d.id,...d.data()})));
+      },
       err=>console.error("chat snapshot error:",err)
     );
     return unsub;
@@ -592,7 +633,9 @@ function RoomChat({roomId,user}){
         💬 แชทในห้อง <span style={{fontSize:11,fontWeight:400,color:T.muted}}>(สำหรับคนที่ไม่อยากพูดเสียง)</span>
       </div>
       <div style={{maxHeight:160,overflowY:"auto",display:"flex",flexDirection:"column",gap:6,marginBottom:8}}>
-        {msgs.map(m=>(
+        {msgs.map(m=>m.gift?(
+          <div key={m.id} style={{textAlign:"center",fontSize:12,color:T.sub,padding:"4px 0"}}><span style={{fontSize:20}}>{(GIFT_BY_ID[m.gift]||{}).emoji||"🎁"}</span> <Nm uid={m.uid} name={m.author}/> {m.text}</div>
+        ):(
           <div key={m.id} style={{display:"flex",gap:7,alignItems:"flex-start"}}>
             <Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={24}/>
             <div>
@@ -764,9 +807,14 @@ function VoiceRoomsPage({user}){
   const [newName,setNewName]=useState("");
   const [creating,setCreating]=useState(false);
   const [nameErr,setNameErr]=useState("");
+  const [giftTo,setGiftTo]=useState(null);
+  const [roomFx,setRoomFx]=useState(null);
   const [loading,setLoading]=useState(true);
 
   const myUid=getUid();
+  const _users=useContext(UsersCtx);
+  const [entryFx,setEntryFx]=useState(null);
+  const prevKeysRef=useRef(null);
   const seenRef=useRef(false);
   const voice=useVoice();
   const {connected,micOn,speaking,mics,needAudio,error:voiceError,toggleMic,enableAudio}=voice;
@@ -776,6 +824,26 @@ function VoiceRoomsPage({user}){
   const isMeM=m=>m.uid?m.uid===myUid:m.init===user.init;
   const me=memberList.find(isMeM);
   const isHost=!!inRoom&&(inRoom.hostUid?inRoom.hostUid===myUid:inRoom.hostInit===user.init);
+
+  // เอฟเฟกต์ตอนมีคนเข้าห้อง (ถ้าเขาใส่ไอเทม "เข้าห้อง" ไว้)
+  const memberKeys=memberList.map(m=>m.uid||m.init).join(",");
+  useEffect(()=>{
+    if(!inRoomId){prevKeysRef.current=null;return;}
+    const keys=memberList.map(m=>m.uid||m.init);
+    if(prevKeysRef.current===null){prevKeysRef.current=keys;return;}
+    memberList.forEach(m=>{
+      const k=m.uid||m.init;
+      if(prevKeysRef.current.includes(k)||isMeM(m))return;
+      const u=m.uid?_users[m.uid]:null;
+      const e=u&&u.entrance&&ENTRANCES[u.entrance];
+      if(e){
+        const id=Date.now()+Math.random();
+        setEntryFx({id,name:m.name,e});
+        setTimeout(()=>setEntryFx(f=>(f&&f.id===id?null:f)),3300);
+      }
+    });
+    prevKeysRef.current=keys;
+  },[inRoomId,memberKeys]); // eslint-disable-line
 
   // ถูกเตะ / ห้องถูกปิด → ออกจากห้องฝั่งเรา
   useEffect(()=>{
@@ -904,7 +972,16 @@ function VoiceRoomsPage({user}){
   return(
     <div>
       {inRoom&&(
-        <Card style={{marginBottom:16,border:"1px solid "+T.borderHi}}>
+        <Card style={{marginBottom:16,border:"1px solid "+T.borderHi,position:"relative"}}>
+          <GiftFx fx={roomFx}/>
+          {entryFx&&(
+            <div key={entryFx.id} style={{position:"absolute",top:10,left:0,right:0,display:"flex",justifyContent:"center",zIndex:21,pointerEvents:"none"}}>
+              <div style={{animation:"entryslide 3.2s ease-out forwards",background:entryFx.e.bg,color:"#fff",padding:"8px 18px",borderRadius:22,fontWeight:800,fontSize:13,boxShadow:"0 4px 20px rgba(0,0,0,.45)",display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:20}}>{entryFx.e.emoji}</span>{entryFx.name} {entryFx.e.text}<span style={{fontSize:20}}>{entryFx.e.emoji}</span>
+              </div>
+            </div>
+          )}
+          {giftTo&&<GiftPicker user={user} to={giftTo} ctx={{type:"room",roomId:inRoomId}} onClose={()=>setGiftTo(null)}/>}
           <div style={{background:"linear-gradient(135deg,"+T.card+","+T.surface+")",padding:"16px 16px 0"}}>
             <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:14,gap:10}}>
               <div>
@@ -918,6 +995,7 @@ function VoiceRoomsPage({user}){
                 </div>
                 {voiceError&&<div style={{fontSize:11,color:T.red,marginTop:3}}>⚠️ {voiceError}</div>}
                 {isHost&&(inRoom.members||[]).length>1&&<div style={{fontSize:11,color:T.brand2,marginTop:3}}>👑 คุณเป็นเจ้าของห้อง — กด 🚫 ที่มุมรูปสมาชิกเพื่อเตะออก</div>}
+                {!user.isGuest&&(inRoom.members||[]).length>1&&<div style={{fontSize:11,color:T.muted,marginTop:3}}>🎁 แตะรูปสมาชิกเพื่อส่งของขวัญ</div>}
                 {needAudio&&<div onClick={enableAudio} style={{fontSize:12,color:T.yellow,marginTop:4,cursor:"pointer",fontWeight:700}}>🔊 แตะที่นี่เพื่อเปิดเสียงห้อง</div>}
               </div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -943,7 +1021,7 @@ function VoiceRoomsPage({user}){
                         <button onClick={()=>kick(key)} style={{width:26,height:26,borderRadius:"50%",background:T.redBg,border:"1px solid rgba(244,63,94,.5)",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",color:T.red,fontFamily:"inherit"}}>🚫</button>
                       </div>
                     )}
-                    <div style={{padding:3,borderRadius:"50%",
+                    <div onClick={()=>{if(!isMe&&!user.isGuest&&m.uid)setGiftTo({uid:m.uid,name:m.name});}} style={{cursor:(!isMe&&!user.isGuest&&m.uid)?"pointer":"default",padding:3,borderRadius:"50%",
                       border:"2.5px solid "+(isSpeaking?T.green:T.border),
                       boxShadow:isSpeaking?"0 0 16px rgba(16,185,129,.5)":"none",
                       transition:"all .2s"}}>
@@ -968,7 +1046,7 @@ function VoiceRoomsPage({user}){
             </div>
           </div>
           {showPL&&<div style={{padding:"0 16px 16px"}}><YoutubePlaylist playlist={inRoom.playlist} nowPlaying={inRoom.nowPlaying||null} songStartedAt={inRoom.songStartedAt||null} onAdd={addSong} onRemove={removeSong} onPlay={playSong} isHost={isHost}/></div>}
-          <div style={{padding:"0 16px 16px",borderTop:"1px solid "+T.border}}><RoomChat roomId={inRoomId} user={user}/></div>
+          <div style={{padding:"0 16px 16px",borderTop:"1px solid "+T.border}}><RoomChat roomId={inRoomId} user={user} onGift={gid=>triggerGiftFx(gid,setRoomFx)}/></div>
         </Card>
       )}
 
@@ -1252,7 +1330,7 @@ function fmtTime(ms){
 }
 
 // ── แชทแบบฟองข้อความ (ใช้ทั้งห้องรวมและแชทส่วนตัว) ────────
-function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo}){
+function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo,avatarGift}){
   const users=useContext(UsersCtx);
   const myUid=getUid();
   const pathKey=path.join("/");
@@ -1261,6 +1339,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
   const [img,setImg]=useState(null);
   const [err,setErr]=useState("");
   const [giftOpen,setGiftOpen]=useState(false);
+  const [pickTarget,setPickTarget]=useState(null);
   const [fx,setFx]=useState(null);
   const fileRef=useRef();const endRef=useRef();
 
@@ -1273,11 +1352,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
         snap.docChanges().forEach(ch=>{
           if(ch.type==="added"){
             const d=ch.doc.data();
-            if(d.gift&&GIFT_BY_ID[d.gift]){
-              const id=Date.now()+Math.random();
-              setFx({id,emoji:GIFT_BY_ID[d.gift].emoji});
-              setTimeout(()=>setFx(f=>(f&&f.id===id?null:f)),2400);
-            }
+            if(d.gift)triggerGiftFx(d.gift,setFx);
           }
         });
       }
@@ -1308,7 +1383,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
 
   return(
     <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0,position:"relative"}}>
-      {fx&&<div key={fx.id} style={{position:"absolute",inset:0,pointerEvents:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:20}}><div style={{fontSize:110,animation:"giftfly 2.2s ease-out forwards"}}>{fx.emoji}</div></div>}
+      <GiftFx fx={fx}/>
       <div style={{flex:1,overflowY:"auto",padding:"12px 12px",display:"flex",flexDirection:"column",gap:6}}>
         {msgs.length===0&&!err&&<div style={{textAlign:"center",color:T.muted,fontSize:13,padding:"30px 0"}}>ยังไม่มีข้อความ — ทักทายกันได้เลย 👋</div>}
         {msgs.map((m,i)=>{
@@ -1326,7 +1401,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
           const ms=m.t&&m.t.toMillis?m.t.toMillis():0;
           return(
             <div key={m.id} style={{display:"flex",gap:8,alignItems:"flex-end",flexDirection:me?"row-reverse":"row"}}>
-              {!me&&<Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={28}/>}
+              {!me&&<div onClick={()=>{if(avatarGift&&!user.isGuest&&m.uid)setPickTarget({uid:m.uid,name:nm});}} style={{cursor:avatarGift&&!user.isGuest?"pointer":"default"}}><Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={28}/></div>}
               <div style={{maxWidth:"74%",display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start"}}>
                 {head&&<div style={{fontSize:11,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px"}}><Nm uid={m.uid} name={m.author}/></div>}
                 {m.image&&<img src={m.image} alt="" style={{maxWidth:"100%",borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
@@ -1352,6 +1427,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
         </div>
       </div>
       {giftOpen&&giftTo&&<GiftPicker user={user} to={giftTo} onClose={()=>setGiftOpen(false)}/>}
+      {pickTarget&&<GiftPicker user={user} to={pickTarget} ctx={{type:"group"}} onClose={()=>setPickTarget(null)}/>}
     </div>
   );
 }
@@ -1398,9 +1474,9 @@ function ChatPage({user,openPeer,onPeerOpened}){
       {tab==="group"&&(
         <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
           <div style={{padding:"8px 14px",fontSize:12,color:T.muted,background:T.surface,flexShrink:0,borderBottom:"1px solid "+T.border}}>
-            🌐 ห้องแชทรวมของทุกคนใน Warmly • สมาชิก {memberCount} คน
+            🌐 ห้องแชทรวมของทุกคนใน Warmly • สมาชิก {memberCount} คน{!user.isGuest&&" • 🎁 แตะรูปคนอื่นเพื่อส่งของขวัญ"}
           </div>
-          <BubbleChat path={["groupChat"]} user={user} showNames placeholder="คุยกับทุกคน..."/>
+          <BubbleChat path={["groupChat"]} user={user} showNames avatarGift placeholder="คุยกับทุกคน..."/>
         </div>
       )}
 
@@ -1550,18 +1626,252 @@ function ProfilePage({user,posts,onUpdateName}){
   );
 }
 
-// ── เลือกของขวัญ ────────────────────────────────────────
-function GiftPicker({user,to,onClose,onSent}){
+// ── โมเดล 3 มิติ (three.js โหลดเมื่อต้องใช้เท่านั้น) ───────────
+// <3D-MODELS>
+// สร้างโมเดล 3 มิติแบบโปรซีเดอรัล (ไม่ต้องใช้ไฟล์โมเดลภายนอก)
+function build3DModel(THREE,name){
+  const g=new THREE.Group();
+  const M=(c,o={})=>new THREE.MeshStandardMaterial({color:c,roughness:.45,metalness:.1,...o});
+  g.userData.cam=[0,1.1,5.4];
+  g.userData.look=[0,0,0];
+
+  if(name==="diamond"){
+    const mat=M(0x67e8f9,{metalness:.25,roughness:.08,flatShading:true,emissive:0x0e7490,emissiveIntensity:.4});
+    const top=new THREE.Mesh(new THREE.CylinderGeometry(.75,1.15,.55,8,1),mat);
+    top.position.y=.27;
+    const bottom=new THREE.Mesh(new THREE.CylinderGeometry(1.15,.02,1.35,8,1),mat);
+    bottom.position.y=-.68;
+    const table=new THREE.Mesh(new THREE.CylinderGeometry(.75,.75,.02,8),M(0xcffafe,{emissive:0x67e8f9,emissiveIntensity:.5,roughness:.05}));
+    table.position.y=.55;
+    g.add(top,bottom,table);
+    const edges=new THREE.LineSegments(new THREE.EdgesGeometry(bottom.geometry),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.55}));
+    edges.position.copy(bottom.position);
+    g.add(edges);
+    g.position.y=.2;
+  }
+
+  else if(name==="crown"){
+    const gold=M(0xFFC933,{metalness:.45,roughness:.3,emissive:0xB8860B,emissiveIntensity:.55});
+    const bandMat=gold.clone();bandMat.side=THREE.DoubleSide;
+    const band=new THREE.Mesh(new THREE.CylinderGeometry(1.1,.92,.8,40,1,true),bandMat);
+    band.position.y=-.02;
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(.92,.08,12,56),gold);
+    rim.rotation.x=Math.PI/2;rim.position.y=-.42;
+    const rim2=rim.clone();rim2.scale.set(1.2,1.2,1);rim2.position.y=.38;
+    g.add(band,rim,rim2);
+    const gems=[0xef4444,0x3b82f6,0x10b981,0xa855f7,0xf59e0b];
+    for(let i=0;i<5;i++){
+      const a=i/5*Math.PI*2;
+      const x=Math.cos(a)*1.0,z=Math.sin(a)*1.0;
+      const cone=new THREE.Mesh(new THREE.ConeGeometry(.3,.95,12),gold);
+      cone.position.set(x*1.05,.86,z*1.05);
+      const ball=new THREE.Mesh(new THREE.SphereGeometry(.14,16,12),M(gems[i],{emissive:gems[i],emissiveIntensity:.5,roughness:.15}));
+      ball.position.set(x*1.05,1.42,z*1.05);
+      g.add(cone,ball);
+    }
+    g.position.y=-.6;
+  }
+
+  else if(name==="pumpkin"){
+    const orange=M(0xF97316,{roughness:.55});
+    const body=new THREE.Mesh(new THREE.SphereGeometry(.8,32,24),orange);
+    body.scale.set(1.15,.9,1.15);
+    g.add(body);
+    for(let i=0;i<8;i++){
+      const a=i/8*Math.PI*2;
+      const lobe=new THREE.Mesh(new THREE.SphereGeometry(.55,20,16),orange);
+      lobe.scale.set(.62,.95,.62);
+      lobe.position.set(Math.cos(a)*.62,0,Math.sin(a)*.62);
+      g.add(lobe);
+    }
+    const stem=new THREE.Mesh(new THREE.CylinderGeometry(.1,.17,.45,10),M(0x4d7c0f,{roughness:.8}));
+    stem.position.set(0,.88,0);stem.rotation.z=.25;
+    g.add(stem);
+    const glow=new THREE.MeshBasicMaterial({color:0xFFD54A,side:THREE.DoubleSide});
+    const tri=(x,y,s)=>{
+      const sh=new THREE.Shape();sh.moveTo(0,s);sh.lineTo(-s*.9,-s*.7);sh.lineTo(s*.9,-s*.7);sh.closePath();
+      const m=new THREE.Mesh(new THREE.ShapeGeometry(sh),glow);m.position.set(x,y,.99);return m;
+    };
+    g.add(tri(-.36,.22,.17),tri(.36,.22,.17),tri(0,-.02,.1));
+    const mouth=new THREE.Shape();
+    mouth.moveTo(-.48,-.12);mouth.lineTo(.48,-.12);mouth.lineTo(.34,-.34);mouth.lineTo(.17,-.2);mouth.lineTo(0,-.38);mouth.lineTo(-.17,-.2);mouth.lineTo(-.34,-.34);mouth.closePath();
+    const mm=new THREE.Mesh(new THREE.ShapeGeometry(mouth),glow);mm.position.z=.96;
+    g.add(mm);
+    const pl=new THREE.PointLight(0xffa33a,1.2,5);pl.position.set(0,0,1.8);g.add(pl);
+    g.position.y=-.1;
+  }
+
+  else if(name==="krathong"){
+    g.userData.cam=[0,2.6,4.9];
+    g.userData.look=[0,.1,0];
+    const base=new THREE.Mesh(new THREE.CylinderGeometry(1.3,1.25,.34,48),M(0x84cc16,{roughness:.85}));
+    base.position.y=-.45;g.add(base);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(1.27,.09,10,56),M(0x4d7c0f,{roughness:.8}));
+    ring.rotation.x=Math.PI/2;ring.position.y=-.27;g.add(ring);
+    const petalGeo=new THREE.SphereGeometry(.5,18,14);
+    const addPetals=(n,rad,tilt,y,color,len)=>{
+      for(let i=0;i<n;i++){
+        const pivot=new THREE.Group();pivot.rotation.y=i/n*Math.PI*2+(rad<.4?.3:0);
+        const p=new THREE.Mesh(petalGeo,M(color,{roughness:.55,emissive:color,emissiveIntensity:.28,side:THREE.DoubleSide}));
+        p.scale.set(.46,len,.14);
+        p.position.set(rad,y,0);
+        p.rotation.z=-tilt;
+        pivot.add(p);g.add(pivot);
+      }
+    };
+    addPetals(10,.85,1.0,.05,0xF472B6,.95);
+    addPetals(8,.6,.65,.2,0xF9A8D4,.9);
+    addPetals(6,.34,.3,.32,0xFCE7F3,.75);
+    const gold=[0xF59E0B,0xFB923C];
+    for(let i=0;i<14;i++){
+      const a=i/14*Math.PI*2;
+      const f=new THREE.Mesh(new THREE.SphereGeometry(.13,12,10),M(gold[i%2],{roughness:.6}));
+      f.scale.set(1,.7,1);
+      f.position.set(Math.cos(a)*1.12,-.2,Math.sin(a)*1.12);g.add(f);
+    }
+    const candle=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.95,16),M(0xFEF3C7,{roughness:.6}));
+    candle.position.y=.55;g.add(candle);
+    const flame=new THREE.Mesh(new THREE.SphereGeometry(.13,16,12),new THREE.MeshBasicMaterial({color:0xFDE047}));
+    flame.scale.set(.6,1.5,.6);flame.position.y=1.2;g.add(flame);
+    for(let i=0;i<3;i++){
+      const s=new THREE.Mesh(new THREE.CylinderGeometry(.015,.015,1.0,6),M(0x7c2d12));
+      s.position.set(.22+i*.06,.7,-.12+i*.12);s.rotation.z=-.18-i*.05;g.add(s);
+    }
+    const light=new THREE.PointLight(0xffa94d,1.4,6);light.position.set(0,1.3,0);g.add(light);
+    g.userData.update=t=>{flame.scale.set(.6+Math.sin(t*9)*.05,1.5+Math.sin(t*13)*.18,.6);light.intensity=1.3+Math.sin(t*11)*.25;};
+    g.userData.noBob=true;
+    g.position.y=-.2;
+  }
+
+  else if(name==="firework"){
+    g.userData.cam=[0,0,5.6];
+    const N=280;
+    const pos=new Float32Array(N*3),col=new Float32Array(N*3),dir=new Float32Array(N*3),sp=new Float32Array(N);
+    const pal=[0xf43f5e,0xfbbf24,0x22d3ee,0xa78bfa,0x34d399,0xffffff].map(c=>new THREE.Color(c));
+    for(let i=0;i<N;i++){
+      const u=Math.random()*2-1,a=Math.random()*Math.PI*2,r=Math.sqrt(1-u*u);
+      dir[i*3]=r*Math.cos(a);dir[i*3+1]=u;dir[i*3+2]=r*Math.sin(a);
+      sp[i]=.7+Math.random()*.9;
+      const c=pal[i%3===0?(i%pal.length):Math.floor(i/(N/3))%pal.length];
+      col[i*3]=c.r;col[i*3+1]=c.g;col[i*3+2]=c.b;
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+    geo.setAttribute("color",new THREE.BufferAttribute(col,3));
+    const mat=new THREE.PointsMaterial({size:.16,vertexColors:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+    if(typeof document!=="undefined"){
+      const cv=document.createElement("canvas");cv.width=cv.height=32;
+      const cx=cv.getContext("2d");
+      const gr=cx.createRadialGradient(16,16,0,16,16,16);
+      gr.addColorStop(0,"rgba(255,255,255,1)");gr.addColorStop(.5,"rgba(255,255,255,.6)");gr.addColorStop(1,"rgba(255,255,255,0)");
+      cx.fillStyle=gr;cx.fillRect(0,0,32,32);
+      mat.map=new THREE.CanvasTexture(cv);
+    }
+    g.add(new THREE.Points(geo,mat));
+    g.userData.update=t=>{
+      const ph=(t%2.6)/2.6,e=1-Math.pow(1-Math.min(ph*1.25,1),3);
+      for(let i=0;i<N;i++){
+        pos[i*3]=dir[i*3]*sp[i]*e*1.3;
+        pos[i*3+1]=dir[i*3+1]*sp[i]*e*1.3-ph*ph*.9;
+        pos[i*3+2]=dir[i*3+2]*sp[i]*e*1.3;
+      }
+      mat.opacity=ph<.7?1:Math.max(0,(1-ph)/.3);
+      geo.attributes.position.needsUpdate=true;
+    };
+    g.userData.noBob=true;g.userData.noSpin=true;
+  }
+
+  return g;
+}
+
+// </3D-MODELS>
+
+function Model3D({model,size=200}){
+  const ref=useRef();
+  const [failed,setFailed]=useState(false);
+  useEffect(()=>{
+    let stop=false,cleanup=()=>{};
+    setFailed(false);
+    import("three").then(THREE=>{
+      if(stop||!ref.current)return;
+      let renderer;
+      try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});}
+      catch(e){setFailed(true);return;}
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+      renderer.setSize(size,size);
+      ref.current.appendChild(renderer.domElement);
+      const scene=new THREE.Scene();
+      const cam=new THREE.PerspectiveCamera(40,1,.1,100);
+      scene.add(new THREE.AmbientLight(0xffffff,.75));
+      const dl=new THREE.DirectionalLight(0xffffff,1.1);dl.position.set(3,5,4);scene.add(dl);
+      const pl=new THREE.PointLight(0xa78bfa,.8,20);pl.position.set(-3,2,3);scene.add(pl);
+      const obj=build3DModel(THREE,model);
+      scene.add(obj);
+      const c=obj.userData.cam||[0,1.1,5.4],l=obj.userData.look||[0,0,0];
+      cam.position.set(c[0],c[1],c[2]);cam.lookAt(l[0],l[1],l[2]);
+      const baseY=obj.position.y;
+      let raf;const t0=performance.now();
+      const loop=()=>{
+        const t=(performance.now()-t0)/1000;
+        if(!obj.userData.noSpin)obj.rotation.y=t*1.1;
+        if(!obj.userData.noBob)obj.position.y=baseY+Math.sin(t*2)*.1;
+        if(obj.userData.update)obj.userData.update(t);
+        renderer.render(scene,cam);
+        raf=requestAnimationFrame(loop);
+      };
+      loop();
+      cleanup=()=>{
+        cancelAnimationFrame(raf);
+        scene.traverse(o=>{
+          if(o.geometry)o.geometry.dispose();
+          if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(m.map)m.map.dispose();m.dispose();});
+        });
+        renderer.dispose();
+        try{renderer.forceContextLoss();}catch(e){}
+        if(renderer.domElement.parentNode)renderer.domElement.parentNode.removeChild(renderer.domElement);
+      };
+    }).catch(e=>{console.error("3d",e);setFailed(true);});
+    return()=>{stop=true;cleanup();};
+  },[model,size]);
+  if(failed){
+    const g=GIFTS.find(x=>x.model===model);
+    return<div style={{width:size,height:size,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.5}}>{g?g.emoji:"🎁"}</div>;
+  }
+  return<div ref={ref} style={{width:size,height:size}}/>;
+}
+
+// เอฟเฟกต์ของขวัญลอยขึ้นจอ (อีโมจิ หรือโมเดล 3 มิติ)
+function triggerGiftFx(giftId,setFx){
+  const g=GIFT_BY_ID[giftId];
+  if(!g)return;
+  const id=Date.now()+Math.random();
+  setFx({id,emoji:g.emoji,model:g.model||null});
+  setTimeout(()=>setFx(f=>(f&&f.id===id?null:f)),g.model?3200:2400);
+}
+function GiftFx({fx}){
+  if(!fx)return null;
+  return(
+    <div key={fx.id} style={{position:"absolute",inset:0,pointerEvents:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:20}}>
+      <div style={{animation:"giftfly "+(fx.model?"3s":"2.2s")+" ease-out forwards"}}>
+        {fx.model?<Model3D model={fx.model} size={260}/>:<div style={{fontSize:110}}>{fx.emoji}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ── เลือกของขวัญ (แตะเพื่อดูตัวอย่าง แล้วกดส่ง) ────────────────
+function GiftPicker({user,to,onClose,onSent,ctx}){
   const users=useContext(UsersCtx);
   const coins=(users[getUid()]&&users[getUid()].coins)||0;
+  const [sel,setSel]=useState(null);
   const [busy,setBusy]=useState(false);
   const [msg,setMsg]=useState("");
-  async function pick(g){
-    if(busy)return;
+  async function send(){
+    if(!sel||busy)return;
     setBusy(true);setMsg("");
     try{
-      await sendGift(g,user,to.uid,to.name);
-      onSent&&onSent(g);
+      await sendGift(sel,user,to.uid,to.name,ctx);
+      onSent&&onSent(sel);
       onClose();
       return;
     }catch(e){
@@ -1569,21 +1879,40 @@ function GiftPicker({user,to,onClose,onSent}){
     }
     setBusy(false);
   }
+  const ok=sel?giftAvailable(sel):false;
   return(
     <div onClick={e=>{e.stopPropagation();onClose();}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",zIndex:70,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:480,background:T.card,borderTop:"1px solid "+T.borderHi,borderRadius:"20px 20px 0 0",padding:"16px 16px 24px"}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:480,maxHeight:"90vh",overflowY:"auto",background:T.card,borderTop:"1px solid "+T.borderHi,borderRadius:"20px 20px 0 0",padding:"16px 16px 24px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
           <div style={{fontSize:15,fontWeight:800,color:T.text}}>🎁 ส่งของขวัญให้ {to.name}</div>
           <div style={{fontSize:13,color:T.yellow,fontWeight:700}}>🪙 {coins}</div>
         </div>
+        {sel&&(
+          <div style={{textAlign:"center",background:T.surface,border:"1px solid "+T.border,borderRadius:16,padding:"10px 10px 14px",marginBottom:12}}>
+            {sel.model
+              ? <div style={{display:"flex",justifyContent:"center"}}><Model3D model={sel.model} size={170}/></div>
+              : <div style={{fontSize:64,padding:"12px 0"}}>{sel.emoji}</div>}
+            <div style={{fontSize:14,fontWeight:700,color:T.text}}>{sel.name}</div>
+            {sel.event&&<div style={{fontSize:11,color:ok?T.green:T.yellow,marginTop:3}}>{ok?"🎉 เทศกาล"+sel.event.label+" เปิดอยู่ถึง "+fmtD(sel.event.to):"🔒 เปิดช่วงเทศกาล"+sel.event.label+" ("+fmtD(sel.event.from)+" – "+fmtD(sel.event.to)+")"}</div>}
+            <div style={{marginTop:10}}>
+              {ok
+                ? <Btn onClick={send} v="primary" sz="md">{busy?"กำลังส่ง...":"ส่ง 🪙 "+sel.price}</Btn>
+                : <div style={{fontSize:12,color:T.muted}}>ยังส่งไม่ได้ในตอนนี้</div>}
+            </div>
+          </div>
+        )}
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
-          {GIFTS.map(g=>(
-            <button key={g.id} onClick={()=>pick(g)} disabled={busy} style={{background:T.surface,border:"1px solid "+(coins>=g.price?T.border:"rgba(244,63,94,.3)"),borderRadius:14,padding:"10px 2px",cursor:"pointer",opacity:coins>=g.price?1:.55,fontFamily:"inherit"}}>
-              <div style={{fontSize:30}}>{g.emoji}</div>
-              <div style={{fontSize:11,color:T.text,marginTop:2}}>{g.name}</div>
-              <div style={{fontSize:11,color:T.yellow,fontWeight:700}}>🪙 {g.price}</div>
-            </button>
-          ))}
+          {GIFTS.map(g=>{
+            const av=giftAvailable(g);
+            return(
+              <button key={g.id} onClick={()=>{setSel(g);setMsg("");}} style={{position:"relative",background:sel&&sel.id===g.id?T.brand+"33":T.surface,border:"1px solid "+(sel&&sel.id===g.id?T.borderHi:(coins>=g.price?T.border:"rgba(244,63,94,.3)")),borderRadius:14,padding:"10px 2px",cursor:"pointer",opacity:av&&coins>=g.price?1:.55,fontFamily:"inherit"}}>
+                {g.model&&<span style={{position:"absolute",top:3,right:4,fontSize:9,fontWeight:800,color:T.brand2,background:T.brand+"33",borderRadius:6,padding:"0 4px"}}>3D</span>}
+                <div style={{fontSize:30}}>{g.emoji}</div>
+                <div style={{fontSize:11,color:T.text,marginTop:2}}>{g.name}</div>
+                <div style={{fontSize:11,color:av?T.yellow:T.muted,fontWeight:700}}>{av?"🪙 "+g.price:"🔒 "+g.event.label}</div>
+              </button>
+            );
+          })}
         </div>
         {msg&&<div style={{fontSize:12,color:T.red,marginTop:10,textAlign:"center"}}>{msg}</div>}
         <div style={{marginTop:12,textAlign:"center"}}><Btn onClick={onClose} v="ghost" sz="sm">ปิด</Btn></div>
@@ -1611,12 +1940,13 @@ function ShopModal({user,onClose}){
     setBusy(false);
   }
 
-  const tabs=[["frame","🖼️ กรอบรูป"],["nameColor","🎨 สีชื่อ"],["badge","🏅 ป้าย"]];
+  const tabs=[["frame","🖼️ กรอบ"],["nameColor","🎨 สีชื่อ"],["badge","🏅 ป้าย"],["entrance","✨ เข้าห้อง"]];
   const list=ITEMS.filter(i=>i.type===tab);
 
   function preview(i){
     if(i.type==="frame")return<div style={{width:44,height:44,borderRadius:"50%",padding:4,background:FRAMES[i.key].bg,boxShadow:FRAMES[i.key].glow}}><div style={{width:"100%",height:"100%",borderRadius:"50%",background:T.card,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:T.brand2,fontWeight:700}}>{user.init}</div></div>;
     if(i.type==="nameColor")return<div style={{fontSize:14,fontWeight:800,width:44,textAlign:"center"}}><span style={NAME_COLORS[i.key]}>ชื่อ</span></div>;
+    if(i.type==="entrance")return<div style={{fontSize:30,width:44,textAlign:"center"}}>{ENTRANCES[i.key].emoji}</div>;
     return<div style={{fontSize:30,width:44,textAlign:"center"}}>{BADGES[i.key]}</div>;
   }
 
@@ -1870,7 +2200,7 @@ export default function App(){
     <UsersCtx.Provider value={users}>
     <ProfileCtx.Provider value={openProfile}>
     <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",minHeight:"100dvh",background:T.bg,display:"flex",flexDirection:"column",maxWidth:480,margin:"0 auto"}}>
-      <style>{`*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:dark}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}`}</style>
+      <style>{`*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:dark}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}@keyframes entryslide{0%{transform:translateY(-34px) scale(.8);opacity:0}14%{transform:translateY(0) scale(1.08);opacity:1}22%{transform:scale(1)}85%{opacity:1}100%{transform:translateY(-8px);opacity:0}}`}</style>
       <div style={{background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid "+T.border,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:30}}>
         <div style={{display:"flex",alignItems:"center",gap:9}}>
           <div style={{width:30,height:30,borderRadius:9,background:T.brandGrad,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>💜</div>
