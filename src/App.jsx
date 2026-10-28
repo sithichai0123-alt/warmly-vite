@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, Component, createContext, useContext } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, Component, createContext, useContext } from "react";
 import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
@@ -87,6 +87,7 @@ function saveMyProfile(patch){
 }
 
 // ── ระบบเหรียญฟรี / ของขวัญ / ไอเทม (ขั้นที่ 1: ฟรีทั้งหมด) ────
+// <WALLET-CORE>
 const WELCOME_COINS=50;
 const DAILY_COINS=20;
 const GIFTS=[
@@ -105,7 +106,46 @@ const GIFTS=[
   {id:"pumpkin",emoji:"🎃",name:"ฟักทอง 3D",price:60,model:"pumpkin",event:{label:"ฮาโลวีน",from:"2026-10-20",to:"2026-11-02"}},
   {id:"krathong",emoji:"🪷",name:"กระทง 3D",price:60,model:"krathong",event:{label:"ลอยกระทง",from:"2026-11-15",to:"2026-11-28"}},
   {id:"firework",emoji:"🎆",name:"พลุปีใหม่ 3D",price:80,model:"firework",event:{label:"ปีใหม่",from:"2026-12-25",to:"2027-01-03"}},
+  // ระดับสูง (เหรียญทองเยอะ) — เอฟเฟกต์ใหญ่เต็มห้อง
+  {id:"supercar",emoji:"🏎️",name:"ซูเปอร์คาร์",price:300},
+  {id:"castle",emoji:"🏰",name:"ปราสาท",price:600},
+  {id:"galaxy",emoji:"🌌",name:"กาแล็กซี",price:1000},
 ];
+
+// แอนิเมชันเฉพาะตัวของของขวัญแต่ละชิ้น (ไม่ใส่ = ใช้ค่าเริ่มต้น) — เพิ่มของขวัญใหม่แค่เพิ่มบรรทัดใน GIFTS และ (ถ้าอยากได้ท่าเฉพาะ) ที่นี่
+// motion: rise | bounce | drop | spin | fly | zoom | drive    p: อีโมจิที่พุ่งกระจายรอบของขวัญ
+const GIFT_FX={
+  heart:{motion:"bounce",p:["💜","💖","💗"]},
+  rose:{motion:"drop",p:["🌹","🌸"]},
+  coffee:{motion:"rise",p:["💨","✨"]},
+  bear:{motion:"bounce",p:["⭐","🧸"]},
+  cake:{motion:"drop",p:["🎉","🕯️","✨"]},
+  star:{motion:"spin",p:["⭐","✨","🌟"]},
+  rocket:{motion:"fly",p:["🔥","💨","✨"]},
+  crown:{motion:"drop",p:["✨","💛","👑"]},
+  diamond:{motion:"spin",p:["💎","✨","💠"]},
+  crown3d:{motion:"drop",p:["✨","👑","💛"]},
+  pumpkin:{motion:"bounce",p:["🎃","🦇","👻"]},
+  krathong:{motion:"rise",p:["🪷","✨","🕯️"]},
+  firework:{motion:"rise",p:["🎆","🎇","✨"]},
+  supercar:{motion:"drive",p:["💨","🔥","✨"],tint:"#F43F5E"},
+  castle:{motion:"zoom",p:["✨","👑","🏆"],tint:"#FBBF24"},
+  galaxy:{motion:"spin",p:["⭐","🌟","💫","✨"],tint:"#7C5CFC"},
+};
+
+// ระดับของขวัญตามมูลค่าเหรียญทอง: ยิ่งแพง เอฟเฟกต์/เสียงยิ่งอลังการ (ใส่ tier ในของขวัญเองเพื่อกำหนดเองได้)
+const TIER_META={
+  1:{name:"ธรรมดา",color:"#94A3B8",dur:2400},
+  2:{name:"หายาก",color:"#38BDF8",dur:2900},
+  3:{name:"เอปิก",color:"#A78BFA",dur:3500},
+  4:{name:"เลเจนดารี",color:"#FBBF24",dur:4400},
+  5:{name:"มิธิก",color:"#F43F5E",dur:5600},
+};
+function giftTier(g){
+  if(g.tier)return g.tier;
+  const p=g.price||0;
+  return p<10?1:p<40?2:p<100?3:p<300?4:5;
+}
 const TH_M=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 function fmtD(str){const [,m,d]=str.split("-").map(Number);return d+" "+TH_M[m-1];}
 function giftAvailable(g){
@@ -120,18 +160,40 @@ const FRAMES={
   rainbow:{bg:"linear-gradient(135deg,#f43f5e,#f59e0b,#10b981,#3b82f6,#a855f7)",glow:"0 0 12px rgba(168,85,247,.5)"},
   heart:{bg:"linear-gradient(135deg,#F9A8D4,#EC4899)",glow:"0 0 12px rgba(236,72,153,.55)"},
   fire:{bg:"linear-gradient(135deg,#FDE047,#F97316,#DC2626)",glow:"0 0 14px rgba(249,115,22,.7)"},
+  // พรีเมียม (เหรียญม่วง) — conic = สีไล่หมุนรอบรูป, pulse = เรืองแสงเต้น, crown/sparkle = ประดับ
+  aurora:{bg:"linear-gradient(135deg,#22D3EE,#A78BFA)",glow:"0 0 14px rgba(167,139,250,.6)",conic:"#22D3EE,#7C5CFC,#F472B6,#22D3EE",speed:4,glowColor:"rgba(167,139,250,.7)"},
+  galaxy:{bg:"linear-gradient(135deg,#312E81,#7C5CFC)",glow:"0 0 16px rgba(129,140,248,.7)",conic:"#312E81,#7C5CFC,#22D3EE,#F0ABFC,#312E81",speed:3,glowColor:"rgba(129,140,248,.85)",pulse:true,sparkle:true},
+  royal:{bg:"linear-gradient(135deg,#FDE68A,#B45309)",glow:"0 0 16px rgba(251,191,36,.8)",conic:"#FDE68A,#F59E0B,#B45309,#FDE68A,#F59E0B,#FFF7D6,#FDE68A",speed:2.6,glowColor:"rgba(251,191,36,.85)",pulse:true,crown:true},
+  legend:{bg:"linear-gradient(135deg,#f43f5e,#a855f7)",glow:"0 0 18px rgba(244,63,94,.8)",conic:"#f43f5e,#f59e0b,#10b981,#3b82f6,#a855f7,#f43f5e",speed:1.8,glowColor:"rgba(244,63,94,.85)",pulse:true,crown:true,sparkle:true},
 };
 const NAME_COLORS={
   gold:{color:"#FBBF24"},
   pink:{color:"#F472B6"},
   cyan:{color:"#22D3EE"},
   rainbow:{background:"linear-gradient(90deg,#f43f5e,#f59e0b,#10b981,#3b82f6,#a855f7)",WebkitBackgroundClip:"text",backgroundClip:"text",WebkitTextFillColor:"transparent",color:"transparent"},
+  // พรีเมียม (เหรียญม่วง) — ไล่สีเคลื่อนไหว / เรืองแสง (keyframes อยู่ใน FX_CSS)
+  shimmer:{background:"linear-gradient(90deg,#C4B5FD,#FFFFFF,#C4B5FD)",backgroundSize:"200% 100%",WebkitBackgroundClip:"text",backgroundClip:"text",WebkitTextFillColor:"transparent",color:"transparent",animation:"wmShimmer 2.4s linear infinite"},
+  neonpulse:{color:"#67E8F9",animation:"wmNeon 1.6s ease-in-out infinite"},
+  auroratext:{background:"linear-gradient(90deg,#22D3EE,#A78BFA,#F472B6,#22D3EE)",backgroundSize:"200% 100%",WebkitBackgroundClip:"text",backgroundClip:"text",WebkitTextFillColor:"transparent",color:"transparent",animation:"wmShimmer 3s linear infinite",filter:"drop-shadow(0 0 5px rgba(167,139,250,.85))"},
+  royalgold:{background:"linear-gradient(90deg,#FDE68A,#F59E0B,#FFF7D6,#F59E0B,#FDE68A)",backgroundSize:"200% 100%",WebkitBackgroundClip:"text",backgroundClip:"text",WebkitTextFillColor:"transparent",color:"transparent",animation:"wmShimmer 2s linear infinite",filter:"drop-shadow(0 0 6px rgba(251,191,36,.9))"},
+};
+// ป้ายพรีเมียม (แยกจาก BADGES เดิมที่เป็นอีโมจิล้วน) — tier สูง = ดีไซน์หรูขึ้น
+const PREMIUM_BADGES={
+  vip:{label:"VIP",emoji:"💜",tier:2,bg:"linear-gradient(135deg,#7C5CFC,#A78BFA)",glow:"0 0 6px rgba(124,92,252,.6)"},
+  elite:{label:"ELITE",emoji:"💠",tier:3,bg:"linear-gradient(135deg,#0EA5E9,#7C5CFC)",glow:"0 0 8px rgba(14,165,233,.7)"},
+  royal:{label:"ROYAL",emoji:"👑",tier:4,bg:"linear-gradient(135deg,#B45309,#FBBF24,#B45309)",glow:"0 0 10px rgba(251,191,36,.8)",shine:true},
+  legend:{label:"LEGEND",emoji:"🌌",tier:5,bg:"linear-gradient(90deg,#f43f5e,#f59e0b,#10b981,#3b82f6,#a855f7,#f43f5e)",glow:"0 0 12px rgba(168,85,247,.9)",shine:true,anim:true},
 };
 const BADGES={star:"🌟",dj:"🎧",crown:"👑",fire:"🔥"};
 const ENTRANCES={
   sparkle:{emoji:"✨",text:"เข้าห้องมาแล้ว",bg:"linear-gradient(90deg,#7C5CFC,#EC4899)"},
   rainbow:{emoji:"🌈",text:"มาพร้อมสายรุ้ง",bg:"linear-gradient(90deg,#f43f5e,#f59e0b,#10b981,#3b82f6,#a855f7)"},
   royal:{emoji:"👑",text:"เสด็จเข้าห้อง",bg:"linear-gradient(90deg,#B45309,#FBBF24,#B45309)"},
+  // พรีเมียม (เหรียญม่วง) — มี tier = ใช้ EntranceFx (ภาพเต็มห้อง + เสียง) / dur = ความยาว (มิลลิวินาที)
+  mist:{emoji:"🔮",text:"ปรากฏตัวท่ามกลางหมอกม่วง",bg:"linear-gradient(90deg,#4C1D95,#7C5CFC,#4C1D95)",tier:2,dur:3800,fx:"mist"},
+  thunder:{emoji:"⚡",text:"สายฟ้าฟาด! มาถึงแล้ว",bg:"linear-gradient(90deg,#1E3A8A,#38BDF8,#1E3A8A)",tier:3,dur:4400,fx:"thunder"},
+  dragon:{emoji:"🐉",text:"มังกรไฟนำทางเข้าห้อง",bg:"linear-gradient(90deg,#7F1D1D,#F97316,#7F1D1D)",tier:4,dur:5200,fx:"dragon"},
+  emperor:{emoji:"👑",text:"จักรพรรดิเสด็จเข้าห้อง",bg:"linear-gradient(90deg,#78350F,#FBBF24,#FFF7D6,#FBBF24,#78350F)",tier:5,dur:6500,fx:"emperor"},
 };
 const ITEMS=[
   {id:"frame:gold",type:"frame",key:"gold",name:"กรอบทอง",price:60},
@@ -152,6 +214,26 @@ const ITEMS=[
   {id:"entrance:royal",type:"entrance",key:"royal",name:"ราชาเข้าห้อง 👑",price:150},
 ];
 
+// ไอเทมพรีเมียม ซื้อด้วยเหรียญม่วง (price = จำนวนเหรียญม่วง) — เพิ่มไอเทมใหม่ = เพิ่มบรรทัดที่นี่ + นิยามหน้าตาใน FRAMES/NAME_COLORS/PREMIUM_BADGES/ENTRANCES
+const PURPLE_ITEMS=[
+  {id:"frame:aurora",type:"frame",key:"aurora",name:"กรอบออโรร่า",price:1,tier:2},
+  {id:"frame:galaxy",type:"frame",key:"galaxy",name:"กรอบกาแล็กซี",price:3,tier:3},
+  {id:"frame:royal",type:"frame",key:"royal",name:"กรอบราชันย์ทอง",price:6,tier:4},
+  {id:"frame:legend",type:"frame",key:"legend",name:"กรอบตำนานสายรุ้ง",price:12,tier:5},
+  {id:"nameColor:shimmer",type:"nameColor",key:"shimmer",name:"ชื่อประกายเงิน",price:1,tier:2},
+  {id:"nameColor:neonpulse",type:"nameColor",key:"neonpulse",name:"ชื่อนีออนเรืองแสง",price:2,tier:3},
+  {id:"nameColor:auroratext",type:"nameColor",key:"auroratext",name:"ชื่อออโรร่าไหลเวียน",price:5,tier:4},
+  {id:"nameColor:royalgold",type:"nameColor",key:"royalgold",name:"ชื่อทองคำเรืองรอง",price:10,tier:5},
+  {id:"badge:vip",type:"badge",key:"vip",name:"ป้าย VIP",price:1,tier:2},
+  {id:"badge:elite",type:"badge",key:"elite",name:"ป้าย ELITE",price:3,tier:3},
+  {id:"badge:royal",type:"badge",key:"royal",name:"ป้าย ROYAL",price:6,tier:4},
+  {id:"badge:legend",type:"badge",key:"legend",name:"ป้าย LEGEND",price:12,tier:5},
+  {id:"entrance:mist",type:"entrance",key:"mist",name:"หมอกม่วงลึกลับ",price:2,tier:2},
+  {id:"entrance:thunder",type:"entrance",key:"thunder",name:"สายฟ้าฟาด",price:4,tier:3},
+  {id:"entrance:dragon",type:"entrance",key:"dragon",name:"มังกรไฟ",price:8,tier:4},
+  {id:"entrance:emperor",type:"entrance",key:"emperor",name:"จักรพรรดิ",price:15,tier:5},
+].map(i=>({currency:"purple",...i}));
+
 function todayBkk(offsetDays=0){
   return new Date(Date.now()+7*3600*1000+offsetDays*86400000).toISOString().slice(0,10);
 }
@@ -159,12 +241,16 @@ function todayBkk(offsetDays=0){
 // เหรียญต้อนรับ (ครั้งแรก)
 async function ensureWallet(){
   const ref=doc(db,"users",getUid());
+  let granted=false;
   await runTransaction(db,async tx=>{
+    granted=false;
     const sn=await tx.get(ref);
     if(!sn.exists()||sn.data().coins===undefined){
       tx.set(ref,{coins:WELCOME_COINS,inventory:[],giftCount:0},{merge:true});
+      granted=true;
     }
   });
+  return granted;
 }
 
 // รับเหรียญรายวัน (นับตามเวลาไทย) + ล็อกอินครบ 7 วันติดกันได้ไอเทมพิเศษ
@@ -213,7 +299,7 @@ async function sendGift(gift,fromUser,toUid,toName,ctx){
     const coins=(sn.exists()&&sn.data().coins)||0;
     if(coins<gift.price)throw new Error("เหรียญไม่พอ");
     tx.set(meRef,{coins:coins-gift.price,giftsSent:increment(1)},{merge:true});
-    tx.set(toRef,{giftCount:increment(1)},{merge:true});
+    tx.set(toRef,{giftCount:increment(1),giftValue:increment(gift.price)},{merge:true});
   });
   const msg={
     uid:myUid,author:fromUser.name,init:fromUser.init,gift:gift.id,
@@ -231,6 +317,89 @@ async function sendGift(gift,fromUser,toUid,toName,ctx){
   await addDoc(collection(db,"dms",pid,"messages"),msg);
   await setDoc(doc(db,"dms",pid),{uids:[myUid,toUid].sort(),last:"🎁 "+gift.emoji+" "+gift.name,lastFrom:myUid,lastT:serverTimestamp()},{merge:true});
 }
+
+// ── เหรียญม่วง (Purple Coin) ──────────────────────────────────
+// users/{uid}.purple       = เหรียญม่วงที่ได้จากการแลก/รางวัล (ฟรี)
+// users/{uid}.purpleBought = เหรียญม่วงที่ซื้อด้วยเงินจริง (อนาคต — เขียนได้จากเซิร์ฟเวอร์เท่านั้น เก็บแยกเพื่อเงื่อนไขการใช้/คืนเงิน)
+// ledger/{auto}            = ประวัติธุรกรรมแบบเพิ่มอย่างเดียว (ทุกการแลก/ซื้อ/รางวัลบันทึกพร้อมยอดคงเหลือ)
+const PURPLE_RATE=500;          // เหรียญทอง 500 = เหรียญม่วง 1
+const PURPLE_DAILY_LIMIT=5;     // เงื่อนไข: แลกได้สูงสุดวันละ 5 เหรียญม่วง/คน (นับตามเวลาไทย) และต้องเป็นบัญชี Google
+const RECEIVE_REWARD_PER=1000;  // รางวัล: ได้รับของขวัญรวมทุก 1,000 เหรียญทอง = เหรียญม่วง 1 (ต่ำกว่าอัตราแลก กันปั๊มเหรียญ)
+
+// ตัวคำนวณล้วน ๆ (ไม่แตะฐานข้อมูล ทดสอบง่าย) — คืน {patch, entry} หรือ throw ข้อความไทย
+function planExchange(d,n,today){
+  n=Math.floor(Number(n));
+  if(!(n>=1))throw new Error("จำนวนไม่ถูกต้อง");
+  if(d.isGuest)throw new Error("บัญชีผู้เยี่ยมชมแลกเหรียญม่วงไม่ได้ — ล็อกอินด้วย Google ก่อน");
+  const done=d.purpleEx&&d.purpleEx.day===today?(d.purpleEx.n||0):0;
+  if(done+n>PURPLE_DAILY_LIMIT)throw new Error("แลกได้สูงสุดวันละ "+PURPLE_DAILY_LIMIT+" เหรียญม่วง (วันนี้แลกแล้ว "+done+")");
+  const cost=n*PURPLE_RATE,gold=d.coins||0;
+  if(gold<cost)throw new Error("เหรียญทองไม่พอ (ต้องใช้ "+cost+")");
+  const purple=(d.purple||0)+n;
+  return{
+    patch:{coins:gold-cost,purple,purpleEx:{day:today,n:done+n}},
+    entry:{kind:"exchange",label:"แลกเหรียญทอง "+cost+" เป็นเหรียญม่วง "+n,gold:-cost,purple:n,purpleBought:0,after:{gold:gold-cost,purple,purpleBought:d.purpleBought||0}},
+  };
+}
+// ใช้เหรียญม่วง "ที่ได้ฟรี" ก่อน แล้วค่อยใช้ที่ซื้อด้วยเงินจริง (เหรียญที่ซื้อจึงเหลือให้คืนเงินได้มากที่สุด) และจดว่าไอเทมชิ้นนี้จ่ายด้วยอะไร
+function planBuyPremium(d,item){
+  const inv=Array.isArray(d.inventory)?d.inventory:[];
+  if(inv.includes(item.id))throw new Error("มีไอเทมนี้แล้ว");
+  const earned=d.purple||0,bought=d.purpleBought||0;
+  if(earned+bought<item.price)throw new Error("เหรียญม่วงไม่พอ (ต้องใช้ "+item.price+")");
+  const fromE=Math.min(earned,item.price),fromB=item.price-fromE;
+  const patch={purple:earned-fromE,inventory:[...inv,item.id],purpleSrc:{...(d.purpleSrc||{}),[item.id]:fromB===0?"earned":(fromE===0?"bought":"mixed")}};
+  if(fromB>0)patch.purpleBought=bought-fromB;
+  return{
+    patch,
+    entry:{kind:"buy_premium",label:"ซื้อ "+item.name,ref:item.id,gold:0,purple:-fromE,purpleBought:-fromB,after:{gold:d.coins||0,purple:earned-fromE,purpleBought:bought-fromB}},
+  };
+}
+function planReceiveReward(d){
+  const value=d.giftValue||0;
+  const n=Math.floor(value/RECEIVE_REWARD_PER)-(d.purpleRecvClaimed||0);
+  if(n<1)throw new Error("ยังไม่ถึงเกณฑ์ — ต้องได้รับของขวัญเพิ่มอีก "+(RECEIVE_REWARD_PER-(value%RECEIVE_REWARD_PER))+" เหรียญทอง");
+  const purple=(d.purple||0)+n;
+  return{
+    patch:{purple,purpleRecvClaimed:Math.floor(value/RECEIVE_REWARD_PER)},
+    entry:{kind:"reward",label:"รางวัลจากของขวัญที่ได้รับ",gold:0,purple:n,purpleBought:0,after:{gold:d.coins||0,purple,purpleBought:d.purpleBought||0}},
+  };
+}
+
+// รันแผนใน transaction เดียว: อัปเดตยอด + เขียนประวัติพร้อมกัน (สำเร็จทั้งคู่หรือไม่สำเร็จเลย)
+function walletTx(plan){
+  const uid=getUid(),ref=doc(db,"users",uid);
+  return runTransaction(db,async tx=>{
+    const sn=await tx.get(ref);
+    const p=plan(sn.exists()?sn.data():{});
+    tx.set(ref,p.patch,{merge:true});
+    tx.set(doc(collection(db,"ledger")),{uid,gold:0,purple:0,purpleBought:0,...p.entry,t:serverTimestamp()});
+    return p.entry;
+  });
+}
+const exchangeGoldToPurple=n=>walletTx(d=>planExchange(d,n,todayBkk()));
+const buyPremium=item=>walletTx(d=>planBuyPremium(d,item));
+const claimReceiveReward=()=>walletTx(planReceiveReward);
+
+// ประวัติของเหรียญทอง: บันทึกหลังทำรายการสำเร็จ (ถ้าบันทึกประวัติพลาด จะไม่กระทบการใช้งานเดิม)
+function logLedger(e){
+  return addDoc(collection(db,"ledger"),{uid:getUid(),gold:0,purple:0,purpleBought:0,...e,t:serverTimestamp()}).catch(err=>console.warn("ledger",err));
+}
+async function claimDailyLogged(){
+  const r=await claimDaily();
+  logLedger({kind:"daily",label:"รับเหรียญรายวัน (ติดต่อกัน "+r.streak+" วัน)",gold:r.bonus});
+  return r;
+}
+async function buyItemLogged(item){
+  await buyItem(item);
+  logLedger({kind:"buy_gold",label:"ซื้อ "+item.name,gold:-item.price,ref:item.id});
+}
+async function sendGiftLogged(gift,fromUser,toUid,toName,ctx){
+  await sendGift(gift,fromUser,toUid,toName,ctx);
+  logLedger({kind:"gift_sent",label:"ส่ง "+gift.emoji+" "+gift.name+" ให้ "+toName,gold:-gift.price,ref:gift.id});
+}
+
+// </WALLET-CORE>
 
 // ── Static Data ───────────────────────────────────────────
 const FRIENDS=[
@@ -262,7 +431,9 @@ function Av({init,bg,tc,size=40,online,grad,isSelf,uid}){
     : <div style={{width:size,height:size,borderRadius:"50%",background:grad?T.brandGrad:(bg||T.card),color:grad?"#fff":(tc||T.brand2),display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.32,fontWeight:700,boxShadow:grad?"0 0 16px rgba(124,92,252,.5)":"none"}}>{init}</div>;
   return(<div style={{position:"relative",flexShrink:0}}>
     {frame
-      ? <div style={{padding:Math.max(2,Math.round(size*.07)),borderRadius:"50%",background:frame.bg,boxShadow:frame.glow,display:"inline-block",lineHeight:0}}>{core}</div>
+      ? (frame.conic
+          ? <AnimFrame frame={frame} size={size}>{core}</AnimFrame>
+          : <div style={{padding:Math.max(2,Math.round(size*.07)),borderRadius:"50%",background:frame.bg,boxShadow:frame.glow,display:"inline-block",lineHeight:0}}>{core}</div>)
       : core}
     {online&&<div style={{position:"absolute",bottom:1,right:1,width:Math.max(8,size*.2),height:Math.max(8,size*.2),borderRadius:"50%",background:T.green,border:"2px solid "+T.bg}}/>}
   </div>);
@@ -275,7 +446,8 @@ function Nm({uid,name,own,style}){
   const nm=own?(name||(u&&u.name)):((u&&u.name)||name);
   const col=u&&u.nameColor&&NAME_COLORS[u.nameColor];
   const badge=u&&u.badge&&BADGES[u.badge];
-  return <span style={style}><span style={col||undefined}>{nm||"ผู้ใช้"}</span>{badge&&<span style={{marginLeft:4}}>{badge}</span>}</span>;
+  const pbadge=u&&u.badge&&PREMIUM_BADGES[u.badge];
+  return <span style={style}><span style={col||undefined}>{nm||"ผู้ใช้"}</span>{badge&&<span style={{marginLeft:4}}>{badge}</span>}{pbadge&&<BadgePill b={pbadge}/>}</span>;
 }
 
 function Btn({children,onClick,v="primary",sz="md",full,style={}}){
@@ -578,6 +750,15 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
   );
 }
 
+// บรรทัดของขวัญในแชท: ระดับสูงเด่นขึ้น (พื้นไล่สี/กรอบ/ตัวหนา) ให้ทุกคนในห้องสังเกตเห็น
+function GiftLine({m}){
+  const g=GIFT_BY_ID[m.gift],tr=g?giftTier(g):1,c=TIER_META[tr].color;
+  return(
+    <div style={{textAlign:"center",fontSize:12,color:T.sub,padding:tr>=3?"6px 8px":"4px 0",borderRadius:12,background:tr>=3?"linear-gradient(90deg,transparent,"+c+"33,transparent)":undefined,border:tr>=4?"1px solid "+c+"66":undefined,fontWeight:tr>=3?700:400}}>
+      <span style={{fontSize:tr>=3?26:20}}>{(g||{}).emoji||"🎁"}</span> <Nm uid={m.uid} name={m.author}/> {m.text}
+    </div>
+  );
+}
 // ── Room Chat (text chat ในห้องเสียง) ────────────────────
 function RoomChat({roomId,user,onGift}){
   const [msgs,setMsgs]=useState([]);
@@ -592,7 +773,7 @@ function RoomChat({roomId,user,onGift}){
       snap=>{
         if(!first&&onGift){
           snap.docChanges().forEach(ch=>{
-            if(ch.type==="added"){const d=ch.doc.data();if(d.gift)onGift(d.gift);}
+            if(ch.type==="added"){const d=ch.doc.data();if(d.gift)onGift(d.gift,d);}
           });
         }
         first=false;
@@ -634,7 +815,7 @@ function RoomChat({roomId,user,onGift}){
       </div>
       <div style={{maxHeight:160,overflowY:"auto",display:"flex",flexDirection:"column",gap:6,marginBottom:8}}>
         {msgs.map(m=>m.gift?(
-          <div key={m.id} style={{textAlign:"center",fontSize:12,color:T.sub,padding:"4px 0"}}><span style={{fontSize:20}}>{(GIFT_BY_ID[m.gift]||{}).emoji||"🎁"}</span> <Nm uid={m.uid} name={m.author}/> {m.text}</div>
+          <GiftLine key={m.id} m={m}/>
         ):(
           <div key={m.id} style={{display:"flex",gap:7,alignItems:"flex-start"}}>
             <Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={24}/>
@@ -808,7 +989,8 @@ function VoiceRoomsPage({user}){
   const [creating,setCreating]=useState(false);
   const [nameErr,setNameErr]=useState("");
   const [giftTo,setGiftTo]=useState(null);
-  const [roomFx,setRoomFx]=useState(null);
+  const [roomFx,pushRoomGift]=useGiftStage();
+  const [soundOn,setSoundOn]=useState(sfx.isOn());
   const [loading,setLoading]=useState(true);
 
   const myUid=getUid();
@@ -833,13 +1015,15 @@ function VoiceRoomsPage({user}){
     if(prevKeysRef.current===null){prevKeysRef.current=keys;return;}
     memberList.forEach(m=>{
       const k=m.uid||m.init;
-      if(prevKeysRef.current.includes(k)||isMeM(m))return;
+      if(prevKeysRef.current.includes(k))return;
       const u=m.uid?_users[m.uid]:null;
       const e=u&&u.entrance&&ENTRANCES[u.entrance];
+      if(isMeM(m)&&!(e&&e.tier))return; // เอฟเฟกต์พรีเมียมให้เจ้าตัวเห็นด้วย (ของฟรีเดิมยังข้ามตัวเองเหมือนเดิม)
       if(e){
         const id=Date.now()+Math.random();
         setEntryFx({id,name:m.name,e});
-        setTimeout(()=>setEntryFx(f=>(f&&f.id===id?null:f)),3300);
+        if(e.tier)sfx.entrance(e.fx);
+        setTimeout(()=>setEntryFx(f=>(f&&f.id===id?null:f)),e.dur||3300);
       }
     });
     prevKeysRef.current=keys;
@@ -974,7 +1158,8 @@ function VoiceRoomsPage({user}){
       {inRoom&&(
         <Card style={{marginBottom:16,border:"1px solid "+T.borderHi,position:"relative"}}>
           <GiftFx fx={roomFx}/>
-          {entryFx&&(
+          {entryFx&&entryFx.e.tier&&<EntranceFx fx={entryFx}/>}
+          {entryFx&&!entryFx.e.tier&&(
             <div key={entryFx.id} style={{position:"absolute",top:10,left:0,right:0,display:"flex",justifyContent:"center",zIndex:21,pointerEvents:"none"}}>
               <div style={{animation:"entryslide 3.2s ease-out forwards",background:entryFx.e.bg,color:"#fff",padding:"8px 18px",borderRadius:22,fontWeight:800,fontSize:13,boxShadow:"0 4px 20px rgba(0,0,0,.45)",display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:20}}>{entryFx.e.emoji}</span>{entryFx.name} {entryFx.e.text}<span style={{fontSize:20}}>{entryFx.e.emoji}</span>
@@ -999,6 +1184,7 @@ function VoiceRoomsPage({user}){
                 {needAudio&&<div onClick={enableAudio} style={{fontSize:12,color:T.yellow,marginTop:4,cursor:"pointer",fontWeight:700}}>🔊 แตะที่นี่เพื่อเปิดเสียงห้อง</div>}
               </div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                <Btn onClick={()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);}} v="ghost" sz="sm">{soundOn?"🔔":"🔕"}</Btn>
                 <Btn onClick={()=>setShowPL(!showPL)} v={showPL?"primary":"ghost"} sz="sm">🎵 Playlist</Btn>
                 <Btn onClick={onMicClick} v={micOn?"primary":"danger"} sz="sm">{micOn?"🎙️ เปิด":"🔇 ปิด"}</Btn>
                 <Btn onClick={leave} v="danger" sz="sm">📵</Btn>
@@ -1046,7 +1232,7 @@ function VoiceRoomsPage({user}){
             </div>
           </div>
           {showPL&&<div style={{padding:"0 16px 16px"}}><YoutubePlaylist playlist={inRoom.playlist} nowPlaying={inRoom.nowPlaying||null} songStartedAt={inRoom.songStartedAt||null} onAdd={addSong} onRemove={removeSong} onPlay={playSong} isHost={isHost}/></div>}
-          <div style={{padding:"0 16px 16px",borderTop:"1px solid "+T.border}}><RoomChat roomId={inRoomId} user={user} onGift={gid=>triggerGiftFx(gid,setRoomFx)}/></div>
+          <div style={{padding:"0 16px 16px",borderTop:"1px solid "+T.border}}><RoomChat roomId={inRoomId} user={user} onGift={(gid,d)=>pushRoomGift(gid,d)}/></div>
         </Card>
       )}
 
@@ -1352,7 +1538,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
         snap.docChanges().forEach(ch=>{
           if(ch.type==="added"){
             const d=ch.doc.data();
-            if(d.gift)triggerGiftFx(d.gift,setFx);
+            if(d.gift)triggerGiftFx(d.gift,setFx,d);
           }
         });
       }
@@ -1840,24 +2026,310 @@ function Model3D({model,size=200}){
   return<div ref={ref} style={{width:size,height:size}}/>;
 }
 
-// เอฟเฟกต์ของขวัญลอยขึ้นจอ (อีโมจิ หรือโมเดล 3 มิติ)
-function triggerGiftFx(giftId,setFx){
-  const g=GIFT_BY_ID[giftId];
-  if(!g)return;
-  const id=Date.now()+Math.random();
-  setFx({id,emoji:g.emoji,model:g.model||null});
-  setTimeout(()=>setFx(f=>(f&&f.id===id?null:f)),g.model?3200:2400);
+// <FX-ENGINE>
+// ── เอฟเฟกต์ของขวัญ/ไอเทมพรีเมียม: ภาพ + เสียง (ใช้ CSS transform/opacity ล้วน ๆ และ WebAudio สังเคราะห์เสียง ไม่มีไฟล์ภายนอก) ──
+const FX_CSS=`
+@keyframes wmSpin{to{transform:rotate(360deg)}}
+@keyframes wmGlow{0%,100%{box-shadow:0 0 6px var(--g)}50%{box-shadow:0 0 20px var(--g)}}
+@keyframes wmFloat{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-3px)}}
+@keyframes wmTwinkle{0%,100%{opacity:.15;transform:scale(.6)}50%{opacity:1;transform:scale(1.15)}}
+@keyframes wmShimmer{0%{background-position:0% 0}100%{background-position:200% 0}}
+@keyframes wmNeon{0%,100%{text-shadow:0 0 4px #22D3EE,0 0 10px #22D3EE}50%{text-shadow:0 0 8px #67E8F9,0 0 22px #06B6D4,0 0 34px #06B6D4}}
+@keyframes wmShine{0%{transform:translateX(-130%)}60%,100%{transform:translateX(260%)}}
+@keyframes wmPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@keyframes wmM_rise{0%{transform:translateY(70px) scale(.4);opacity:0}20%{transform:translateY(0) scale(1.15);opacity:1}75%{transform:translateY(-30px) scale(1);opacity:1}100%{transform:translateY(-90px) scale(.9);opacity:0}}
+@keyframes wmM_bounce{0%{transform:scale(.2);opacity:0}18%{transform:scale(1.3);opacity:1}30%{transform:scale(.9)}42%{transform:scale(1.12)}55%{transform:scale(1)}85%{transform:scale(1);opacity:1}100%{transform:scale(.8) translateY(-40px);opacity:0}}
+@keyframes wmM_drop{0%{transform:translateY(-220px);opacity:0}25%{transform:translateY(0) scale(1.1);opacity:1}35%{transform:translateY(-26px)}45%{transform:translateY(0)}55%{transform:translateY(-10px)}65%{transform:translateY(0)}88%{opacity:1}100%{transform:translateY(30px) scale(.8);opacity:0}}
+@keyframes wmM_spin{0%{transform:scale(.2) rotate(-360deg);opacity:0}30%{transform:scale(1.2) rotate(0);opacity:1}80%{transform:scale(1);opacity:1}100%{transform:scale(.8) rotate(20deg);opacity:0}}
+@keyframes wmM_fly{0%{transform:translate(-160px,160px) scale(.5);opacity:0}25%{opacity:1}60%{transform:translate(0,0) scale(1.2)}100%{transform:translate(200px,-240px) scale(.7);opacity:0}}
+@keyframes wmM_zoom{0%{transform:scale(.1);opacity:0}25%{transform:scale(1.35);opacity:1}40%{transform:scale(1)}85%{transform:scale(1.06);opacity:1}100%{transform:scale(1.5);opacity:0}}
+@keyframes wmM_drive{0%{transform:translateX(-300px) scale(.9);opacity:0}25%{transform:translateX(0) scale(1.15);opacity:1}70%{transform:translateX(0) scale(1.15);opacity:1}100%{transform:translateX(320px);opacity:0}}
+@keyframes wmBurst{0%{transform:translate(-50%,-50%) scale(.3) rotate(0);opacity:0}15%{opacity:1}100%{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1) rotate(var(--rot));opacity:0}}
+@keyframes wmFall{0%{transform:translate(0,-20px) rotate(0);opacity:0}10%{opacity:1}85%{opacity:1}100%{transform:translate(var(--dx),var(--h)) rotate(var(--rot));opacity:0}}
+@keyframes wmRays{to{transform:rotate(360deg)}}
+@keyframes wmRing{0%{transform:translate(-50%,-50%) scale(.2);opacity:.9}100%{transform:translate(-50%,-50%) scale(2.4);opacity:0}}
+@keyframes wmVig{0%{opacity:0}12%{opacity:1}85%{opacity:1}100%{opacity:0}}
+@keyframes wmShake{0%,100%{transform:translate(0,0)}10%{transform:translate(-4px,3px)}20%{transform:translate(5px,-3px)}30%{transform:translate(-5px,-2px)}40%{transform:translate(4px,3px)}50%{transform:translate(-3px,2px)}60%{transform:translate(3px,-2px)}70%{transform:translate(0,0)}}
+@keyframes wmBannerPop{0%{transform:translateY(-30px) scale(.7);opacity:0}12%{transform:translateY(0) scale(1.06);opacity:1}20%{transform:scale(1)}88%{opacity:1}100%{transform:translateY(-10px) scale(.95);opacity:0}}
+@keyframes wmFlash{0%,100%{opacity:0}4%{opacity:.9}8%{opacity:0}14%{opacity:.75}20%{opacity:0}}
+@keyframes wmSweep{0%{transform:translateX(-130%) scale(.8);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translateX(130%) scale(1.1);opacity:0}}
+@keyframes wmFog{0%{transform:translate(-8%,4%) scale(.9);opacity:0}30%{opacity:.85}100%{transform:translate(8%,-6%) scale(1.25);opacity:0}}
+@keyframes wmBolt{0%,100%{opacity:0;transform:scale(.6)}6%,16%{opacity:1;transform:scale(1.15)}11%{opacity:.2}}
+@keyframes wmCrown{0%{transform:translateY(-240px) scale(.6) rotate(-20deg);opacity:0}30%{transform:translateY(0) scale(1.2) rotate(0);opacity:1}42%{transform:translateY(-18px)}52%{transform:translateY(0)}90%{opacity:1}100%{transform:scale(1.05);opacity:0}}
+`;
+if(typeof document!=="undefined"&&!document.getElementById("wm-fx-css")){
+  const s=document.createElement("style");s.id="wm-fx-css";s.textContent=FX_CSS;document.head.appendChild(s);
 }
-function GiftFx({fx}){
-  if(!fx)return null;
+const FX_LITE=typeof window!=="undefined"&&(((window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches))||((navigator.hardwareConcurrency||8)<=2));
+const CONF=["#F43F5E","#FBBF24","#34D399","#38BDF8","#A78BFA","#F472B6"];
+
+// ── เสียง: WebAudio สังเคราะห์สด (เสียงยิ่งใหญ่ตามระดับ) เปิด/ปิดได้ จำค่าไว้ในเครื่อง ─────────
+const sfx=(()=>{
+  let ctx=null,master=null;
+  const isOn=()=>ls.get("sfx",true)!==false;
+  const nt=s=>261.63*Math.pow(2,s/12);
+  function ensure(){
+    if(!isOn())return null;
+    try{
+      if(!ctx){
+        const AC=window.AudioContext||window.webkitAudioContext;
+        if(!AC)return null;
+        ctx=new AC();
+        master=ctx.createGain();master.gain.value=.2;
+        const comp=ctx.createDynamicsCompressor();
+        master.connect(comp);comp.connect(ctx.destination);
+      }
+      if(ctx.state==="suspended")ctx.resume();
+      return ctx;
+    }catch(e){return null;}
+  }
+  function tone(f,t0,dur,o={}){
+    const{type="sine",vol=.5,slide=0,lp=0}=o,c=ctx,t=c.currentTime+t0;
+    const osc=c.createOscillator(),g=c.createGain();
+    osc.type=type;osc.frequency.setValueAtTime(f,t);
+    if(slide)osc.frequency.exponentialRampToValueAtTime(Math.max(20,f*slide),t+dur);
+    g.gain.setValueAtTime(.0001,t);
+    g.gain.exponentialRampToValueAtTime(vol,t+.02);
+    g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    if(lp){const fl=c.createBiquadFilter();fl.type="lowpass";fl.frequency.value=lp;osc.connect(fl);fl.connect(g);}else osc.connect(g);
+    g.connect(master);osc.start(t);osc.stop(t+dur+.05);
+  }
+  function noise(t0,dur,o={}){
+    const{vol=.4,from=4000,to=200}=o,c=ctx,t=c.currentTime+t0;
+    const len=Math.max(1,Math.floor(c.sampleRate*dur)),buf=c.createBuffer(1,len,c.sampleRate),d=buf.getChannelData(0);
+    for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*(1-i/len);
+    const s=c.createBufferSource();s.buffer=buf;
+    const fl=c.createBiquadFilter();fl.type="lowpass";
+    fl.frequency.setValueAtTime(from,t);fl.frequency.exponentialRampToValueAtTime(Math.max(30,to),t+dur);
+    const g=c.createGain();g.gain.value=vol;
+    s.connect(fl);fl.connect(g);g.connect(master);s.start(t);
+  }
+  function arp(steps,t0,gap,o){steps.forEach((s,i)=>tone(nt(s),t0+i*gap,o.dur||.25,{type:o.type||"triangle",vol:o.vol||.4}));}
+  function run(fn){try{if(ensure())fn();}catch(e){}}
+  return{
+    isOn,
+    set(v){ls.set("sfx",!!v);},
+    // เสียงของขวัญ 5 ระดับ
+    gift(tier){run(()=>{
+      if(tier<=1){tone(nt(12),0,.12,{vol:.3});tone(nt(19),.07,.14,{vol:.3});}
+      else if(tier===2){arp([12,16,19,24],0,.07,{dur:.22,vol:.35});}
+      else if(tier===3){arp([0,4,7,12,16,19],0,.07,{dur:.3,vol:.38});noise(0,.7,{vol:.12,from:700,to:6000});}
+      else if(tier===4){
+        tone(nt(-24),0,.6,{vol:.7,slide:.5});
+        arp([0,4,7,12,16,19,24],.05,.075,{dur:.35,vol:.4});
+        [0,4,7,12].forEach(s=>tone(nt(s),.6,1,{type:"triangle",vol:.3}));
+        noise(.5,.9,{vol:.15,from:900,to:7000});
+      }else{
+        noise(0,1,{vol:.7,from:700,to:60});tone(nt(-36),0,1.2,{vol:.8,slide:.5});
+        [0,0,0,5,7,12].forEach((s,i)=>tone(nt(s),.15+i*.17,i===5?1.8:.3,{type:"sawtooth",vol:.28,lp:2400}));
+        [0,4,7,12,16].forEach(s=>tone(nt(s),1.1,1.8,{type:"triangle",vol:.28}));
+        noise(1.1,1.6,{vol:.3,from:9000,to:1500});
+        arp([12,16,19,24,28,31],1.3,.09,{dur:.4,vol:.3});
+      }
+    });},
+    // เสียงเอฟเฟกต์เข้าห้อง
+    entrance(kind){run(()=>{
+      if(kind==="mist"){arp([12,19,24,28],0,.13,{dur:.5,vol:.3});noise(0,1.2,{vol:.1,from:500,to:3500});}
+      else if(kind==="thunder"){noise(0,.3,{vol:.9,from:9000,to:600});noise(.12,1.5,{vol:.7,from:500,to:50});tone(nt(-30),.1,1.2,{vol:.7,slide:.6});arp([0,7,12],.7,.14,{dur:.4,vol:.3,type:"sawtooth"});}
+      else if(kind==="dragon"){
+        tone(95,0,1.3,{type:"sawtooth",vol:.5,slide:.45,lp:700});noise(0,1.4,{vol:.5,from:3000,to:250});
+        [0,3,7,10].forEach((s,i)=>tone(nt(s),1+i*.18,.5,{type:"sawtooth",vol:.26,lp:2200}));
+        tone(nt(-24),1,1.5,{vol:.6,slide:.6});
+      }else if(kind==="emperor"){
+        noise(0,1,{vol:.6,from:800,to:70});tone(nt(-36),0,1.4,{vol:.8,slide:.5});
+        [0,0,7,12,16,19].forEach((s,i)=>tone(nt(s),.2+i*.2,i===5?2.4:.35,{type:"sawtooth",vol:.28,lp:2600}));
+        [0,4,7,12,16,19].forEach(s=>tone(nt(s),1.3,2.4,{type:"triangle",vol:.26}));
+        noise(1.3,2,{vol:.3,from:9500,to:1500});
+        arp([24,28,31,36],2.2,.12,{dur:.5,vol:.28});
+      }
+    });},
+    buy(){run(()=>{arp([12,16,19,24],0,.08,{dur:.3,vol:.35});});},
+  };
+})();
+
+// ── ตัวช่วยสุ่มแบบกำหนดเมล็ด (เพื่อให้อนุภาคไม่สลับตำแหน่งเมื่อหน้าจอรีเรนเดอร์) ──
+function rng(seed){let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+function buildParticles(fx){
+  const r=rng(Math.floor(fx.id*1000)),t=fx.tier,pool=fx.p&&fx.p.length?fx.p:["✨"],lite=FX_LITE?.6:1,colors=fx.colors||CONF;
+  const nb=Math.floor([0,0,10,16,16,22][t]*lite),nc=Math.floor([0,0,0,0,18,34][t]*lite);
+  const out=[];
+  for(let i=0;i<nb;i++){
+    const ang=r()*Math.PI*2,dist=(t>=4?120:90)+r()*(t>=4?150:80);
+    out.push({k:"b",ox:50,oy:50,ch:pool[Math.floor(r()*pool.length)],dx:Math.cos(ang)*dist,dy:Math.sin(ang)*dist,rot:r()*360-180,sz:16+r()*(10+t*3),delay:.15+r()*.5,dur:1.2+r()*.8});
+  }
+  if(t>=5){
+    [[22,30,.7],[78,26,1.3],[50,16,2]].forEach(([ox,oy,d0])=>{
+      for(let i=0;i<(FX_LITE?6:10);i++){const ang=i/(FX_LITE?6:10)*Math.PI*2,dist=70+r()*40;
+        out.push({k:"b",ox,oy,ch:["✨","💥","⭐","🎆"][i%4],dx:Math.cos(ang)*dist,dy:Math.sin(ang)*dist,rot:0,sz:18,delay:d0+r()*.15,dur:1.1});}
+    });
+  }
+  for(let i=0;i<nc;i++){
+    out.push({k:"c",x:r()*100,dx:(r()-.5)*80,h:320+r()*160,rot:360+r()*720,color:colors[Math.floor(r()*colors.length)],w:5+r()*5,hh:8+r()*8,delay:r()*1.2,dur:2+r()*1.4});
+  }
+  return out;
+}
+function Particles({parts}){
+  return parts.map((p,i)=>p.k==="b"
+    ?<span key={i} style={{position:"absolute",left:p.ox+"%",top:p.oy+"%",fontSize:p.sz,lineHeight:1,"--dx":p.dx+"px","--dy":p.dy+"px","--rot":p.rot+"deg",animation:"wmBurst "+p.dur+"s ease-out "+p.delay+"s both",willChange:"transform,opacity"}}>{p.ch}</span>
+    :<span key={i} style={{position:"absolute",left:p.x+"%",top:0,width:p.w,height:p.hh,background:p.color,borderRadius:2,"--dx":p.dx+"px","--h":p.h+"px","--rot":p.rot+"deg",animation:"wmFall "+p.dur+"s ease-in "+p.delay+"s both",willChange:"transform,opacity"}}/>);
+}
+function Rays({tint,dur}){
+  return<div style={{position:"absolute",left:"50%",top:"50%",width:560,height:560,marginLeft:-280,marginTop:-280,borderRadius:"50%",background:"repeating-conic-gradient("+tint+"55 0 7deg,transparent 7deg 22deg)",WebkitMaskImage:"radial-gradient(circle,#000 0,transparent 68%)",maskImage:"radial-gradient(circle,#000 0,transparent 68%)",animation:"wmRays 8s linear infinite, wmVig "+dur+"s ease-out forwards"}}/>;
+}
+function Vignette({tint,dark,dur}){
+  return<div style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 50%,"+tint+"33 0,rgba(0,0,0,"+dark+") 100%)",animation:"wmVig "+dur+"s ease-out forwards"}}/>;
+}
+function FxBanner({tint,dur,top,big,children,shake}){
   return(
-    <div key={fx.id} style={{position:"absolute",inset:0,pointerEvents:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:20}}>
-      <div style={{animation:"giftfly "+(fx.model?"3s":"2.2s")+" ease-out forwards"}}>
-        {fx.model?<Model3D model={fx.model} size={260}/>:<div style={{fontSize:110}}>{fx.emoji}</div>}
+    <div style={{position:"absolute",top,left:0,right:0,display:"flex",justifyContent:"center",padding:"0 10px"}}>
+      <div style={{animation:"wmBannerPop "+dur+"s ease-out forwards"}}>
+        <div style={{position:"relative",overflow:"hidden",background:"linear-gradient(90deg,#1a1033,"+tint+"66,#1a1033)",border:"1.5px solid "+tint,boxShadow:"0 0 "+(big?26:16)+"px "+tint+"99",color:"#fff",padding:big?"9px 20px":"7px 16px",borderRadius:22,fontWeight:800,fontSize:big?15:13,textAlign:"center",display:"flex",alignItems:"center",gap:8,animation:shake?"wmShake .6s ease-in-out .3s 2":undefined}}>
+          {children}
+          {big&&<span style={{position:"absolute",top:0,bottom:0,width:"35%",background:"linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent)",animation:"wmShine 2.2s ease-in-out infinite"}}/>}
+        </div>
       </div>
     </div>
   );
 }
+
+// ── ข้อมูลเอฟเฟกต์ของขวัญหนึ่งครั้ง (ระดับ/ท่า/อนุภาค/ความยาว) ──
+function makeFx(giftId,d){
+  const g=GIFT_BY_ID[giftId];
+  if(!g)return null;
+  const tier=giftTier(g),meta=TIER_META[tier],f=GIFT_FX[g.id]||{};
+  return{
+    id:Date.now()+Math.random(),gift:g.id,emoji:g.emoji,model:g.model||null,tier,
+    motion:f.motion||"rise",p:f.p||[g.emoji,"✨"],tint:f.tint||meta.color,
+    dur:meta.dur+(g.model?500:0),
+    text:d&&d.author?(d.author+" "+(d.text||"")):"",
+  };
+}
+// เล่นทันที (ใช้ในแชทส่วนตัว/กลุ่ม) — ในห้องเสียงใช้ useGiftStage เพื่อต่อคิว
+function triggerGiftFx(giftId,setFx,d){
+  const fx=makeFx(giftId,d);
+  if(!fx)return;
+  setFx(fx);
+  sfx.gift(fx.tier);
+  setTimeout(()=>setFx(f=>(f&&f.id===fx.id?null:f)),fx.dur);
+}
+// คิวเอฟเฟกต์ในห้องเสียง: เล่นทีละชิ้นไม่ซ้อนกันจนหน่วง, ของเล็กถูกข้ามเมื่อคิวยาว, ของใหญ่แซงคิวของเล็ก
+function useGiftStage(){
+  const [fx,setFx]=useState(null);
+  const q=useRef([]),busy=useRef(false),timer=useRef(null),alive=useRef(true);
+  const next=useCallback(()=>{
+    if(busy.current||!alive.current)return;
+    const it=q.current.shift();
+    if(!it)return;
+    busy.current=true;
+    const fast=q.current.length>=2&&it.tier<=3;
+    it.dur=fast?Math.round(it.dur*.6):it.dur;
+    setFx(it);
+    sfx.gift(it.tier);
+    timer.current=setTimeout(()=>{busy.current=false;setFx(null);next();},it.dur);
+  },[]);
+  const push=useCallback((gid,d)=>{
+    const it=makeFx(gid,d);
+    if(!it)return;
+    const L=q.current;
+    if(it.tier<=2&&L.length>=3)return;            // คิวยาว: ข้ามของเล็ก (ยังเห็นในแชท)
+    if(L.length>=6){const i=L.findIndex(x=>x.tier<=2);L.splice(i>=0?i:0,1);}
+    if(it.tier>=4){const i=L.findIndex(x=>x.tier<=2);i>=0?L.splice(i,0,it):L.push(it);}   // ของใหญ่แซงของเล็ก
+    else L.push(it);
+    next();
+  },[next]);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;clearTimeout(timer.current);q.current=[];busy.current=false;};},[]);
+  return[fx,push];
+}
+
+function GiftFx({fx}){
+  const parts=useMemo(()=>fx?buildParticles(fx):[],[fx&&fx.id]); // eslint-disable-line
+  if(!fx)return null;
+  const t=fx.tier,tint=fx.tint,dur=fx.dur/1000;
+  const size=[0,72,96,120,150,190][t];
+  const hero=fx.model
+    ?<Model3D model={fx.model} size={t>=5?300:260}/>
+    :<div style={{fontSize:size,lineHeight:1,filter:t>=3?"drop-shadow(0 0 "+(8+t*4)+"px "+tint+")":undefined}}>{fx.emoji}</div>;
+  return(
+    <div key={fx.id} style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden",zIndex:20,contain:"layout paint"}}>
+      {t>=4&&<Vignette tint={tint} dark={t>=5?.62:.42} dur={dur}/>}
+      {t>=4&&<Rays tint={tint} dur={dur}/>}
+      <div style={{position:"absolute",inset:0,animation:t>=5?"wmShake .7s ease-in-out .6s 2":undefined}}>
+        {t>=3&&[0,.35,.7].slice(0,t>=5?3:2).map(d=><div key={d} style={{position:"absolute",left:"50%",top:"50%",width:200,height:200,borderRadius:"50%",border:"3px solid "+tint,animation:"wmRing 1.4s ease-out "+d+"s both"}}/>)}
+        <Particles parts={parts}/>
+        <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{animation:"wmM_"+fx.motion+" "+dur+"s ease-out forwards"}}>{hero}</div>
+        </div>
+      </div>
+      {t>=3&&fx.text&&(
+        <FxBanner tint={tint} dur={dur} top={56} big={t>=5}>{t>=4&&<span>✨</span>}<span>{fx.text}</span>{t>=4&&<span>✨</span>}</FxBanner>
+      )}
+    </div>
+  );
+}
+
+// ── เอฟเฟกต์ตอนเข้าห้องแบบพรีเมียม (ภาพเต็มห้อง + แบนเนอร์) — เสียงเล่นแยกด้วย sfx.entrance ──
+function EntranceFx({fx}){
+  const e=fx.e,t=e.tier,dur=(e.dur||4000)/1000,tint=TIER_META[t].color;
+  const parts=useMemo(()=>{
+    if(e.fx==="dragon"){
+      const r=rng(Math.floor(fx.id*1000)),out=[];
+      for(let i=0;i<(FX_LITE?10:18);i++)out.push({k:"b",ox:10+r()*80,oy:60+r()*25,ch:["🔥","✨","💨"][i%3],dx:(r()-.5)*60,dy:-(80+r()*170),rot:r()*60-30,sz:20+r()*16,delay:.3+r()*1.6,dur:1.4+r()*.8});
+      return out;
+    }
+    const pool={mist:["✨","🔮","💜"],thunder:["⚡","✨","💙"],emperor:["✨","👑","💛","⭐"]}[e.fx]||["✨"];
+    const colors={emperor:["#FBBF24","#FDE68A","#F59E0B","#FFF7D6"]}[e.fx];
+    return buildParticles({id:fx.id,tier:Math.max(3,t),p:pool,colors});
+  },[fx.id]); // eslint-disable-line
+  const title=fx.name+" "+e.text;
+  return(
+    <div key={fx.id} style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden",zIndex:21,contain:"layout paint"}}>
+      {t>=3&&<Vignette tint={e.fx==="dragon"?"#F97316":tint} dark={t>=5?.6:.4} dur={dur}/>}
+      {t>=5&&<Rays tint="#FBBF24" dur={dur}/>}
+      {e.fx==="mist"&&[0,1,2].map(i=><div key={i} style={{position:"absolute",left:(i*30-10)+"%",bottom:"-10%",width:"70%",height:"70%",borderRadius:"50%",background:"radial-gradient(circle,rgba(168,85,247,.6),transparent 65%)",animation:"wmFog "+dur+"s ease-in-out "+(i*.3)+"s both"}}/>)}
+      {e.fx==="thunder"&&<>
+        <div style={{position:"absolute",inset:0,background:"#DBEAFE",animation:"wmFlash 1.2s ease-out both"}}/>
+        <div style={{position:"absolute",inset:0,background:"#DBEAFE",animation:"wmFlash 1.2s ease-out 1.1s both"}}/>
+        <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontSize:170,lineHeight:1,filter:"drop-shadow(0 0 24px #38BDF8)",animation:"wmBolt 1.3s ease-out both"}}>⚡</div></div>
+      </>}
+      {e.fx==="dragon"&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontSize:150,lineHeight:1,filter:"drop-shadow(0 0 22px #F97316)",animation:"wmSweep "+(dur*.75)+"s ease-in-out .2s both"}}>🐉</div></div>}
+      {e.fx==="emperor"&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontSize:170,lineHeight:1,filter:"drop-shadow(0 0 28px #FBBF24)",animation:"wmCrown "+(dur*.8)+"s ease-out both"}}>👑</div></div>}
+      <Particles parts={parts}/>
+      <FxBanner tint={tint} dur={dur} top={10} big={t>=4} shake={e.fx==="thunder"}>
+        <span style={{fontSize:t>=4?24:20}}>{e.emoji}</span><span>{title}</span><span style={{fontSize:t>=4?24:20}}>{e.emoji}</span>
+      </FxBanner>
+    </div>
+  );
+}
+
+// ── กรอบโปรไฟล์เคลื่อนไหว (พรีเมียม) ──
+function AnimFrame({frame,size,children}){
+  const pad=Math.max(2,Math.round(size*.07));
+  const sp=Math.max(8,Math.round(size*.22));
+  return(
+    <div style={{position:"relative",padding:pad,borderRadius:"50%",display:"inline-block",lineHeight:0,boxShadow:frame.glow,"--g":frame.glowColor||"rgba(167,139,250,.7)",animation:frame.pulse?"wmGlow 2s ease-in-out infinite":undefined}}>
+      <div style={{position:"absolute",inset:0,borderRadius:"50%",overflow:"hidden"}}>
+        <div style={{position:"absolute",left:"-30%",top:"-30%",width:"160%",height:"160%",background:"conic-gradient("+frame.conic+")",animation:"wmSpin "+(frame.speed||3)+"s linear infinite",willChange:"transform"}}/>
+      </div>
+      <div style={{position:"relative"}}>{children}</div>
+      {frame.crown&&<span style={{position:"absolute",left:"50%",top:-Math.round(size*.3),fontSize:Math.max(12,Math.round(size*.38)),lineHeight:1,animation:"wmFloat 2s ease-in-out infinite"}}>👑</span>}
+      {frame.sparkle&&[["-8%","10%",0],["86%","0%",.6],["80%","80%",1.2]].map(([l,tp,d],i)=><span key={i} style={{position:"absolute",left:l,top:tp,fontSize:sp,lineHeight:1,animation:"wmTwinkle 1.8s ease-in-out "+d+"s infinite"}}>✨</span>)}
+    </div>
+  );
+}
+// ── ป้ายพรีเมียม ──
+function BadgePill({b,style}){
+  return(
+    <span style={{position:"relative",overflow:"hidden",display:"inline-flex",alignItems:"center",gap:3,marginLeft:4,padding:"1px 7px",borderRadius:20,background:b.bg,backgroundSize:b.anim?"200% 100%":undefined,animation:b.anim?"wmShimmer 3s linear infinite":undefined,boxShadow:b.glow,fontSize:10,fontWeight:800,letterSpacing:.5,color:"#fff",verticalAlign:"middle",lineHeight:1.5,textShadow:"0 1px 2px rgba(0,0,0,.45)",WebkitTextFillColor:"#fff",...style}}>
+      <span style={{fontSize:11}}>{b.emoji}</span>{b.label}
+      {b.shine&&<span style={{position:"absolute",top:0,bottom:0,width:"40%",background:"linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent)",animation:"wmShine 2.4s ease-in-out infinite"}}/>}
+    </span>
+  );
+}
+// ไอคอนเหรียญม่วง
+function PCoin({size=14}){
+  return<span style={{display:"inline-block",width:size,height:size,borderRadius:"50%",background:"radial-gradient(circle at 30% 30%,#F3E8FF,#A855F7 55%,#6B21A8)",boxShadow:"0 0 6px rgba(168,85,247,.7),inset 0 0 0 1.5px rgba(255,255,255,.35)",verticalAlign:"-2px"}}/>;
+}
+// </FX-ENGINE>
 
 // ── เลือกของขวัญ (แตะเพื่อดูตัวอย่าง แล้วกดส่ง) ────────────────
 function GiftPicker({user,to,onClose,onSent,ctx}){
@@ -1866,11 +2338,12 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
   const [sel,setSel]=useState(null);
   const [busy,setBusy]=useState(false);
   const [msg,setMsg]=useState("");
+  const [pv,setPv]=useState(null);
   async function send(){
     if(!sel||busy)return;
     setBusy(true);setMsg("");
     try{
-      await sendGift(sel,user,to.uid,to.name,ctx);
+      await sendGiftLogged(sel,user,to.uid,to.name,ctx);
       onSent&&onSent(sel);
       onClose();
       return;
@@ -1893,8 +2366,10 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
               ? <div style={{display:"flex",justifyContent:"center"}}><Model3D model={sel.model} size={170}/></div>
               : <div style={{fontSize:64,padding:"12px 0"}}>{sel.emoji}</div>}
             <div style={{fontSize:14,fontWeight:700,color:T.text}}>{sel.name}</div>
+            <div style={{fontSize:11,color:TIER_META[giftTier(sel)].color,fontWeight:700,marginTop:2}}>ระดับ {TIER_META[giftTier(sel)].name}</div>
             {sel.event&&<div style={{fontSize:11,color:ok?T.green:T.yellow,marginTop:3}}>{ok?"🎉 เทศกาล"+sel.event.label+" เปิดอยู่ถึง "+fmtD(sel.event.to):"🔒 เปิดช่วงเทศกาล"+sel.event.label+" ("+fmtD(sel.event.from)+" – "+fmtD(sel.event.to)+")"}</div>}
-            <div style={{marginTop:10}}>
+            <div style={{marginTop:10,display:"flex",gap:8,justifyContent:"center",alignItems:"center",flexWrap:"wrap"}}>
+              <Btn onClick={()=>triggerGiftFx(sel.id,setPv)} v="outline" sz="md">▶ ดูแอนิเมชัน</Btn>
               {ok
                 ? <Btn onClick={send} v="primary" sz="md">{busy?"กำลังส่ง...":"ส่ง 🪙 "+sel.price}</Btn>
                 : <div style={{fontSize:12,color:T.muted}}>ยังส่งไม่ได้ในตอนนี้</div>}
@@ -1907,6 +2382,7 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
             return(
               <button key={g.id} onClick={()=>{setSel(g);setMsg("");}} style={{position:"relative",background:sel&&sel.id===g.id?T.brand+"33":T.surface,border:"1px solid "+(sel&&sel.id===g.id?T.borderHi:(coins>=g.price?T.border:"rgba(244,63,94,.3)")),borderRadius:14,padding:"10px 2px",cursor:"pointer",opacity:av&&coins>=g.price?1:.55,fontFamily:"inherit"}}>
                 {g.model&&<span style={{position:"absolute",top:3,right:4,fontSize:9,fontWeight:800,color:T.brand2,background:T.brand+"33",borderRadius:6,padding:"0 4px"}}>3D</span>}
+                <span style={{position:"absolute",left:10,right:10,bottom:3,height:2,borderRadius:2,background:TIER_META[giftTier(g)].color}}/>
                 <div style={{fontSize:30}}>{g.emoji}</div>
                 <div style={{fontSize:11,color:T.text,marginTop:2}}>{g.name}</div>
                 <div style={{fontSize:11,color:av?T.yellow:T.muted,fontWeight:700}}>{av?"🪙 "+g.price:"🔒 "+g.event.label}</div>
@@ -1917,6 +2393,155 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
         {msg&&<div style={{fontSize:12,color:T.red,marginTop:10,textAlign:"center"}}>{msg}</div>}
         <div style={{marginTop:12,textAlign:"center"}}><Btn onClick={onClose} v="ghost" sz="sm">ปิด</Btn></div>
       </div>
+      {pv&&<div style={{position:"fixed",inset:0,zIndex:80,pointerEvents:"none"}}><GiftFx fx={pv}/></div>}
+    </div>
+  );
+}
+
+// ── หน้าจอฝั่งเหรียญม่วง: พรีเมียม + กระเป๋า/แลก/ประวัติ ────────────────
+function useRun(){
+  const [msg,setMsg]=useState(""),[busy,setBusy]=useState(false);
+  const run=async(fn,okMsg)=>{
+    if(busy)return;
+    setBusy(true);setMsg("");
+    try{const r=await fn();setMsg(typeof okMsg==="function"?okMsg(r):okMsg||"");}
+    catch(e){setMsg("⚠️ "+(e.message||e.code));}
+    setBusy(false);
+  };
+  return[msg,busy,run];
+}
+function useLedger(){
+  const [rows,setRows]=useState(null);
+  useEffect(()=>{
+    const q=query(collection(db,"ledger"),where("uid","==",getUid()),limit(300));
+    return onSnapshot(q,sn=>{
+      const a=sn.docs.map(d=>({id:d.id,...d.data({serverTimestamps:"estimate"})}));
+      const ms=x=>x.t&&x.t.toMillis?x.t.toMillis():0;
+      a.sort((x,y)=>ms(y)-ms(x));
+      setRows(a);
+    },e=>{console.warn("ledger",e);setRows([]);});
+  },[]);
+  return rows;
+}
+const LEDGER_ICON={welcome:"👋",daily:"🎁",buy_gold:"🛍️",gift_sent:"📤",exchange:"🔁",buy_premium:"💜",reward:"🏆",purchase:"💳",refund:"↩️"};
+function fmtT(ts){
+  const ms=ts&&ts.toMillis?ts.toMillis():Date.now();
+  return new Date(ms).toLocaleString("th-TH",{timeZone:"Asia/Bangkok",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+}
+
+function PremiumTab({me,user}){
+  const [msg,busy,run]=useRun();
+  const inv=Array.isArray(me.inventory)?me.inventory:[];
+  const [pv,setPv]=useState(null);
+  const groups=[["frame","🖼️ กรอบโปรไฟล์เคลื่อนไหว"],["nameColor","🎨 สีชื่อพิเศษ (ไหลสี/เรืองแสง)"],["badge","🏅 ป้ายพิเศษตามระดับ"],["entrance","✨ เอฟเฟกต์เข้าห้อง (ภาพ + เสียง)"]];
+  function playPreview(i){
+    const e=ENTRANCES[i.key],id=Date.now()+Math.random();
+    setPv({id,name:user.name||"คุณ",e});
+    sfx.entrance(e.fx);
+    setTimeout(()=>setPv(f=>(f&&f.id===id?null:f)),e.dur||4000);
+  }
+  function preview(i){
+    const box={width:62,display:"flex",justifyContent:"center",alignItems:"center",flexShrink:0};
+    if(i.type==="frame")return<div style={box}><AnimFrame frame={FRAMES[i.key]} size={38}><div style={{width:38,height:38,borderRadius:"50%",background:T.card,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:T.brand2,fontWeight:700}}>{user.init}</div></AnimFrame></div>;
+    if(i.type==="nameColor")return<div style={{...box,fontSize:15,fontWeight:800}}><span style={NAME_COLORS[i.key]}>ชื่อ</span></div>;
+    if(i.type==="badge")return<div style={box}><BadgePill b={PREMIUM_BADGES[i.key]} style={{marginLeft:0}}/></div>;
+    return<div style={{...box,fontSize:30}}>{ENTRANCES[i.key].emoji}</div>;
+  }
+  return(
+    <div style={{padding:"10px 14px 16px"}}>
+      <div style={{fontSize:12,color:T.sub,lineHeight:1.6}}>ไอเทมพรีเมียมซื้อด้วย <PCoin/> เหรียญม่วง (แลกจากเหรียญทอง {PURPLE_RATE} = 1 ม่วง ที่แท็บ "กระเป๋า") ซื้อแล้วเป็นของคุณถาวร กดใส่/ถอดได้ — ยิ่งระดับสูง ยิ่งอลังการ</div>
+      {msg&&<div style={{fontSize:12,color:msg.startsWith("⚠️")?T.red:T.green,margin:"8px 0 0",lineHeight:1.5}}>{msg}</div>}
+      {groups.map(([ty,label])=>(
+        <div key={ty} style={{marginTop:14}}>
+          <div style={{fontSize:13,fontWeight:800,color:T.text,marginBottom:2}}>{label}</div>
+          {PURPLE_ITEMS.filter(i=>i.type===ty).map(i=>{
+            const owned=inv.includes(i.id),on=me[i.type]===i.key,tm=TIER_META[i.tier];
+            return(
+              <div key={i.id} style={{display:"flex",alignItems:"center",gap:10,padding:"16px 2px 10px",borderBottom:"1px solid "+T.border}}>
+                {preview(i)}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,fontWeight:700,color:T.text}}>{i.name}<span style={{fontSize:10,marginLeft:6,background:tm.color+"22",color:tm.color,borderRadius:20,padding:"1px 7px",fontWeight:800}}>{tm.name}</span></div>
+                  <div style={{fontSize:11,color:"#C084FC",marginTop:2,display:"flex",alignItems:"center",gap:4}}><PCoin size={12}/> {i.price}</div>
+                </div>
+                {ty==="entrance"&&<Btn onClick={()=>playPreview(i)} v="ghost" sz="sm">▶ ดู</Btn>}
+                {owned
+                  ? <Btn onClick={()=>run(()=>equipItem(i,!on),on?"ถอดแล้ว":"ใส่แล้ว ✨")} v={on?"outline":"primary"} sz="sm">{on?"ถอด":"ใส่"}</Btn>
+                  : <Btn onClick={()=>run(async()=>{await buyPremium(i);sfx.buy();},"ซื้อแล้ว! กด ใส่ ได้เลย ✨")} v="ghost" sz="sm">{busy?"...":"ซื้อ"}</Btn>}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      {pv&&<div style={{position:"fixed",inset:0,zIndex:95,pointerEvents:"none"}}><EntranceFx fx={pv}/></div>}
+    </div>
+  );
+}
+
+function WalletTab({me}){
+  const [msg,busy,run]=useRun();
+  const [n,setN]=useState(1);
+  const rows=useLedger();
+  const gold=me.coins||0,pe=me.purple||0,pb=me.purpleBought||0;
+  const used=me.purpleEx&&me.purpleEx.day===todayBkk()?(me.purpleEx.n||0):0;
+  const left=Math.max(0,PURPLE_DAILY_LIMIT-used);
+  const nn=Math.max(1,Math.min(n,left||1));
+  const value=me.giftValue||0;
+  const claimable=Math.floor(value/RECEIVE_REWARD_PER)-(me.purpleRecvClaimed||0);
+  const card={flex:1,background:T.surface,border:"1px solid "+T.border,borderRadius:14,padding:"10px 8px",textAlign:"center",minWidth:0};
+  const sec={marginTop:14,background:T.surface,border:"1px solid "+T.border,borderRadius:14,padding:"12px 12px"};
+  return(
+    <div style={{padding:"12px 14px 16px"}}>
+      <div style={{display:"flex",gap:8}}>
+        <div style={card}><div style={{fontSize:10,color:T.muted}}>เหรียญทอง</div><div style={{fontSize:18,fontWeight:800,color:T.yellow}}>🪙 {gold}</div></div>
+        <div style={card}><div style={{fontSize:10,color:T.muted}}>ม่วง (แลก/รางวัล)</div><div style={{fontSize:18,fontWeight:800,color:"#C084FC",display:"flex",justifyContent:"center",alignItems:"center",gap:5}}><PCoin size={16}/>{pe}</div></div>
+        <div style={card}><div style={{fontSize:10,color:T.muted}}>ม่วง (ซื้อเงินจริง)</div><div style={{fontSize:18,fontWeight:800,color:"#C084FC",display:"flex",justifyContent:"center",alignItems:"center",gap:5}}><PCoin size={16}/>{pb}</div></div>
+      </div>
+
+      <div style={sec}>
+        <div style={{fontSize:14,fontWeight:800,color:T.text}}>🔁 แลกเหรียญทองเป็นเหรียญม่วง</div>
+        <div style={{fontSize:11,color:T.muted,marginTop:3,lineHeight:1.6}}>อัตรา 🪙 {PURPLE_RATE} = <PCoin size={12}/> 1 • แลกได้วันละไม่เกิน {PURPLE_DAILY_LIMIT} เหรียญม่วง (วันนี้แลกแล้ว {used}) • สำหรับบัญชี Google</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginTop:10,flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <Btn onClick={()=>setN(Math.max(1,nn-1))} v="ghost" sz="sm">−</Btn>
+            <div style={{fontSize:16,fontWeight:800,color:"#C084FC",minWidth:50,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}><PCoin size={15}/>{nn}</div>
+            <Btn onClick={()=>setN(Math.min(Math.max(1,left),nn+1))} v="ghost" sz="sm">+</Btn>
+          </div>
+          <Btn onClick={()=>run(()=>exchangeGoldToPurple(nn),r=>"แลกสำเร็จ! 🪙 -"+(-r.gold)+" → ม่วง +"+r.purple)} v="primary" sz="sm">{busy?"กำลังแลก...":"แลก (ใช้ 🪙 "+(nn*PURPLE_RATE)+")"}</Btn>
+        </div>
+      </div>
+
+      <div style={sec}>
+        <div style={{fontSize:14,fontWeight:800,color:T.text}}>🏆 รางวัลจากของขวัญที่ได้รับ</div>
+        <div style={{fontSize:11,color:T.muted,marginTop:3,lineHeight:1.6}}>มูลค่าของขวัญที่คุณได้รับรวม 🪙 {value} — ทุก {RECEIVE_REWARD_PER} เหรียญทอง ได้เหรียญม่วง 1</div>
+        <div style={{marginTop:10}}>
+          <Btn onClick={()=>run(claimReceiveReward,r=>"รับรางวัลแล้ว! ม่วง +"+r.purple)} v={claimable>=1?"primary":"ghost"} sz="sm">{claimable>=1?"รับรางวัล ม่วง +"+claimable:"ยังไม่ถึงเกณฑ์"}</Btn>
+        </div>
+      </div>
+
+      <div style={{...sec,opacity:.85}}>
+        <div style={{fontSize:14,fontWeight:800,color:T.text}}>💳 ซื้อเหรียญม่วงด้วยเงินจริง <span style={{fontSize:10,background:T.yellow+"22",color:T.yellow,borderRadius:20,padding:"1px 8px"}}>เร็วๆ นี้</span></div>
+        <div style={{fontSize:11,color:T.muted,marginTop:3,lineHeight:1.6}}>เหรียญม่วงที่ซื้อจะถูกเก็บแยกจากเหรียญม่วงที่ได้จากการแลก/รางวัล เพื่อให้กำหนดเงื่อนไขการใช้งานและการคืนเงินได้ชัดเจน</div>
+      </div>
+
+      {msg&&<div style={{fontSize:12,color:msg.startsWith("⚠️")?T.red:T.green,marginTop:10,lineHeight:1.5}}>{msg}</div>}
+
+      <div style={{marginTop:16,fontSize:14,fontWeight:800,color:T.text}}>📜 ประวัติธุรกรรม</div>
+      {rows===null&&<div style={{fontSize:12,color:T.muted,padding:"10px 0"}}>กำลังโหลด...</div>}
+      {rows&&rows.length===0&&<div style={{fontSize:12,color:T.muted,padding:"10px 0"}}>ยังไม่มีรายการ</div>}
+      {rows&&rows.slice(0,40).map(r=>(
+        <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 2px",borderBottom:"1px solid "+T.border}}>
+          <div style={{fontSize:20,width:28,textAlign:"center"}}>{LEDGER_ICON[r.kind]||"•"}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label||r.kind}</div>
+            <div style={{fontSize:10,color:T.muted}}>{fmtT(r.t)}{r.after?" • คงเหลือ 🪙 "+r.after.gold+" / ม่วง "+(r.after.purple+r.after.purpleBought):""}</div>
+          </div>
+          <div style={{textAlign:"right",fontSize:12,fontWeight:800,lineHeight:1.5}}>
+            {!!r.gold&&<div style={{color:r.gold>0?T.green:T.red}}>🪙 {r.gold>0?"+":""}{r.gold}</div>}
+            {!!r.purple&&<div style={{color:r.purple>0?T.green:T.red}}>ม่วง {r.purple>0?"+":""}{r.purple}</div>}
+            {!!r.purpleBought&&<div style={{color:r.purpleBought>0?T.green:T.red}}>ม่วง(ซื้อ) {r.purpleBought>0?"+":""}{r.purpleBought}</div>}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -1940,7 +2565,7 @@ function ShopModal({user,onClose}){
     setBusy(false);
   }
 
-  const tabs=[["frame","🖼️ กรอบ"],["nameColor","🎨 สีชื่อ"],["badge","🏅 ป้าย"],["entrance","✨ เข้าห้อง"]];
+  const tabs=[["frame","🖼️ กรอบ"],["nameColor","🎨 สีชื่อ"],["badge","🏅 ป้าย"],["entrance","✨ เข้าห้อง"],["premium","💜 พรีเมียม"],["wallet","📜 กระเป๋า"]];
   const list=ITEMS.filter(i=>i.type===tab);
 
   function preview(i){
@@ -1959,18 +2584,23 @@ function ShopModal({user,onClose}){
             <button onClick={onClose} style={{width:30,height:30,borderRadius:"50%",border:"none",background:"rgba(0,0,0,.4)",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
           </div>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:12,gap:10,flexWrap:"wrap"}}>
-            <div style={{fontSize:24,fontWeight:800,color:T.yellow}}>🪙 {coins}</div>
-            <Btn onClick={()=>run(claimDaily,r=>"🎉 ได้ +"+r.bonus+" เหรียญ (ติดต่อกัน "+r.streak+" วัน)"+(r.unlocked?" ปลดล็อกไอเทมพิเศษ 🔥 กรอบและป้ายเปลวไฟ!":""))} v={claimed?"ghost":"primary"} sz="sm">{claimed?"รับแล้ววันนี้ ✓ (ติดต่อกัน "+(me.streak||1)+" วัน)":"🎁 รับเหรียญรายวัน +"+DAILY_COINS}</Btn>
+            <div style={{display:"flex",alignItems:"baseline",gap:14,flexWrap:"wrap"}}>
+              <div style={{fontSize:24,fontWeight:800,color:T.yellow}}>🪙 {coins}</div>
+              <div style={{fontSize:20,fontWeight:800,color:"#C084FC",display:"flex",alignItems:"center",gap:6}}><PCoin size={18}/>{(me.purple||0)+(me.purpleBought||0)}</div>
+            </div>
+            <Btn onClick={()=>run(claimDailyLogged,r=>"🎉 ได้ +"+r.bonus+" เหรียญ (ติดต่อกัน "+r.streak+" วัน)"+(r.unlocked?" ปลดล็อกไอเทมพิเศษ 🔥 กรอบและป้ายเปลวไฟ!":""))} v={claimed?"ghost":"primary"} sz="sm">{claimed?"รับแล้ววันนี้ ✓ (ติดต่อกัน "+(me.streak||1)+" วัน)":"🎁 รับเหรียญรายวัน +"+DAILY_COINS}</Btn>
           </div>
           <div style={{fontSize:11,color:T.muted,marginTop:8}}>กลับมารับทุกวัน ครบ 7 วันติดกันได้โบนัส +50 และไอเทมสุดพิเศษ 🔥</div>
           {msg&&<div style={{fontSize:12,color:msg.startsWith("⚠️")?T.red:T.green,marginTop:8,lineHeight:1.5}}>{msg}</div>}
         </div>
-        <div style={{display:"flex",borderTop:"1px solid "+T.border,borderBottom:"1px solid "+T.border}}>
+        <div style={{display:"flex",overflowX:"auto",borderTop:"1px solid "+T.border,borderBottom:"1px solid "+T.border}}>
           {tabs.map(([k,l])=>(
-            <button key={k} onClick={()=>setTab(k)} style={{flex:1,padding:"10px 4px",border:"none",borderBottom:"2px solid "+(tab===k?T.brand:"transparent"),background:"transparent",color:tab===k?T.brand2:T.muted,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>
+            <button key={k} onClick={()=>setTab(k)} style={{flex:"1 0 auto",padding:"10px 10px",border:"none",borderBottom:"2px solid "+(tab===k?T.brand:"transparent"),background:"transparent",color:tab===k?T.brand2:T.muted,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>
           ))}
         </div>
-        <div style={{padding:"10px 14px 16px"}}>
+        {tab==="premium"&&<PremiumTab me={me} user={user}/>}
+        {tab==="wallet"&&<WalletTab me={me}/>}
+        {tab!=="premium"&&tab!=="wallet"&&<div style={{padding:"10px 14px 16px"}}>
           {list.map(i=>{
             const owned=inv.includes(i.id);
             const on=me[i.type]===i.key;
@@ -1985,11 +2615,11 @@ function ShopModal({user,onClose}){
                   ? <Btn onClick={()=>run(()=>equipItem(i,!on),on?"ถอดแล้ว":"ใส่แล้ว ✨")} v={on?"outline":"primary"} sz="sm">{on?"ถอด":"ใส่"}</Btn>
                   : i.special
                     ? <span style={{fontSize:11,color:T.muted}}>🔒</span>
-                    : <Btn onClick={()=>run(()=>buyItem(i),"ซื้อแล้ว! กด ใส่ ได้เลย")} v="ghost" sz="sm">ซื้อ</Btn>}
+                    : <Btn onClick={()=>run(()=>buyItemLogged(i),"ซื้อแล้ว! กด ใส่ ได้เลย")} v="ghost" sz="sm">ซื้อ</Btn>}
               </div>
             );
           })}
-        </div>
+        </div>}
       </div>
     </div>
   );
@@ -2157,7 +2787,7 @@ export default function App(){
   // เหรียญต้อนรับสำหรับผู้ใช้ Google
   useEffect(()=>{
     if(!user||user.isGuest||user.needName)return;
-    ensureWallet().catch(e=>console.error("wallet",e));
+    ensureWallet().then(g=>{if(g)logLedger({kind:"welcome",label:"เหรียญต้อนรับ",gold:WELCOME_COINS});}).catch(e=>console.error("wallet",e));
   },[user&&user.isGuest,user&&user.needName,user&&user.uid]); // eslint-disable-line
 
   useEffect(()=>{
@@ -2207,7 +2837,7 @@ export default function App(){
           <span style={{fontSize:18,fontWeight:800,background:T.brandGrad,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:-.5}}>Warmly</span>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:7}}>
-          {!user.isGuest&&<button onClick={()=>setShopOpen(true)} style={{border:"1px solid rgba(245,158,11,.4)",background:"rgba(245,158,11,.12)",color:T.yellow,borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🪙 {(users[getUid()]&&users[getUid()].coins)||0}</button>}
+          {!user.isGuest&&<button onClick={()=>setShopOpen(true)} style={{border:"1px solid rgba(245,158,11,.4)",background:"rgba(245,158,11,.12)",color:T.yellow,borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🪙 {(users[getUid()]&&users[getUid()].coins)||0}<span style={{marginLeft:7,color:"#C084FC",display:"inline-flex",alignItems:"center",gap:3}}><PCoin size={11}/>{((users[getUid()]||{}).purple||0)+((users[getUid()]||{}).purpleBought||0)}</span></button>}
           <Nm uid={getUid()} name={user.name} own style={{fontSize:13,color:T.sub,fontWeight:500}}/>
           {user.isGuest&&<span style={{fontSize:10,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 7px",fontWeight:700}}>Guest</span>}
           <button onClick={handleLogout} style={{border:"1px solid "+T.border,borderRadius:9,background:"transparent",color:T.muted,cursor:"pointer",padding:"4px 9px",fontSize:11,fontFamily:"inherit"}}>ออก</button>
