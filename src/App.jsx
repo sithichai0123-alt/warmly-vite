@@ -3,6 +3,7 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction } from "firebase/firestore";
+import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
 
 // ── Firebase Config ──────────────────────────────────────
 const firebaseConfig = {
@@ -400,6 +401,10 @@ async function sendGiftLogged(gift,fromUser,toUid,toName,ctx){
 }
 
 // </WALLET-CORE>
+
+// Voice Aura: ซื้อ/สวมใส่เอฟเฟกต์เสียง (ตรรกะอยู่ใน voiceAura/wallet.js — ใช้ transaction + ledger แบบเดียวกับกระเป๋าเดิม)
+const auraWallet=makeAuraWallet({db,getUid,runTransaction,doc,collection,serverTimestamp,serverMode:AURA_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))});
+const auraApi={buy:id=>auraWallet.buyAura(id),equip:id=>auraWallet.equipAura(id)};
 
 // ── Static Data ───────────────────────────────────────────
 const FRIENDS=[
@@ -1001,6 +1006,8 @@ function VoiceRoomsPage({user}){
   const seenRef=useRef(false);
   const voice=useVoice();
   const {connected,micOn,speaking,mics,needAudio,error:voiceError,toggleMic,enableAudio}=voice;
+  const [auraMode]=useAuraMode();
+  const [auraOpen,setAuraOpen]=useState(false);
 
   const inRoom=rooms.find(r=>r.id===inRoomId);
   const memberList=inRoom&&Array.isArray(inRoom.members)?inRoom.members:[];
@@ -1156,6 +1163,7 @@ function VoiceRoomsPage({user}){
 
   return(
     <div>
+      {auraOpen&&VOICE_AURA_ENABLED&&!user.isGuest&&<AuraShop me={_users[myUid]||{}} user={user} onClose={()=>setAuraOpen(false)} api={auraApi}/>}
       {inRoom&&(
         <Card style={{marginBottom:16,border:"1px solid "+T.borderHi,position:"relative"}}>
           <GiftFx fx={roomFx}/>
@@ -1186,6 +1194,7 @@ function VoiceRoomsPage({user}){
               </div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 <Btn onClick={()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);}} v="ghost" sz="sm">{soundOn?"🔔":"🔕"}</Btn>
+                {VOICE_AURA_ENABLED&&!user.isGuest&&<Btn onClick={()=>setAuraOpen(true)} v="ghost" sz="sm">✨</Btn>}
                 <Btn onClick={()=>setShowPL(!showPL)} v={showPL?"primary":"ghost"} sz="sm">🎵 Playlist</Btn>
                 <Btn onClick={onMicClick} v={micOn?"primary":"danger"} sz="sm">{micOn?"🎙️ เปิด":"🔇 ปิด"}</Btn>
                 <Btn onClick={leave} v="danger" sz="sm">📵</Btn>
@@ -1200,6 +1209,15 @@ function VoiceRoomsPage({user}){
                 const isSpeaking=!!speaking[isMe?myUid:key];
                 const lkMic=mics[isMe?myUid:key];
                 const showMicOn=isMe?micOn:(lkMic===undefined?m.mic!==false:(lkMic&&m.mic!==false));
+                const auraId=resolveAura(m.uid?_users[m.uid]:null,auraMode); // เอฟเฟกต์เสียงที่สมาชิกคนนี้สวมใส่ (null = วงเขียวเดิม)
+                const avatarBtn=(
+                    <div onClick={()=>{if(!isMe&&!user.isGuest&&m.uid)setGiftTo({uid:m.uid,name:m.name});}} style={{cursor:(!isMe&&!user.isGuest&&m.uid)?"pointer":"default",padding:3,borderRadius:"50%",
+                      border:"2.5px solid "+(isSpeaking&&!auraId?T.green:T.border),
+                      boxShadow:isSpeaking&&!auraId?"0 0 16px rgba(16,185,129,.5)":"none",
+                      transition:"all .2s"}}>
+                      <Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} grad={isMe} isSelf={isMe} size={48}/>
+                    </div>
+                );
                 return(
                   <div key={key+i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,position:"relative"}}>
                     {isHost&&!isMe&&(
@@ -1208,13 +1226,10 @@ function VoiceRoomsPage({user}){
                         <button onClick={()=>kick(key)} style={{width:26,height:26,borderRadius:"50%",background:T.redBg,border:"1px solid rgba(244,63,94,.5)",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",color:T.red,fontFamily:"inherit"}}>🚫</button>
                       </div>
                     )}
-                    <div onClick={()=>{if(!isMe&&!user.isGuest&&m.uid)setGiftTo({uid:m.uid,name:m.name});}} style={{cursor:(!isMe&&!user.isGuest&&m.uid)?"pointer":"default",padding:3,borderRadius:"50%",
-                      border:"2.5px solid "+(isSpeaking?T.green:T.border),
-                      boxShadow:isSpeaking?"0 0 16px rgba(16,185,129,.5)":"none",
-                      transition:"all .2s"}}>
-                      <Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} grad={isMe} isSelf={isMe} size={48}/>
-                    </div>
-                    <div style={{fontSize:11,color:T.brand2,fontWeight:700,maxWidth:56,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{isMe?"คุณ":m.name}</div>
+                    {auraId
+                      ?<VoiceAura aura={auraId} active={isSpeaking&&showMicOn} lite={memberList.length>AURA_LITE_ROOM_SIZE}>{avatarBtn}</VoiceAura>
+                      :avatarBtn}
+                    <div style={{fontSize:11,color:T.brand2,fontWeight:700,maxWidth:56,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",position:"relative",zIndex:1}}>{isMe?"คุณ":m.name}</div>
                     {/* ไมค์ animation เมื่อพูด */}
                     {isSpeaking?(
                       <div style={{display:"flex",alignItems:"flex-end",gap:1.5,height:14}}>
@@ -1239,7 +1254,10 @@ function VoiceRoomsPage({user}){
 
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
         <div style={{fontSize:16,fontWeight:800,color:T.text}}>ห้องเสียง 🎙️</div>
-        {!user.isGuest&&<Btn onClick={()=>setCreating(!creating)} v={creating?"primary":"outline"} sz="sm">+ ห้องใหม่</Btn>}
+        <div style={{display:"flex",gap:6}}>
+          {VOICE_AURA_ENABLED&&!user.isGuest&&<Btn onClick={()=>setAuraOpen(true)} v="ghost" sz="sm">✨ Voice Aura</Btn>}
+          {!user.isGuest&&<Btn onClick={()=>setCreating(!creating)} v={creating?"primary":"outline"} sz="sm">+ ห้องใหม่</Btn>}
+        </div>
       </div>
 
       {creating&&(
@@ -2923,7 +2941,7 @@ function useLedger(){
   },[]);
   return rows;
 }
-const LEDGER_ICON={welcome:"👋",daily:"🎁",buy_gold:"🛍️",gift_sent:"📤",exchange:"🔁",buy_premium:"💜",reward:"🏆",purchase:"💳",refund:"↩️"};
+const LEDGER_ICON={buy_aura:"✨",welcome:"👋",daily:"🎁",buy_gold:"🛍️",gift_sent:"📤",exchange:"🔁",buy_premium:"💜",reward:"🏆",purchase:"💳",refund:"↩️"};
 function fmtT(ts){
   const ms=ts&&ts.toMillis?ts.toMillis():Date.now();
   return new Date(ms).toLocaleString("th-TH",{timeZone:"Asia/Bangkok",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
