@@ -991,6 +991,7 @@ function VoiceRoomsPage({user}){
   const [giftTo,setGiftTo]=useState(null);
   const [roomFx,pushRoomGift]=useGiftStage();
   const [soundOn,setSoundOn]=useState(sfx.isOn());
+  useEffect(()=>{if(inRoomId)sfx.preload();},[inRoomId]); // eslint-disable-line
   const [loading,setLoading]=useState(true);
 
   const myUid=getUid();
@@ -1022,7 +1023,7 @@ function VoiceRoomsPage({user}){
       if(e){
         const id=Date.now()+Math.random();
         setEntryFx({id,name:m.name,e});
-        if(e.tier)sfx.entrance(e.fx);
+        if(e.tier)sfx.entrance(e.fx,(e.dur||4000)/1000);
         setTimeout(()=>setEntryFx(f=>(f&&f.id===id?null:f)),e.dur||3300);
       }
     });
@@ -2478,7 +2479,7 @@ const CONF=["#F43F5E","#FBBF24","#34D399","#38BDF8","#A78BFA","#F472B6"];
 
 // ── เสียง: WebAudio สังเคราะห์สด (เสียงยิ่งใหญ่ตามระดับ) เปิด/ปิดได้ จำค่าไว้ในเครื่อง ─────────
 const sfx=(()=>{
-  let ctx=null,master=null;
+  let ctx=null,master=null,fmaster=null;
   const isOn=()=>ls.get("sfx",true)!==false;
   const nt=s=>261.63*Math.pow(2,s/12);
   function ensure(){
@@ -2491,6 +2492,7 @@ const sfx=(()=>{
         master=ctx.createGain();master.gain.value=.2;
         const comp=ctx.createDynamicsCompressor();
         master.connect(comp);comp.connect(ctx.destination);
+        fmaster=ctx.createGain();fmaster.gain.value=.55;fmaster.connect(comp); // ไฟล์เสียงจริงเข้าทางนี้
       }
       if(ctx.state==="suspended")ctx.resume();
       return ctx;
@@ -2530,6 +2532,38 @@ const sfx=(()=>{
   const pad=(steps,t0,dur,vol=.14,lp=1800)=>steps.forEach(s=>{tone(nt(s),t0,dur,{type:"sawtooth",vol,lp,att:dur*.45});tone(nt(s)*1.007,t0,dur,{type:"sawtooth",vol:vol*.8,lp,att:dur*.45});});
   function run(fn){try{if(ensure())fn();}catch(e){}}
 
+  // ── ไฟล์เสียงจริง: วางไว้ที่ public/sounds/gift-<ไอดีของขวัญ>.mp3 และ entrance-<ชื่อเอฟเฟกต์>.mp3 ──
+  // ถ้ามีไฟล์ จะเล่นไฟล์จริง (ปรับความดังอัตโนมัติ) ถ้าไม่มีหรือโหลดไม่ได้ จะใช้เสียงสังเคราะห์สำรองด้านล่าง
+  const files=new Map(); // key -> {buf,norm} | null (ไม่มีไฟล์) | "loading"
+  async function loadFile(key){
+    if(files.has(key)||!ctx)return;
+    files.set(key,"loading");
+    try{
+      const r=await fetch("/sounds/"+key+".mp3");
+      if(!r.ok||!/audio|octet-stream|mpeg|ogg|wav/i.test(r.headers.get("content-type")||""))throw new Error("no file");
+      const ab=await r.arrayBuffer();
+      const buf=await new Promise((res,rej)=>{const p=ctx.decodeAudioData(ab,res,rej);if(p&&p.catch)p.catch(rej);});
+      let pk=0;
+      for(let ch=0;ch<buf.numberOfChannels;ch++){const d=buf.getChannelData(ch);for(let i=0;i<d.length;i+=5){const a=Math.abs(d[i]);if(a>pk)pk=a;}}
+      files.set(key,{buf,norm:pk>0?Math.min(12,.9/pk):1});
+    }catch(e){files.set(key,null);}
+  }
+  function playFile(f,tier,maxSec){
+    const c=ctx,t=c.currentTime,s=c.createBufferSource(),g=c.createGain();
+    s.buffer=f.buf;
+    const dur=Math.min(f.buf.duration,maxSec||6);
+    const vol=f.norm*[0,.6,.7,.8,.9,1][Math.min(5,Math.max(1,tier||3))];
+    g.gain.setValueAtTime(vol,t);
+    if(dur<f.buf.duration){g.gain.setValueAtTime(vol,t+Math.max(0,dur-.4));g.gain.linearRampToValueAtTime(0,t+dur);}
+    s.connect(g);g.connect(fmaster);s.start(t);s.stop(t+dur+.05);
+  }
+  function playKey(key,tier,maxSec,fallback){
+    const f=files.get(key);
+    if(f&&f!=="loading"){playFile(f,tier,maxSec);return;}
+    if(f===undefined)loadFile(key); // ครั้งแรกที่ยังไม่ได้โหลด: ใช้เสียงสังเคราะห์ไปก่อน แล้วโหลดไว้ใช้ครั้งต่อไป
+    fallback();
+  }
+
   // ── เสียงเฉพาะของของขวัญแต่ละชิ้น (ใส่เสียงใหม่ = เพิ่มคีย์ตามไอดีของขวัญ) ──
   const GIFT={
     heart(){thump(0,.55,70);thump(.17,.45,62);bell(nt(19),.3,.22,.9);bell(nt(23),.42,.18,.9);},
@@ -2545,7 +2579,24 @@ const sfx=(()=>{
     pumpkin(){tone(nt(-12),0,.9,{type:"sawtooth",vol:.3,lp:500,vib:[2,5]});tone(620,.1,.9,{vol:.22,slide:.55,vib:[18,6]});[.5,.62,.74].forEach(t=>tone(3200,t,.07,{vol:.12,slide:1.4}));[7,5,3,0].forEach((s,i)=>tone(nt(s-12)*2,1.0+i*.14,.11,{type:"sawtooth",vol:.26,lp:900}));},
     krathong(){[0,.2,.45,.62,.9].forEach(t=>tone(1200,t,.14,{vol:.2,slide:.35}));bell(nt(-5),.1,.3,2);[0,2,4,7,4,2].forEach((s,i)=>tone(nt(s+12),.5+i*.24,.34,{vol:.2,vib:[4,5],att:.06}));},
     firework(){tone(600,0,.75,{vol:.22,slide:5});thump(.75,.9,60);noise(.75,.95,{vol:.8,from:2600,to:80});tone(nt(-36),.75,1,{vol:.7,slide:.5});for(let i=0;i<9;i++)noise(.95+i*.09,.05,{vol:.25,from:9000,to:3500,hp:2500});[31,36,40].forEach((s,i)=>bell(nt(s),1.0+i*.08,.14,1));},
-    supercar(){tone(55,0,1.1,{type:"sawtooth",vol:.4,slide:4.2,lp:900,vib:[4,22]});tone(110,0,1.1,{type:"square",vol:.14,slide:4.2,lp:1200});tone(210,1.05,.5,{type:"sawtooth",vol:.3,slide:.5,lp:1000,vib:[4,20]});noise(.4,.12,{vol:.3,from:3000,to:600});noise(1.05,.55,{vol:.2,from:6500,to:2500,hp:1500});tone(1800,1.05,.55,{vol:.07,slide:.8});tone(nt(7),1.6,.35,{type:"sawtooth",vol:.2,lp:1800});tone(nt(11),1.6,.35,{type:"sawtooth",vol:.2,lp:1800});},
+    supercar(){
+      // เครื่องยนต์ V8 สังเคราะห์: ความถี่ไต่ตามรอบเครื่อง + จังหวะจุดระเบิด + เปลี่ยนเกียร์ + ท่อแตก
+      const c=ctx,t=c.currentTime;
+      const A=(p,pts)=>{p.setValueAtTime(pts[0][1],t+pts[0][0]);for(let i=1;i<pts.length;i++)p.linearRampToValueAtTime(pts[i][1],t+pts[i][0]);};
+      const rpm=[[0,34],[.15,46],[.9,138],[1.0,142],[1.08,84],[1.2,92],[1.9,188],[2.05,190],[2.4,70],[2.8,52]];
+      const bus=c.createGain();
+      [["sawtooth",1,.5],["sawtooth",2.01,.28],["square",.5,.4],["sawtooth",3.02,.12]].forEach(([ty,m,v])=>{
+        const o=c.createOscillator(),g=c.createGain();o.type=ty;A(o.frequency,rpm.map(([x,f])=>[x,f*m]));g.gain.value=v;o.connect(g);g.connect(bus);o.start(t);o.stop(t+2.9);
+      });
+      const am=c.createGain();am.gain.value=.6;
+      const lfo=c.createOscillator(),lg=c.createGain();A(lfo.frequency,rpm.map(([x,f])=>[x,f*.5]));lg.gain.value=.35;lfo.connect(lg);lg.connect(am.gain);lfo.start(t);lfo.stop(t+2.9);
+      const lp=c.createBiquadFilter();lp.type="lowpass";lp.Q.value=2;A(lp.frequency,rpm.map(([x,f])=>[x,300+f*9]));
+      const env=c.createGain();env.gain.setValueAtTime(.0001,t);env.gain.exponentialRampToValueAtTime(1.4,t+.12);env.gain.setValueAtTime(1.4,t+2.4);env.gain.exponentialRampToValueAtTime(.0001,t+2.9);
+      bus.connect(am);am.connect(lp);lp.connect(env);env.connect(master);
+      noise(0,2.4,{vol:.14,from:1500,to:900});
+      noise(1.0,.4,{vol:.22,from:6000,to:1800,hp:2500});
+      [2.45,2.52,2.6,2.67,2.76].forEach((d,i)=>noise(d,.07,{vol:.5-i*.07,from:2600,to:300}));
+    },
     castle(){[0,.6,1.2].forEach(t=>bell(nt(-12),t,.35,2));for(let i=0;i<8;i++)thump(i*.07,.4,85);[0,7,12].forEach((s,i)=>brass(s,.3+i*.35,.6,.3));[0,4,7,12].forEach(s=>brass(s,1.5,1.5,.2));noise(1.4,1.5,{vol:.25,from:9000,to:2000,hp:2500});arp([12,16,19,24,28],1.7,.1,{dur:.5,vol:.18});},
     galaxy(){pad([-12,-5,0,4,7],0,2.4,.12,2600);noise(0,2.6,{vol:.08,from:300,to:3000});tone(2000,.4,.45,{vol:.14,slide:.1});tone(1600,.9,.45,{vol:.12,slide:.1});[36,31,28,24,19,16,12].forEach((s,i)=>bell(nt(s),.7+i*.13,.16,1.6));tone(nt(-36),.2,2.2,{vol:.5,slide:.7,att:.8});},
   };
@@ -2587,8 +2638,10 @@ const sfx=(()=>{
     ids:()=>Object.keys(GIFT),
     entranceIds:()=>Object.keys(ENT),
     // ถ้าของขวัญมีเสียงเฉพาะตัวจะใช้เสียงนั้น ไม่มีก็ใช้เสียงตามระดับ
-    gift(tier,id){run(()=>{(GIFT[id]||(()=>tierFallback(tier)))();});},
-    entrance(kind){run(()=>{if(ENT[kind])ENT[kind]();});},
+    gift(tier,id,maxSec){run(()=>playKey("gift-"+id,tier,maxSec||5,()=>(GIFT[id]||(()=>tierFallback(tier)))()));},
+    entrance(kind,maxSec){run(()=>playKey("entrance-"+kind,4,maxSec||7,()=>{if(ENT[kind])ENT[kind]();}));},
+    preload(){if(!ensure())return;Object.keys(GIFT).forEach(i=>loadFile("gift-"+i));Object.keys(ENT).forEach(k=>loadFile("entrance-"+k));},
+    source(key){const f=files.get(key);return f&&f!=="loading"?"file":(f==="loading"?"loading":"synth");},
     buy(){run(()=>{arp([12,16,19,24],0,.08,{dur:.3,vol:.35});});},
   };
 })();
@@ -2655,7 +2708,7 @@ function triggerGiftFx(giftId,setFx,d){
   const fx=makeFx(giftId,d);
   if(!fx)return;
   setFx(fx);
-  sfx.gift(fx.tier,fx.gift);
+  sfx.gift(fx.tier,fx.gift,fx.dur/1000);
   setTimeout(()=>setFx(f=>(f&&f.id===fx.id?null:f)),fx.dur);
 }
 // คิวเอฟเฟกต์ในห้องเสียง: เล่นทีละชิ้นไม่ซ้อนกันจนหน่วง, ของเล็กถูกข้ามเมื่อคิวยาว, ของใหญ่แซงคิวของเล็ก
@@ -2670,7 +2723,7 @@ function useGiftStage(){
     const fast=q.current.length>=2&&it.tier<=3;
     it.dur=fast?Math.round(it.dur*.6):it.dur;
     setFx(it);
-    sfx.gift(it.tier,it.gift);
+    sfx.gift(it.tier,it.gift,it.dur/1000);
     timer.current=setTimeout(()=>{busy.current=false;setFx(null);next();},it.dur);
   },[]);
   const push=useCallback((gid,d)=>{
@@ -2783,6 +2836,8 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
   const [busy,setBusy]=useState(false);
   const [msg,setMsg]=useState("");
   const [pv,setPv]=useState(null);
+  const [,setTick]=useState(0);
+  useEffect(()=>{sfx.preload();const tm=setTimeout(()=>setTick(1),1800);return()=>clearTimeout(tm);},[]);
   async function send(){
     if(!sel||busy)return;
     setBusy(true);setMsg("");
@@ -2811,6 +2866,7 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
               : <div style={{fontSize:64,padding:"12px 0"}}>{sel.emoji}</div>}
             <div style={{fontSize:14,fontWeight:700,color:T.text}}>{sel.name}</div>
             <div style={{fontSize:11,color:TIER_META[giftTier(sel)].color,fontWeight:700,marginTop:2}}>ระดับ {TIER_META[giftTier(sel)].name}</div>
+            <div style={{fontSize:10,color:T.muted,marginTop:2}}>🔊 เสียง: {sfx.source("gift-"+sel.id)==="file"?"ไฟล์จริง":"สังเคราะห์ (ยังไม่มีไฟล์ gift-"+sel.id+".mp3)"}</div>
             {sel.event&&<div style={{fontSize:11,color:ok?T.green:T.yellow,marginTop:3}}>{ok?"🎉 เทศกาล"+sel.event.label+" เปิดอยู่ถึง "+fmtD(sel.event.to):"🔒 เปิดช่วงเทศกาล"+sel.event.label+" ("+fmtD(sel.event.from)+" – "+fmtD(sel.event.to)+")"}</div>}
             <div style={{marginTop:10,display:"flex",gap:8,justifyContent:"center",alignItems:"center",flexWrap:"wrap"}}>
               <Btn onClick={()=>triggerGiftFx(sel.id,setPv)} v="outline" sz="md">▶ ดูแอนิเมชัน</Btn>
@@ -2875,13 +2931,14 @@ function fmtT(ts){
 
 function PremiumTab({me,user}){
   const [msg,busy,run]=useRun();
+  useEffect(()=>{sfx.preload();},[]);
   const inv=Array.isArray(me.inventory)?me.inventory:[];
   const [pv,setPv]=useState(null);
   const groups=[["frame","🖼️ กรอบโปรไฟล์เคลื่อนไหว"],["nameColor","🎨 สีชื่อพิเศษ (ไหลสี/เรืองแสง)"],["badge","🏅 ป้ายพิเศษตามระดับ"],["entrance","✨ เอฟเฟกต์เข้าห้อง (ภาพ + เสียง)"]];
   function playPreview(i){
     const e=ENTRANCES[i.key],id=Date.now()+Math.random();
     setPv({id,name:user.name||"คุณ",e});
-    sfx.entrance(e.fx);
+    sfx.entrance(e.fx,(e.dur||4000)/1000);
     setTimeout(()=>setPv(f=>(f&&f.id===id?null:f)),e.dur||4000);
   }
   function preview(i){
