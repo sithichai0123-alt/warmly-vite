@@ -3,7 +3,7 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction } from "firebase/firestore";
-import { ThemeScope } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
+import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
 
 // ── Firebase Config ──────────────────────────────────────
@@ -53,6 +53,7 @@ const T = {
   yellow:"var(--warning-color,#F59E0B)", glass:"var(--glass-background,rgba(34,31,51,.8))",
   // สีโปร่งใส (เดิมเขียนเป็น T.brandA22 ซึ่งใช้กับ var() ไม่ได้)
   brandA22:"var(--primary-a13,rgba(124,92,252,.133))", brandA33:"var(--primary-a20,rgba(124,92,252,.2))", brandA44:"var(--primary-a27,rgba(124,92,252,.267))",
+  pageBg:"var(--page-background,transparent)", bubble:"var(--message-bubble,var(--panel-background,#221F33))", cardShadow:"var(--card-shadow,0 4px 24px rgba(0,0,0,.3))",
   brand2A22:"var(--secondary-a13,rgba(167,139,250,.133))", greenA33:"var(--success-a20,rgba(16,185,129,.2))", yellowA22:"var(--warning-a13,rgba(245,158,11,.133))",
 };
 
@@ -466,7 +467,7 @@ function Btn({children,onClick,v="primary",sz="md",full,style={}}){
   return(<button onClick={onClick} style={{fontFamily:"inherit",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,width:full?"100%":undefined,transition:"all .18s",...variants[v],...sizes[sz],...style}}>{children}</button>);
 }
 
-function Card({children,style={}}){return(<div style={{background:T.card,border:"1px solid "+T.border,borderRadius:18,overflow:"hidden",boxShadow:"0 4px 24px rgba(0,0,0,.3)",...style}}>{children}</div>);}
+function Card({children,style={}}){return(<div style={{background:T.card,border:"1px solid "+T.border,borderRadius:18,overflow:"hidden",boxShadow:T.cardShadow,...style}}>{children}</div>);}
 
 function Input({value,onChange,placeholder,type="text",onKeyDown,style={}}){
   return(<input type={type} value={value} onChange={onChange} placeholder={placeholder} onKeyDown={onKeyDown}
@@ -851,7 +852,7 @@ function RoomChat({roomId,user,onGift}){
         <button
           onClick={send}
           disabled={!input.trim()}
-          style={{width:36,height:36,borderRadius:"50%",background:input.trim()?T.brandGrad:"#333",border:"none",color:"#fff",cursor:input.trim()?"pointer":"default",fontSize:16,fontFamily:"inherit",flexShrink:0,transition:"background .15s"}}>
+          style={{width:36,height:36,borderRadius:"50%",background:input.trim()?T.brandGrad:T.border,border:"none",color:"#fff",cursor:input.trim()?"pointer":"default",fontSize:16,fontFamily:"inherit",flexShrink:0,transition:"background .15s"}}>
           ↑
         </button>
       </div>
@@ -990,7 +991,7 @@ class VoiceErrorBoundary extends Component{
 
 
 // ── Voice Rooms (Firebase + LiveKit) ─────────────────────
-function VoiceRoomsPage({user}){
+function VoiceRoomsPage({user,onAppearance}){
   const [rooms,setRooms]=useState([]);
   const [inRoomId,setInRoomId]=useState(null);
   const [inRoomName,setInRoomName]=useState("");
@@ -1227,7 +1228,7 @@ function VoiceRoomsPage({user}){
                   <div key={key+i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,position:"relative"}}>
                     {isHost&&!isMe&&(
                       <div style={{position:"absolute",top:-10,right:-12,display:"flex",gap:3,zIndex:2}}>
-                        <button onClick={()=>hostToggleMic(key)} style={{width:26,height:26,borderRadius:"50%",background:m.mic!==false?"#1A3A2A":"#2A2A1A",border:"1px solid "+T.border,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>{m.mic!==false?"🎙":"🔇"}</button>
+                        <button onClick={()=>hostToggleMic(key)} style={{width:26,height:26,borderRadius:"50%",background:m.mic!==false?T.greenA33:T.yellowA22,border:"1px solid "+T.border,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>{m.mic!==false?"🎙":"🔇"}</button>
                         <button onClick={()=>kick(key)} style={{width:26,height:26,borderRadius:"50%",background:T.redBg,border:"1px solid rgba(244,63,94,.5)",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",color:T.red,fontFamily:"inherit"}}>🚫</button>
                       </div>
                     )}
@@ -1260,6 +1261,7 @@ function VoiceRoomsPage({user}){
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
         <div style={{fontSize:16,fontWeight:800,color:T.text}}>ห้องเสียง 🎙️</div>
         <div style={{display:"flex",gap:6}}>
+          {onAppearance&&<Btn onClick={onAppearance} v="ghost" sz="sm">🎨 ธีม</Btn>}
           {VOICE_AURA_ENABLED&&!user.isGuest&&<Btn onClick={()=>setAuraOpen(true)} v="ghost" sz="sm">✨ Voice Aura</Btn>}
           {!user.isGuest&&<Btn onClick={()=>setCreating(!creating)} v={creating?"primary":"outline"} sz="sm">+ ห้องใหม่</Btn>}
         </div>
@@ -1615,7 +1617,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
               <div style={{maxWidth:"74%",display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start"}}>
                 {head&&<div style={{fontSize:11,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px"}}><Nm uid={m.uid} name={m.author}/></div>}
                 {m.image&&<img src={m.image} alt="" style={{maxWidth:"100%",borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
-                {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me?T.brandGrad:T.card,color:me?"#fff":T.text,border:me?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{m.text}</div>}
+                {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me?T.brandGrad:T.bubble,color:me?"#fff":T.text,border:me?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{m.text}</div>}
                 <div style={{fontSize:10,color:T.muted,margin:"2px 4px 0"}}>{fmtTime(ms)}</div>
               </div>
             </div>
@@ -1736,7 +1738,7 @@ function ChatPage({user,openPeer,onPeerOpened}){
 }
 
 // ── Profile ───────────────────────────────────────────────
-function ProfilePage({user,posts,onUpdateName}){
+function ProfilePage({user,posts,onUpdateName,onAppearance}){
   const [bio,setBio]=useState(()=>ls.get("bio","ชอบคุยเล่น • ฟังเพื่อนใหม่ 💜"));
   const [mood,setMood]=useState(()=>ls.get("mood","สบายดี 😊"));
   const [editing,setEditing]=useState(false);
@@ -1802,7 +1804,7 @@ function ProfilePage({user,posts,onUpdateName}){
                 </div>
                 {showMP&&<div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:8}}>{MOODS.map(m=><Btn key={m} onClick={()=>saveMood(m)} v={mood===m?"outline":"ghost"} sz="sm">{m}</Btn>)}</div>}
               </div>
-              <Btn onClick={()=>{setEditing(!editing);setBioInput(bio);}} v="ghost" sz="sm">✏️</Btn>
+              <div style={{display:"flex",gap:6}}>{onAppearance&&<Btn onClick={onAppearance} v="ghost" sz="sm">🎨</Btn>}<Btn onClick={()=>{setEditing(!editing);setBioInput(bio);}} v="ghost" sz="sm">✏️</Btn></div>
             </div>
             <div style={{display:"flex",gap:28,marginTop:16,paddingTop:14,borderTop:"1px solid "+T.border}}>
               {[["48","เพื่อน"],[String(myPosts.length),"โพสต์"],[String((_allUsers[getUid()]&&_allUsers[getUid()].giftCount)||0),"ของขวัญ"]].map(([n,l])=>(
@@ -3265,6 +3267,9 @@ function PrivacyPage(){
 }
 
 // ── Root ──────────────────────────────────────────────────
+// หน้า → ส่วนของธีม (หน้าอื่น เช่น ความเป็นส่วนตัว ใช้สีเดิม)
+const THEME_PAGE={voice:"voice",feed:"feed",chat:"chat",profile:"profile"};
+const themeApi=makeThemeApi({db,getUid,setDoc,doc});
 const TABS=[{key:"feed",icon:"🏠",label:"ฟีด"},{key:"chat",icon:"💬",label:"แชท"},{key:"voice",icon:"🎙️",label:"เสียง"},{key:"profile",icon:"👤",label:"โปรไฟล์"},{key:"privacy",icon:"🔒",label:"ส่วนตัว"}];
 
 export default function App(){
@@ -3276,6 +3281,9 @@ export default function App(){
   const [viewUid,setViewUid]=useState(null);
   const [dmTarget,setDmTarget]=useState(null);
   const [shopOpen,setShopOpen]=useState(false);
+  const [appear,setAppear]=useState(null); // เมนูธีม: null=ปิด, หรือชื่อหน้าที่เริ่มต้น
+  const openAppearance=sec=>setAppear(sec||"voice");
+  useThemeAccountSync(user?getUid():null,user?users[getUid()]:null); // ธีมที่เลือกตามบัญชี (ล็อกอินใหม่ได้คืน)
 
   // ติดตามสถานะล็อกอิน Google จริง (Firebase Auth) + ผู้เยี่ยมชม
   useEffect(()=>{
@@ -3367,15 +3375,17 @@ export default function App(){
           <button onClick={handleLogout} style={{border:"1px solid "+T.border,borderRadius:9,background:"transparent",color:T.muted,cursor:"pointer",padding:"4px 9px",fontSize:11,fontFamily:"inherit"}}>ออก</button>
         </div>
       </div>
-      <div style={{flex:1,overflowY:page==="chat"?"hidden":"auto",display:"flex",flexDirection:"column"}}>
+      <ThemeScope section={THEME_PAGE[page]||null}>
+      <div style={{flex:1,overflowY:page==="chat"?"hidden":"auto",display:"flex",flexDirection:"column",background:T.pageBg}}>
         <div style={{flex:1,padding:page==="chat"?"0":"14px 12px 80px"}}>
-          {page==="feed"    &&<ThemeScope section="feed"><FeedPage user={user}/></ThemeScope>}
-          {page==="chat"    &&<ThemeScope section="chat"><ChatPage user={user} openPeer={dmTarget} onPeerOpened={()=>setDmTarget(null)}/></ThemeScope>}
-          <div style={{display:page==="voice"?"block":"none"}}><ThemeScope section="voice"><VoiceErrorBoundary><VoiceRoomsPage user={user}/></VoiceErrorBoundary></ThemeScope></div>
-          {page==="profile" &&<ThemeScope section="profile"><ProfilePage user={user} posts={posts} onUpdateName={n=>{const u={...user,name:n,init:n.slice(0,2).toUpperCase()};ls.set("user",u);setUser(u);}}/></ThemeScope>}
+          {page==="feed"    &&<FeedPage user={user}/>}
+          {page==="chat"    &&<ChatPage user={user} openPeer={dmTarget} onPeerOpened={()=>setDmTarget(null)}/>}
+          <div style={{display:page==="voice"?"block":"none"}}><VoiceErrorBoundary><VoiceRoomsPage user={user} onAppearance={()=>openAppearance("voice")}/></VoiceErrorBoundary></div>
+          {page==="profile" &&<ProfilePage user={user} posts={posts} onAppearance={()=>openAppearance("profile")} onUpdateName={n=>{const u={...user,name:n,init:n.slice(0,2).toUpperCase()};ls.set("user",u);setUser(u);}}/>}
           {page==="privacy" &&<PrivacyPage/>}
         </div>
       </div>
+      </ThemeScope>
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid "+T.border,display:"flex",zIndex:30,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
         {TABS.map(t=>(
           <button key={t.key} onClick={()=>setPage(t.key)} style={{flex:1,padding:"10px 4px 8px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,fontFamily:"inherit"}}>
@@ -3386,6 +3396,7 @@ export default function App(){
         ))}
       </div>
     {shopOpen&&!user.isGuest&&<ShopModal user={user} onClose={()=>setShopOpen(false)}/>}
+    {appear&&<AppearanceModal me={users[getUid()]||{}} user={user} api={themeApi} startSection={appear} onClose={()=>setAppear(null)}/>}
     {viewUid&&<ProfileModal uid={viewUid} posts={posts} user={user} onClose={()=>setViewUid(null)} onChat={id=>{setViewUid(null);setDmTarget(id);setPage("chat");}}/>}
     </div>
     </ProfileCtx.Provider>
