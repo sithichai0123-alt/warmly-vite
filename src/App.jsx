@@ -3,6 +3,7 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction } from "firebase/firestore";
+import { ThemeScope } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
 
 // ── Firebase Config ──────────────────────────────────────
@@ -43,12 +44,16 @@ const auth = getAuth(firebaseApp);
 
 // ── Design Tokens ────────────────────────────────────────
 const T = {
-  bg:"#0F0E17", surface:"#1A1825", card:"#221F33", border:"#2E2A45",
-  borderHi:"#4F46A8", brand:"#7C5CFC", brand2:"#A78BFA",
-  brandGrad:"linear-gradient(135deg,#7C5CFC,#A78BFA)",
-  text:"#F0EEFF", sub:"#9B94C4", muted:"#5C5780",
-  green:"#10B981", red:"#F43F5E", redBg:"rgba(244,63,94,.12)",
-  yellow:"#F59E0B", glass:"rgba(34,31,51,.8)",
+  // สีทุกตัวเป็น var(--ตัวแปร, สีเดิม): ไม่มีธีมใดตั้งตัวแปร = ได้สีเดิมของ Warmly เป๊ะ (ดู src/themes)
+  bg:"var(--app-background,#0F0E17)", surface:"var(--surface-background,#1A1825)", card:"var(--panel-background,#221F33)", border:"var(--border-color,#2E2A45)",
+  borderHi:"var(--border-strong,#4F46A8)", brand:"var(--primary-color,#7C5CFC)", brand2:"var(--secondary-color,#A78BFA)",
+  brandGrad:"var(--button-background,linear-gradient(135deg,#7C5CFC,#A78BFA))",
+  text:"var(--text-primary,#F0EEFF)", sub:"var(--text-secondary,#9B94C4)", muted:"var(--text-muted,#5C5780)",
+  green:"var(--success-color,#10B981)", red:"var(--danger-color,#F43F5E)", redBg:"var(--danger-background,rgba(244,63,94,.12))",
+  yellow:"var(--warning-color,#F59E0B)", glass:"var(--glass-background,rgba(34,31,51,.8))",
+  // สีโปร่งใส (เดิมเขียนเป็น T.brandA22 ซึ่งใช้กับ var() ไม่ได้)
+  brandA22:"var(--primary-a13,rgba(124,92,252,.133))", brandA33:"var(--primary-a20,rgba(124,92,252,.2))", brandA44:"var(--primary-a27,rgba(124,92,252,.267))",
+  brand2A22:"var(--secondary-a13,rgba(167,139,250,.133))", greenA33:"var(--success-a20,rgba(16,185,129,.2))", yellowA22:"var(--warning-a13,rgba(245,158,11,.133))",
 };
 
 // ── Persistent local storage ──────────────────────────────
@@ -649,7 +654,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
       <div style={{fontSize:13,fontWeight:700,color:T.brand2,marginBottom:12,display:"flex",alignItems:"center",gap:7}}>
         🎵 Playlist
         <span style={{fontSize:11,fontWeight:400,color:T.muted}}>({safeList.length})</span>
-        {currentSong&&<span style={{fontSize:11,background:T.green+"33",color:T.green,borderRadius:20,padding:"2px 8px",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
+        {currentSong&&<span style={{fontSize:11,background:T.greenA33,color:T.green,borderRadius:20,padding:"2px 8px",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
           <span style={{width:5,height:5,borderRadius:"50%",background:T.green,display:"inline-block",animation:"pulse 1.5s infinite"}}/>LIVE
         </span>}
       </div>
@@ -669,7 +674,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
       {currentSong&&(
         <div style={{marginBottom:14,borderRadius:14,overflow:"hidden",border:"1px solid "+T.borderHi}}>
           {/* Header */}
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"linear-gradient(90deg,"+T.brand+"44,"+T.brand2+"22)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"linear-gradient(90deg,"+T.brandA44+","+T.brand2A22+")"}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <img src={currentSong.thumb} alt="" style={{width:36,height:26,borderRadius:6,objectFit:"cover"}} onError={e=>e.target.style.display="none"}/>
               <div>
@@ -733,7 +738,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
           const isPlaying=nowPlaying===s.id;
           return(
             <div key={s.id} style={{display:"flex",gap:10,alignItems:"center",padding:"9px 12px",borderRadius:12,
-              background:isPlaying?T.brand+"22":T.surface,
+              background:isPlaying?T.brandA22:T.surface,
               border:"1px solid "+(isPlaying?T.borderHi:T.border),transition:"all .18s"}}>
               <span style={{fontSize:13,fontWeight:700,color:isPlaying?T.brand2:T.muted,width:18,textAlign:"center",flexShrink:0}}>{isPlaying?"▶":i+1}</span>
               <img src={s.thumb} alt="" style={{width:48,height:34,borderRadius:8,objectFit:"cover",flexShrink:0,border:"1px solid "+T.border}} onError={e=>e.target.style.display="none"}/>
@@ -1349,7 +1354,7 @@ function PostCard({p,user}){
             <div style={{fontSize:12,color:T.muted,display:"flex",flexWrap:"wrap",gap:6,marginTop:3}}>
               <span>{p.createdAt?timeAgo(p.createdAt):"เมื่อกี้"}</span><span>·</span>
               <span style={{background:T.surface,borderRadius:20,padding:"1px 8px",border:"1px solid "+T.border}}>{PV_ICO[p.privacy||"public"]} {PV_LBL[p.privacy||"public"]}</span>
-              {p.mood&&<span style={{background:T.brand+"22",borderRadius:20,padding:"1px 8px",color:T.brand2,fontWeight:600,fontSize:12}}>✦ {p.mood}</span>}
+              {p.mood&&<span style={{background:T.brandA22,borderRadius:20,padding:"1px 8px",color:T.brand2,fontWeight:600,fontSize:12}}>✦ {p.mood}</span>}
             </div>
           </div>
         </div>
@@ -1624,7 +1629,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
         <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,900,0.6).then(setImg).catch(()=>setErr("อ่านรูปไม่ได้"));}}/>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <button onClick={()=>fileRef.current.click()} style={{width:36,height:36,borderRadius:"50%",border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:15,flexShrink:0,fontFamily:"inherit"}}>📷</button>
-          {giftTo&&!user.isGuest&&<button onClick={()=>setGiftOpen(true)} style={{width:36,height:36,borderRadius:"50%",border:"1px solid "+T.borderHi,background:T.brand+"22",cursor:"pointer",fontSize:15,flexShrink:0,fontFamily:"inherit"}}>🎁</button>}
+          {giftTo&&!user.isGuest&&<button onClick={()=>setGiftOpen(true)} style={{width:36,height:36,borderRadius:"50%",border:"1px solid "+T.borderHi,background:T.brandA22,cursor:"pointer",fontSize:15,flexShrink:0,fontFamily:"inherit"}}>🎁</button>}
           <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder}
             style={{flex:1,minWidth:0,border:"1px solid "+T.border,borderRadius:20,padding:"9px 16px",fontSize:14,color:T.text,background:T.card,outline:"none",fontFamily:"inherit"}}
             onFocus={e=>e.target.style.borderColor=T.borderHi} onBlur={e=>e.target.style.borderColor=T.border}/>
@@ -1793,7 +1798,7 @@ function ProfilePage({user,posts,onUpdateName}){
                 {editing?<div style={{marginTop:7,display:"flex",gap:7}}><Input value={bioInput} onChange={e=>setBioInput(e.target.value)} style={{width:220,padding:"6px 11px",fontSize:13}}/><Btn onClick={saveBio} v="primary" sz="sm">บันทึก</Btn></div>
                 :<div style={{fontSize:13,color:T.sub,marginTop:5,lineHeight:1.6}}>{bio}</div>}
                 <div style={{marginTop:9}}>
-                  <span onClick={()=>setShowMP(!showMP)} style={{background:T.brand+"22",color:T.brand2,borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer",border:"1px solid "+T.borderHi}}>✦ {mood}</span>
+                  <span onClick={()=>setShowMP(!showMP)} style={{background:T.brandA22,color:T.brand2,borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer",border:"1px solid "+T.borderHi}}>✦ {mood}</span>
                 </div>
                 {showMP&&<div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:8}}>{MOODS.map(m=><Btn key={m} onClick={()=>saveMood(m)} v={mood===m?"outline":"ghost"} sz="sm">{m}</Btn>)}</div>}
               </div>
@@ -1820,7 +1825,7 @@ function ProfilePage({user,posts,onUpdateName}){
               {p.content&&<div style={{fontSize:13,color:T.sub,lineHeight:1.65}}>{p.content}</div>}
               <div style={{fontSize:11,color:T.muted,marginTop:5,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
                 <span>{p.createdAt?timeAgo(p.createdAt):"เมื่อกี้"}</span>
-                {p.mood&&<span style={{background:T.brand+"22",borderRadius:20,padding:"0 7px",color:T.brand2,fontWeight:600}}>✦ {p.mood}</span>}
+                {p.mood&&<span style={{background:T.brandA22,borderRadius:20,padding:"0 7px",color:T.brand2,fontWeight:600}}>✦ {p.mood}</span>}
                 <span>❤️{p.likes||0}</span><span>💬{(p.comments||[]).length}</span>
               </div>
             </div>
@@ -2898,8 +2903,8 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
           {GIFTS.map(g=>{
             const av=giftAvailable(g);
             return(
-              <button key={g.id} onClick={()=>{setSel(g);setMsg("");}} style={{position:"relative",background:sel&&sel.id===g.id?T.brand+"33":T.surface,border:"1px solid "+(sel&&sel.id===g.id?T.borderHi:(coins>=g.price?T.border:"rgba(244,63,94,.3)")),borderRadius:14,padding:"10px 2px",cursor:"pointer",opacity:av&&coins>=g.price?1:.55,fontFamily:"inherit"}}>
-                {g.model&&<span style={{position:"absolute",top:3,right:4,fontSize:9,fontWeight:800,color:T.brand2,background:T.brand+"33",borderRadius:6,padding:"0 4px"}}>3D</span>}
+              <button key={g.id} onClick={()=>{setSel(g);setMsg("");}} style={{position:"relative",background:sel&&sel.id===g.id?T.brandA33:T.surface,border:"1px solid "+(sel&&sel.id===g.id?T.borderHi:(coins>=g.price?T.border:"rgba(244,63,94,.3)")),borderRadius:14,padding:"10px 2px",cursor:"pointer",opacity:av&&coins>=g.price?1:.55,fontFamily:"inherit"}}>
+                {g.model&&<span style={{position:"absolute",top:3,right:4,fontSize:9,fontWeight:800,color:T.brand2,background:T.brandA33,borderRadius:6,padding:"0 4px"}}>3D</span>}
                 <span style={{position:"absolute",left:10,right:10,bottom:3,height:2,borderRadius:2,background:TIER_META[giftTier(g)].color}}/>
                 <div style={{fontSize:30}}>{g.emoji}</div>
                 <div style={{fontSize:11,color:T.text,marginTop:2}}>{g.name}</div>
@@ -3038,7 +3043,7 @@ function WalletTab({me}){
       </div>
 
       <div style={{...sec,opacity:.85}}>
-        <div style={{fontSize:14,fontWeight:800,color:T.text}}>💳 ซื้อเหรียญม่วงด้วยเงินจริง <span style={{fontSize:10,background:T.yellow+"22",color:T.yellow,borderRadius:20,padding:"1px 8px"}}>เร็วๆ นี้</span></div>
+        <div style={{fontSize:14,fontWeight:800,color:T.text}}>💳 ซื้อเหรียญม่วงด้วยเงินจริง <span style={{fontSize:10,background:T.yellowA22,color:T.yellow,borderRadius:20,padding:"1px 8px"}}>เร็วๆ นี้</span></div>
         <div style={{fontSize:11,color:T.muted,marginTop:3,lineHeight:1.6}}>เหรียญม่วงที่ซื้อจะถูกเก็บแยกจากเหรียญม่วงที่ได้จากการแลก/รางวัล เพื่อให้กำหนดเงื่อนไขการใช้งานและการคืนเงินได้ชัดเจน</div>
       </div>
 
@@ -3097,7 +3102,7 @@ function ShopModal({user,onClose}){
   return(
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",zIndex:60,display:"flex",alignItems:"flex-start",justifyContent:"center",overflowY:"auto",padding:"20px 12px"}}>
       <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:440,background:T.card,border:"1px solid "+T.borderHi,borderRadius:20,overflow:"hidden"}}>
-        <div style={{padding:"16px 16px 12px",background:"linear-gradient(135deg,"+T.brand+"33,"+T.card+")"}}>
+        <div style={{padding:"16px 16px 12px",background:"linear-gradient(135deg,"+T.brandA33+","+T.card+")"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{fontSize:17,fontWeight:800,color:T.text}}>🛍️ ร้านค้า</div>
             <button onClick={onClose} style={{width:30,height:30,borderRadius:"50%",border:"none",background:"rgba(0,0,0,.4)",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
@@ -3127,7 +3132,7 @@ function ShopModal({user,onClose}){
               <div key={i.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 4px",borderBottom:"1px solid "+T.border}}>
                 {preview(i)}
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:14,fontWeight:700,color:T.text}}>{i.name}{i.special&&<span style={{fontSize:10,marginLeft:6,background:T.yellow+"22",color:T.yellow,borderRadius:20,padding:"1px 7px"}}>สุดพิเศษ</span>}</div>
+                  <div style={{fontSize:14,fontWeight:700,color:T.text}}>{i.name}{i.special&&<span style={{fontSize:10,marginLeft:6,background:T.yellowA22,color:T.yellow,borderRadius:20,padding:"1px 7px"}}>สุดพิเศษ</span>}</div>
                   <div style={{fontSize:11,color:T.muted}}>{i.special?("ปลดล็อก: "+i.special):("🪙 "+i.price)}</div>
                 </div>
                 {owned
@@ -3206,7 +3211,7 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
               {u.isGuest&&<span style={{fontSize:11,marginLeft:8,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 8px",fontWeight:600}}>👋 Guest</span>}
             </div>
             <div style={{fontSize:13,color:T.sub,marginTop:5,lineHeight:1.6}}>{u.bio||"ชอบคุยเล่น • ฟังเพื่อนใหม่ 💜"}</div>
-            {u.mood&&<div style={{marginTop:8}}><span style={{background:T.brand+"22",color:T.brand2,borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,border:"1px solid "+T.borderHi}}>✦ {u.mood}</span></div>}
+            {u.mood&&<div style={{marginTop:8}}><span style={{background:T.brandA22,color:T.brand2,borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,border:"1px solid "+T.borderHi}}>✦ {u.mood}</span></div>}
             <div style={{marginTop:10,fontSize:12,color:T.muted}}>🎁 ได้รับของขวัญ {u.giftCount||0} ชิ้น</div>
             {uid!==getUid()&&<div style={{marginTop:12,display:"flex",gap:8,flexWrap:"wrap"}}>
               <Btn onClick={()=>onChat(uid)} v="primary" sz="sm">💬 แชทส่วนตัว</Btn>
@@ -3364,10 +3369,10 @@ export default function App(){
       </div>
       <div style={{flex:1,overflowY:page==="chat"?"hidden":"auto",display:"flex",flexDirection:"column"}}>
         <div style={{flex:1,padding:page==="chat"?"0":"14px 12px 80px"}}>
-          {page==="feed"    &&<FeedPage user={user}/>}
-          {page==="chat"    &&<ChatPage user={user} openPeer={dmTarget} onPeerOpened={()=>setDmTarget(null)}/>}
-          <div style={{display:page==="voice"?"block":"none"}}><VoiceErrorBoundary><VoiceRoomsPage user={user}/></VoiceErrorBoundary></div>
-          {page==="profile" &&<ProfilePage user={user} posts={posts} onUpdateName={n=>{const u={...user,name:n,init:n.slice(0,2).toUpperCase()};ls.set("user",u);setUser(u);}}/>}
+          {page==="feed"    &&<ThemeScope section="feed"><FeedPage user={user}/></ThemeScope>}
+          {page==="chat"    &&<ThemeScope section="chat"><ChatPage user={user} openPeer={dmTarget} onPeerOpened={()=>setDmTarget(null)}/></ThemeScope>}
+          <div style={{display:page==="voice"?"block":"none"}}><ThemeScope section="voice"><VoiceErrorBoundary><VoiceRoomsPage user={user}/></VoiceErrorBoundary></ThemeScope></div>
+          {page==="profile" &&<ThemeScope section="profile"><ProfilePage user={user} posts={posts} onUpdateName={n=>{const u={...user,name:n,init:n.slice(0,2).toUpperCase()};ls.set("user",u);setUser(u);}}/></ThemeScope>}
           {page==="privacy" &&<PrivacyPage/>}
         </div>
       </div>
