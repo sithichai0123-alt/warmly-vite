@@ -1,8 +1,10 @@
 // Themes — เมนู "ธีมและการแสดงผล": เลือกหน้า → ดูตัวอย่าง → ใช้ธีม
 // ไฟล์แยกอิสระ ไม่ import จาก App.jsx (รับข้อมูลและฟังก์ชันบันทึกผ่าน props)
 // ดูตัวอย่าง: วาดหน้าจอจำลองด้วยธีมที่เลือก (ThemeScope themeId) — ไม่แตะค่าที่บันทึกไว้จนกว่าจะกดใช้
-import { useState, useRef } from "react";
-import { THEMES, THEME_BY_ID, THEME_SECTIONS, SECTION_LABEL, DEFAULT_THEME, RARITY_T, canUseTheme } from "./catalog.js";
+import { useState, useRef, useMemo, useEffect } from "react";
+import { THEMES, THEME_BY_ID, THEME_SECTIONS, SECTION_LABEL, DEFAULT_THEME, RARITY_T, canUseTheme, themeItemId } from "./catalog.js";
+import { THEME_SHOP_ENABLED } from "./config.js";
+import { planBuyTheme } from "./wallet.js";
 import { useSectionTheme, setSectionTheme } from "./store.js";
 import ThemeScope from "./ThemeScope.jsx";
 
@@ -79,22 +81,44 @@ function SectionChip({ s, active, onClick }) {
   );
 }
 
+
+function Wallet({ gold, purple }) {
+  return (
+    <div style={{ display: "flex", gap: 14, alignItems: "center", fontSize: 12, fontWeight: 800 }}>
+      <span style={{ color: C.yellow }}>🪙 {gold.toLocaleString()}</span>
+      <span style={{ color: C.purple }}>💜 {purple.toLocaleString()}</span>
+    </div>
+  );
+}
+
 export default function AppearanceModal({ me, user, onClose, api, startSection }) {
   const [section, setSection] = useState(THEME_SECTIONS.includes(startSection) ? startSection : "voice");
   const current = useSectionTheme(section);
+  const [tab, setTab] = useState("shop"); // shop = ร้านธีม | mine = ธีมของฉัน
   const [pv, setPv] = useState(null);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [bought, setBought] = useState([]); // ธีมที่เพิ่งซื้อ (แสดงผลทันทีก่อนข้อมูลบัญชีอัปเดต)
+  const [after, setAfter] = useState(null); // ยอดคงเหลือหลังซื้อ
+  const [confirm, setConfirm] = useState(null); // รหัสธีมที่รอยืนยันการซื้อ
   const mockRef = useRef(null);
   const shown = pv || current;
-  const showPreview = id => { setPv(id); setMsg(""); if (mockRef.current && mockRef.current.scrollIntoView) mockRef.current.scrollIntoView({ behavior: "smooth", block: "center" }); };
+  const guest = !!user.isGuest;
+
+  const meX = useMemo(() => (bought.length ? { ...me, inventory: [...(Array.isArray(me.inventory) ? me.inventory : []), ...bought.map(themeItemId)] } : me), [me, bought]);
+  useEffect(() => { setAfter(null); }, [me.coins, me.purple, me.purpleBought]);
+  const bal = after ? { gold: after.gold, purple: after.purple + after.purpleBought } : { gold: me.coins || 0, purple: (me.purple || 0) + (me.purpleBought || 0) };
+
+  const showPreview = id => { setPv(id); setMsg(""); setConfirm(null); if (mockRef.current && mockRef.current.scrollIntoView) mockRef.current.scrollIntoView({ behavior: "smooth", block: "center" }); };
+  // ซื้อได้ไหม: คืนเหตุผล (ข้อความไทย) ถ้าซื้อไม่ได้, null ถ้าซื้อได้ — ใช้ตรรกะชุดเดียวกับตอนซื้อจริง
+  const quote = id => { try { return { why: null, plan: planBuyTheme({ ...meX, isGuest: guest }, id) }; } catch (e) { return { why: e.message, plan: null }; } };
 
   async function apply(sec, id, okMsg) {
     if (busy) return;
     setBusy(true); setMsg("");
     try {
-      if (id && !canUseTheme(me, id)) throw new Error("ยังไม่ได้เป็นเจ้าของธีมนี้");
-      if (!user.isGuest) await api.save(me, sec, id); // บันทึกเข้าบัญชีก่อน สำเร็จแล้วค่อยเปลี่ยนจริง
+      if (id && !canUseTheme(meX, id)) throw new Error("ยังไม่ได้เป็นเจ้าของธีมนี้");
+      if (!guest) await api.save(meX, sec, id); // บันทึกเข้าบัญชีก่อน สำเร็จแล้วค่อยเปลี่ยนจริง
       setSectionTheme(sec, id);
       setMsg(okMsg);
     } catch (e) { setMsg("⚠️ " + (e.message || e.code || "ผิดพลาด")); }
@@ -104,16 +128,34 @@ export default function AppearanceModal({ me, user, onClose, api, startSection }
     if (busy) return;
     setBusy(true); setMsg("");
     try {
-      if (id && !canUseTheme(me, id)) throw new Error("ยังไม่ได้เป็นเจ้าของธีมนี้");
-      if (!user.isGuest) await api.saveAll(me, id);
+      if (id && !canUseTheme(meX, id)) throw new Error("ยังไม่ได้เป็นเจ้าของธีมนี้");
+      if (!guest) await api.saveAll(meX, id);
       THEME_SECTIONS.forEach(s => setSectionTheme(s, id));
       setMsg(id ? "ใช้ธีมนี้กับทุกหน้าแล้ว" : "กลับธีมเดิมทุกหน้าแล้ว");
     } catch (e) { setMsg("⚠️ " + (e.message || e.code || "ผิดพลาด")); }
     setBusy(false);
   }
+  async function doBuy(id) {
+    if (busy) return;
+    setBusy(true); setMsg("");
+    try {
+      if (!THEME_SHOP_ENABLED) throw new Error("ปิดร้านธีมชั่วคราว");
+      if (guest) throw new Error("ล็อกอินด้วย Google ก่อนจึงจะซื้อธีมได้");
+      if (!api.buy) throw new Error("ระบบซื้อธีมยังไม่พร้อม");
+      const entry = await api.buy(id);
+      setBought(b => (b.includes(id) ? b : [...b, id]));
+      if (entry && entry.after) setAfter(entry.after);
+      setConfirm(null); setPv(id);
+      setMsg("🎉 ซื้อ " + THEME_BY_ID[id].name + " สำเร็จ — กด \"ใช้ธีมนี้\" ได้เลย");
+    } catch (e) { setConfirm(null); setMsg("⚠️ " + (e.message || e.code || "ซื้อไม่สำเร็จ")); }
+    setBusy(false);
+  }
 
   const st = THEME_BY_ID[shown];
-  const usable = canUseTheme(me, shown);
+  const usable = canUseTheme(meX, shown);
+  const q = !usable ? quote(shown) : null;
+  const cq = confirm ? quote(confirm) : null;
+  const list = tab === "mine" ? THEMES.filter(t => canUseTheme(meX, t.id)) : THEMES;
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 60, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "20px 12px" }}>
@@ -124,11 +166,11 @@ export default function AppearanceModal({ me, user, onClose, api, startSection }
             <button onClick={onClose} aria-label="ปิด" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.4)", color: "#fff", cursor: "pointer", fontFamily: "inherit" }}>✕</button>
           </div>
           <div style={{ fontSize: 11, color: C.sub, marginTop: 6, lineHeight: 1.5 }}>เลือกธีมแยกกันได้ในแต่ละหน้า (ส่วนหัวและเมนูล่างไม่เปลี่ยนสี) กด "ดูตัวอย่าง" ก่อนได้ — ยังไม่บันทึกจนกว่าจะกด "ใช้ธีมนี้"</div>
-          {msg && <div style={{ fontSize: 12, color: msg.startsWith("⚠️") ? C.red : C.green, marginTop: 8, lineHeight: 1.5 }}>{msg}</div>}
+          {!guest && <div style={{ marginTop: 8 }}><Wallet gold={bal.gold} purple={bal.purple} /></div>}
         </div>
 
         <div style={{ display: "flex", gap: 6, padding: "10px 14px 0", flexWrap: "wrap" }}>
-          {THEME_SECTIONS.map(s => <SectionChip key={s} s={s} active={section === s} onClick={() => { setSection(s); setPv(null); setMsg(""); }} />)}
+          {THEME_SECTIONS.map(s => <SectionChip key={s} s={s} active={section === s} onClick={() => { setSection(s); setPv(null); setMsg(""); setConfirm(null); }} />)}
         </div>
 
         <div ref={mockRef} style={{ padding: "12px 14px 0" }}>
@@ -139,24 +181,55 @@ export default function AppearanceModal({ me, user, onClose, api, startSection }
               ? (shown === current
                 ? <span style={{ fontSize: 12, color: C.green, fontWeight: 800 }}>● ใช้อยู่ที่หน้า{SECTION_LABEL[section]}</span>
                 : <button disabled={busy} onClick={() => apply(section, shown === DEFAULT_THEME ? null : shown, "ใช้ " + st.name + " กับหน้า" + SECTION_LABEL[section] + " แล้ว")} style={btn(true)}>ใช้ธีมนี้กับหน้า{SECTION_LABEL[section]}</button>)
-              : <span style={{ fontSize: 12, color: C.yellow, fontWeight: 700 }}>🔒 ธีมนี้ต้องซื้อ — เปิดให้ซื้อในเฟสถัดไป (ดูตัวอย่างได้ก่อน)</span>}
+              : (!THEME_SHOP_ENABLED
+                ? <span style={{ fontSize: 12, color: C.yellow, fontWeight: 700 }}>🔒 ปิดร้านธีมชั่วคราว (ดูตัวอย่างได้)</span>
+                : guest
+                  ? <span style={{ fontSize: 12, color: C.yellow, fontWeight: 700 }}>🔒 ล็อกอินด้วย Google ก่อนจึงจะซื้อธีมได้ (ดูตัวอย่างได้)</span>
+                  : <button disabled={busy} onClick={() => setConfirm(shown)} style={btn(true)}>ซื้อธีมนี้ · {st.cur === "gold" ? "🪙 " + st.price.toLocaleString() : "💜 " + st.price}</button>)}
             {usable && <button disabled={busy} onClick={() => applyAll(shown === DEFAULT_THEME ? null : shown)} style={btn(false)}>ใช้กับทุกหน้า</button>}
           </div>
+          {!usable && THEME_SHOP_ENABLED && !guest && q && q.why && !confirm && <div style={{ fontSize: 11, color: C.red, marginTop: 6 }}>{q.why}</div>}
+
+          {confirm && cq && (
+            <div role="dialog" aria-label="ยืนยันการซื้อ" style={{ marginTop: 10, border: "1px solid " + C.borderHi, background: C.surface, borderRadius: 14, padding: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 800 }}>ยืนยันซื้อ {THEME_BY_ID[confirm].name}?</div>
+              <div style={{ fontSize: 12, color: C.sub, marginTop: 4, lineHeight: 1.6 }}>
+                ราคา <Price t={THEME_BY_ID[confirm]} />
+                {cq.plan
+                  ? <span> · คงเหลือหลังซื้อ {THEME_BY_ID[confirm].cur === "gold" ? <b style={{ color: C.yellow }}>🪙 {cq.plan.entry.after.gold.toLocaleString()}</b> : <b style={{ color: C.purple }}>💜 {(cq.plan.entry.after.purple + cq.plan.entry.after.purpleBought).toLocaleString()}</b>}</span>
+                  : <span style={{ color: C.red }}> · {cq.why}</span>}
+              </div>
+              <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>ซื้อแล้วเป็นของคุณถาวร ใช้ได้ทุกหน้า ไม่คืนเหรียญ</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button disabled={busy || !cq.plan} onClick={() => doBuy(confirm)} style={btn(true, { opacity: cq.plan ? 1 : 0.5 })}>{busy ? "กำลังซื้อ…" : "ยืนยันซื้อ"}</button>
+                <button disabled={busy} onClick={() => setConfirm(null)} style={btn(false)}>ยกเลิก</button>
+              </div>
+            </div>
+          )}
+          {msg && <div role="status" style={{ fontSize: 12, color: msg.startsWith("⚠️") ? C.red : C.green, marginTop: 8, lineHeight: 1.5 }}>{msg}</div>}
         </div>
 
         <div style={{ padding: "8px 14px 10px" }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: C.sub, padding: "10px 2px 2px" }}>ธีมทั้งหมด</div>
-          {THEMES.map(t => {
-            const ok = canUseTheme(me, t.id);
+          <div style={{ display: "flex", gap: 6, padding: "10px 0 4px" }}>
+            <button onClick={() => setTab("shop")} style={btn(tab === "shop", { flex: 1 })}>🛍️ ร้านธีม</button>
+            <button onClick={() => setTab("mine")} style={btn(tab === "mine", { flex: 1 })}>🎒 ธีมของฉัน ({THEMES.filter(t => canUseTheme(meX, t.id)).length})</button>
+          </div>
+          {list.map(t => {
+            const ok = canUseTheme(meX, t.id);
+            const isCur = current === t.id;
             return (
-              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 2px", borderBottom: "1px solid " + C.border }}>
+              <div key={t.id} data-theme-row={t.id} style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 2px", borderBottom: "1px solid " + C.border }}>
                 <Swatch t={t} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}><span style={{ fontSize: 13, fontWeight: 800 }}>{t.name}</span><Chip t={t} />{current === t.id && <span style={{ fontSize: 10, color: C.green, fontWeight: 800 }}>● ใช้อยู่</span>}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}><span style={{ fontSize: 13, fontWeight: 800 }}>{t.name}</span><Chip t={t} />{isCur && <span style={{ fontSize: 10, color: C.green, fontWeight: 800 }}>● ใช้อยู่</span>}</div>
                   <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>{t.th}</div>
-                  <div style={{ fontSize: 12, marginTop: 3 }}><Price t={t} />{!ok && <span style={{ marginLeft: 8, fontSize: 10, color: C.muted }}>🔒</span>}</div>
+                  <div style={{ fontSize: 12, marginTop: 3 }}>{t.price && ok ? <span style={{ color: C.green, fontWeight: 800 }}>✓ เป็นเจ้าของแล้ว</span> : <Price t={t} />}{!ok && <span style={{ marginLeft: 8, fontSize: 10, color: C.muted }}>🔒</span>}</div>
                 </div>
-                <button onClick={() => showPreview(t.id)} style={btn(shown === t.id, { fontSize: 11, padding: "5px 11px" })}>ดูตัวอย่าง</button>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  <button onClick={() => showPreview(t.id)} style={btn(shown === t.id, { fontSize: 11, padding: "5px 11px" })}>ดูตัวอย่าง</button>
+                  {ok && !isCur && tab === "mine" && <button disabled={busy} onClick={() => apply(section, t.id === DEFAULT_THEME ? null : t.id, "ใช้ " + t.name + " กับหน้า" + SECTION_LABEL[section] + " แล้ว")} style={btn(true, { fontSize: 11, padding: "5px 11px" })}>ใช้</button>}
+                  {!ok && THEME_SHOP_ENABLED && !guest && <button disabled={busy} onClick={() => { setPv(t.id); setMsg(""); setConfirm(t.id); if (mockRef.current && mockRef.current.scrollIntoView) mockRef.current.scrollIntoView({ behavior: "smooth", block: "center" }); }} style={btn(true, { fontSize: 11, padding: "5px 11px" })}>ซื้อ</button>}
+                </div>
               </div>
             );
           })}

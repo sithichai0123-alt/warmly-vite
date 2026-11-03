@@ -3,7 +3,7 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction } from "firebase/firestore";
-import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
+import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
 
 // ── Firebase Config ──────────────────────────────────────
@@ -2948,7 +2948,7 @@ function useLedger(){
   },[]);
   return rows;
 }
-const LEDGER_ICON={buy_aura:"✨",welcome:"👋",daily:"🎁",buy_gold:"🛍️",gift_sent:"📤",exchange:"🔁",buy_premium:"💜",reward:"🏆",purchase:"💳",refund:"↩️"};
+const LEDGER_ICON={buy_theme:"🎨",buy_aura:"✨",welcome:"👋",daily:"🎁",buy_gold:"🛍️",gift_sent:"📤",exchange:"🔁",buy_premium:"💜",reward:"🏆",purchase:"💳",refund:"↩️"};
 function fmtT(ts){
   const ms=ts&&ts.toMillis?ts.toMillis():Date.now();
   return new Date(ms).toLocaleString("th-TH",{timeZone:"Asia/Bangkok",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
@@ -3269,7 +3269,7 @@ function PrivacyPage(){
 // ── Root ──────────────────────────────────────────────────
 // หน้า → ส่วนของธีม (หน้าอื่น เช่น ความเป็นส่วนตัว ใช้สีเดิม)
 const THEME_PAGE={voice:"voice",feed:"feed",chat:"chat",profile:"profile"};
-const themeApi=makeThemeApi({db,getUid,setDoc,doc});
+const themeApi=makeThemeApi({db,getUid,setDoc,doc,runTransaction,collection,serverTimestamp,serverMode:THEME_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))});
 const TABS=[{key:"feed",icon:"🏠",label:"ฟีด"},{key:"chat",icon:"💬",label:"แชท"},{key:"voice",icon:"🎙️",label:"เสียง"},{key:"profile",icon:"👤",label:"โปรไฟล์"},{key:"privacy",icon:"🔒",label:"ส่วนตัว"}];
 
 export default function App(){
