@@ -3,9 +3,9 @@
 // ดูตัวอย่าง: วาดหน้าจอจำลองด้วยธีมที่เลือก (ThemeScope themeId) — ไม่แตะค่าที่บันทึกไว้จนกว่าจะกดใช้
 import { useState, useRef, useMemo, useEffect } from "react";
 import { THEMES, THEME_BY_ID, THEME_SECTIONS, SECTION_LABEL, DEFAULT_THEME, RARITY_T, canUseTheme, themeItemId } from "./catalog.js";
-import { THEME_SHOP_ENABLED } from "./config.js";
+import { THEME_SHOP_ENABLED, THEME_SHARED_MODE, THEME_SHARED_ADMIN_UIDS } from "./config.js";
 import { planBuyTheme } from "./wallet.js";
-import { useSectionTheme, setSectionTheme } from "./store.js";
+import { useSectionTheme, setSectionTheme, useSharedBy } from "./store.js";
 import ThemeScope from "./ThemeScope.jsx";
 
 const C = { card: "#221F33", surface: "#1A1825", border: "#2E2A45", borderHi: "#4F46A8", brand2: "#A78BFA", text: "#F0EEFF", sub: "#9B94C4", muted: "#8A84B0", green: "#10B981", red: "#F43F5E", yellow: "#F59E0B", purple: "#C084FC" };
@@ -91,7 +91,7 @@ function Wallet({ gold, purple }) {
   );
 }
 
-export default function AppearanceModal({ me, user, onClose, api, startSection }) {
+export default function AppearanceModal({ me, user, onClose, api, startSection, uid }) {
   const [section, setSection] = useState(THEME_SECTIONS.includes(startSection) ? startSection : "voice");
   const current = useSectionTheme(section);
   const [tab, setTab] = useState("shop"); // shop = ร้านธีม | mine = ธีมของฉัน
@@ -104,6 +104,10 @@ export default function AppearanceModal({ me, user, onClose, api, startSection }
   const mockRef = useRef(null);
   const shown = pv || current;
   const guest = !!user.isGuest;
+  const sharedBy = useSharedBy();
+  const myName = (me && me.name) || user.name || "";
+  const myUid = uid || (user && user.uid) || (me && me.uid);
+  const canSetShared = !THEME_SHARED_MODE || (!guest && (!THEME_SHARED_ADMIN_UIDS.length || (myUid && THEME_SHARED_ADMIN_UIDS.includes(myUid))));
 
   const meX = useMemo(() => (bought.length ? { ...me, inventory: [...(Array.isArray(me.inventory) ? me.inventory : []), ...bought.map(themeItemId)] } : me), [me, bought]);
   useEffect(() => { setAfter(null); }, [me.coins, me.purple, me.purpleBought]);
@@ -118,8 +122,9 @@ export default function AppearanceModal({ me, user, onClose, api, startSection }
     setBusy(true); setMsg("");
     try {
       if (id && !canUseTheme(meX, id)) throw new Error("ยังไม่ได้เป็นเจ้าของธีมนี้");
-      if (!guest) await api.save(meX, sec, id); // บันทึกเข้าบัญชีก่อน สำเร็จแล้วค่อยเปลี่ยนจริง
-      setSectionTheme(sec, id);
+      if (THEME_SHARED_MODE && !canSetShared) throw new Error(guest ? "ล็อกอินด้วย Google ก่อนจึงจะเปลี่ยนธีมของทั้งแอปได้" : "บัญชีนี้ไม่มีสิทธิ์เปลี่ยนธีมของทั้งแอป");
+      if (!guest) await api.save({ ...meX, name: myName }, sec, id); // บันทึกก่อน สำเร็จแล้วค่อยเปลี่ยนจริง
+      setSectionTheme(sec, id, myName);
       setMsg(okMsg);
     } catch (e) { setMsg("⚠️ " + (e.message || e.code || "ผิดพลาด")); }
     setBusy(false);
@@ -129,8 +134,9 @@ export default function AppearanceModal({ me, user, onClose, api, startSection }
     setBusy(true); setMsg("");
     try {
       if (id && !canUseTheme(meX, id)) throw new Error("ยังไม่ได้เป็นเจ้าของธีมนี้");
-      if (!guest) await api.saveAll(meX, id);
-      THEME_SECTIONS.forEach(s => setSectionTheme(s, id));
+      if (THEME_SHARED_MODE && !canSetShared) throw new Error(guest ? "ล็อกอินด้วย Google ก่อนจึงจะเปลี่ยนธีมของทั้งแอปได้" : "บัญชีนี้ไม่มีสิทธิ์เปลี่ยนธีมของทั้งแอป");
+      if (!guest) await api.saveAll({ ...meX, name: myName }, id);
+      THEME_SECTIONS.forEach(s => setSectionTheme(s, id, myName));
       setMsg(id ? "ใช้ธีมนี้กับทุกหน้าแล้ว" : "กลับธีมเดิมทุกหน้าแล้ว");
     } catch (e) { setMsg("⚠️ " + (e.message || e.code || "ผิดพลาด")); }
     setBusy(false);
@@ -166,6 +172,7 @@ export default function AppearanceModal({ me, user, onClose, api, startSection }
             <button onClick={onClose} aria-label="ปิด" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.4)", color: "#fff", cursor: "pointer", fontFamily: "inherit" }}>✕</button>
           </div>
           <div style={{ fontSize: 11, color: C.sub, marginTop: 6, lineHeight: 1.5 }}>เลือกธีมแยกกันได้ในแต่ละหน้า (ส่วนหัวและเมนูล่างไม่เปลี่ยนสี) กด "ดูตัวอย่าง" ก่อนได้ — ยังไม่บันทึกจนกว่าจะกด "ใช้ธีมนี้"</div>
+          {THEME_SHARED_MODE && <div data-shared-note style={{ fontSize: 11, color: C.brand2, marginTop: 6, lineHeight: 1.5, fontWeight: 700 }}>🌐 ธีมที่ใช้จะเปลี่ยนให้ทุกคนในแอปเห็นเหมือนกัน{sharedBy ? " (ตั้งล่าสุดโดย " + sharedBy + ")" : ""}{!canSetShared ? " — บัญชีนี้ดูได้อย่างเดียว" : ""}</div>}
           {!guest && <div style={{ marginTop: 8 }}><Wallet gold={bal.gold} purple={bal.purple} /></div>}
         </div>
 

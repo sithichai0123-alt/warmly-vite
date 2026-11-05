@@ -12,3 +12,11 @@ export const THEME_SHOP_ENABLED = true;
 // false = ซื้อผ่าน Firestore transaction จากแอปโดยตรง (เหมือนระบบกระเป๋าเดิมและ Voice Aura)
 // true  = เรียก /api/theme-buy (ต้องตั้งค่า Firebase Admin + ล็อกกฎ Firestore ก่อน — ดู THEMES.md)
 export const THEME_SERVER_PURCHASE = false;
+
+// ธีมร่วมทั้งแอป: true = ธีมที่ใครสักคนเลือก "ทุกคนเห็นเหมือนกัน" (เก็บที่ appConfig/theme ใน Firestore)
+//                 false = แต่ละคนเลือกธีมของตัวเองและเห็นเฉพาะในเครื่องตัวเอง (แบบเฟส 2-3)
+export const THEME_SHARED_MODE = true;
+
+// ใครตั้งธีมร่วมได้: [] = ผู้ล็อกอินทุกคนที่เป็นเจ้าของธีมนั้น (ซื้อแล้ว/ธีมฟรี)
+// ใส่ uid ได้ เช่น ["EtiiCsCqPsMrsA71RKacnKMxWy92"] = เฉพาะบัญชีเหล่านี้ตั้งได้ (คนอื่นดูอย่างเดียว)
+export const THEME_SHARED_ADMIN_UIDS = [];

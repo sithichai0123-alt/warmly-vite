@@ -3,7 +3,7 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction } from "firebase/firestore";
-import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
+import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
 
 // ── Firebase Config ──────────────────────────────────────
@@ -3269,7 +3269,7 @@ function PrivacyPage(){
 // ── Root ──────────────────────────────────────────────────
 // หน้า → ส่วนของธีม (หน้าอื่น เช่น ความเป็นส่วนตัว ใช้สีเดิม)
 const THEME_PAGE={voice:"voice",feed:"feed",chat:"chat",profile:"profile"};
-const themeApi=makeThemeApi({db,getUid,setDoc,doc,runTransaction,collection,serverTimestamp,serverMode:THEME_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))});
+const themeApi=makeThemeApi({db,getUid,setDoc,doc,onSnapshot,runTransaction,collection,serverTimestamp,serverMode:THEME_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))});
 const TABS=[{key:"feed",icon:"🏠",label:"ฟีด"},{key:"chat",icon:"💬",label:"แชท"},{key:"voice",icon:"🎙️",label:"เสียง"},{key:"profile",icon:"👤",label:"โปรไฟล์"},{key:"privacy",icon:"🔒",label:"ส่วนตัว"}];
 
 export default function App(){
@@ -3283,7 +3283,8 @@ export default function App(){
   const [shopOpen,setShopOpen]=useState(false);
   const [appear,setAppear]=useState(null); // เมนูธีม: null=ปิด, หรือชื่อหน้าที่เริ่มต้น
   const openAppearance=sec=>setAppear(sec||"voice");
-  useThemeAccountSync(user?getUid():null,user?users[getUid()]:null); // ธีมที่เลือกตามบัญชี (ล็อกอินใหม่ได้คืน)
+  useThemeAccountSync(user?getUid():null,user?users[getUid()]:null);
+  useSharedThemeSync(themeApi.subscribeShared,!!user); // ธีมร่วมทั้งแอป: ทุกคนเห็นธีมเดียวกัน (ปิดได้ที่ themes/config.js) // ธีมที่เลือกตามบัญชี (ล็อกอินใหม่ได้คืน)
 
   // ติดตามสถานะล็อกอิน Google จริง (Firebase Auth) + ผู้เยี่ยมชม
   useEffect(()=>{
@@ -3396,7 +3397,7 @@ export default function App(){
         ))}
       </div>
     {shopOpen&&!user.isGuest&&<ShopModal user={user} onClose={()=>setShopOpen(false)}/>}
-    {appear&&<AppearanceModal me={users[getUid()]||{}} user={user} api={themeApi} startSection={appear} onClose={()=>setAppear(null)}/>}
+    {appear&&<AppearanceModal me={users[getUid()]||{}} user={user} uid={getUid()} api={themeApi} startSection={appear} onClose={()=>setAppear(null)}/>}
     {viewUid&&<ProfileModal uid={viewUid} posts={posts} user={user} onClose={()=>setViewUid(null)} onChat={id=>{setViewUid(null);setDmTarget(id);setPage("chat");}}/>}
     </div>
     </ProfileCtx.Provider>
