@@ -3,6 +3,7 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction } from "firebase/firestore";
+import { useNow, useRoomHeartbeat, useRoomJanitor, roomExpired, roomCloseInMs, fmtCountdown, ROOM_AUTOCLOSE_ENABLED } from "./roomLife/index.js"; // ปิดห้องเสียงอัตโนมัติเมื่อโฮสต์ไม่อยู่เกิน 5 นาที (ปิดได้ที่ roomLife/config.js)
 import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
 
@@ -1022,6 +1023,16 @@ function VoiceRoomsPage({user,onAppearance}){
   const isHost=!!inRoom&&(inRoom.hostUid?inRoom.hostUid===myUid:inRoom.hostInit===user.init);
   const hostDoc=inRoom&&inRoom.hostUid?_users[inRoom.hostUid]:null; // ธีมของห้อง = ธีม "ห้องเสียง" ของโฮสต์ (ทุกคนในห้องเห็นเหมือนกัน)
   const hostThemed=!!resolveOwnerTheme(hostDoc,"voice");
+  // ── ห้องปิดเองเมื่อโฮสต์ไม่อยู่เกิน 5 นาที ──
+  const nowTick=useNow(15000);
+  const [closedNote,setClosedNote]=useState("");
+  useRoomHeartbeat(!!inRoomId&&isHost,()=>updateDoc(doc(db,"voiceRooms",inRoomId),{hostSeen:serverTimestamp()}).catch(()=>{}),inRoomId);
+  useRoomJanitor(rooms,nowTick,async r=>{
+    const sn=await getDoc(doc(db,"voiceRooms",r.id)); // ตรวจซ้ำกับข้อมูลล่าสุด (กันโฮสต์เพิ่งกลับมา)
+    if(sn.exists()&&roomExpired({id:sn.id,...sn.data()},Date.now()))await deleteDoc(doc(db,"voiceRooms",r.id));
+  });
+  const visibleRooms=ROOM_AUTOCLOSE_ENABLED?rooms.filter(r=>r.id===inRoomId||!roomExpired(r,nowTick)):rooms;
+  const closeIn=inRoom&&!isHost?roomCloseInMs(inRoom,nowTick):null;
 
   // เอฟเฟกต์ตอนมีคนเข้าห้อง (ถ้าเขาใส่ไอเทม "เข้าห้อง" ไว้)
   const memberKeys=memberList.map(m=>m.uid||m.init).join(",");
@@ -1052,6 +1063,7 @@ function VoiceRoomsPage({user,onAppearance}){
     if(seenRef.current){
       seenRef.current=false;
       if(inRoom&&Array.isArray(inRoom.kicked)&&inRoom.kicked.includes(myUid))alert("คุณถูกเจ้าของห้องเตะออกจากห้อง");
+      else if(!inRoom&&ROOM_AUTOCLOSE_ENABLED){setClosedNote("ห้องที่คุณอยู่ถูกปิดแล้ว (โฮสต์ไม่อยู่ในห้องเกิน 5 นาที หรือโฮสต์ปิดห้อง)");setTimeout(()=>setClosedNote(""),12000);}
       voice.disconnect();setInRoomId(null);setShowPL(false);
     }
   },[inRoomId,loading,rooms]); // eslint-disable-line
@@ -1107,7 +1119,7 @@ function VoiceRoomsPage({user,onAppearance}){
     setInRoomId(null);setInRoomName("");setShowPL(false);
     try{
       if(members.length===0){await deleteDoc(doc(db,"voiceRooms",rid));}
-      else{await updateDoc(doc(db,"voiceRooms",rid),{members});}
+      else{await updateDoc(doc(db,"voiceRooms",rid),isHost?{members,hostSeen:serverTimestamp()}:{members});}
     }catch(e){console.error(e);}
   }
 
@@ -1136,7 +1148,7 @@ function VoiceRoomsPage({user,onAppearance}){
         name:nm,vibe:"🎵",hostInit:user.init,hostUid:myUid,hostName:user.name,
         members:[{uid:myUid,init:user.init,name:user.name,mic:true}],
         playlist:[],nowPlaying:null,songStartedAt:null,
-        createdAt:serverTimestamp()
+        createdAt:serverTimestamp(),hostSeen:serverTimestamp()
       });
       setInRoomId(r.id);setInRoomName(nm);setShowPL(true);
       voice.connect(r.id,myUid,user.name);
@@ -1177,6 +1189,7 @@ function VoiceRoomsPage({user,onAppearance}){
         <div style={hostThemed?{background:T.pageBg,borderRadius:22,padding:8,marginBottom:16}:undefined}>
         <Card style={{marginBottom:hostThemed?0:16,border:"1px solid "+T.borderHi,position:"relative"}}>
           <GiftFx fx={roomFx}/>
+          {closeIn!==null&&<div role="status" style={{margin:"12px 16px 0",padding:"8px 12px",borderRadius:12,background:T.yellowA22,color:T.yellow,fontSize:12,fontWeight:700,lineHeight:1.5}}>⏳ โฮสต์ไม่อยู่ในห้อง — ห้องจะปิดอัตโนมัติใน {fmtCountdown(closeIn)}</div>}
           {entryFx&&entryFx.e.tier&&<EntranceFx fx={entryFx}/>}
           {entryFx&&!entryFx.e.tier&&(
             <div key={entryFx.id} style={{position:"absolute",top:10,left:0,right:0,display:"flex",justifyContent:"center",zIndex:21,pointerEvents:"none"}}>
@@ -1290,8 +1303,10 @@ function VoiceRoomsPage({user,onAppearance}){
       {loading&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>⏳ กำลังโหลด...</div>}
 
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {rooms.map(r=>(
-          <Card key={r.id} style={{border:"1px solid "+(inRoomId===r.id?T.borderHi:T.border)}}>
+        {closedNote&&<div role="status" style={{padding:"10px 14px",borderRadius:12,background:T.yellowA22,color:T.yellow,fontSize:12,fontWeight:700,lineHeight:1.5}}>{closedNote}</div>}
+        {visibleRooms.map(r=>(
+          <OwnerScope key={r.id} ownerDoc={r.hostUid?_users[r.hostUid]:null} section="voice">{/* การ์ดห้องใช้ธีมของโฮสต์ */}
+          <Card style={{border:"1px solid "+(inRoomId===r.id?T.borderHi:T.border)}}>
             <div style={{padding:"16px"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                 <div>
@@ -1310,8 +1325,9 @@ function VoiceRoomsPage({user,onAppearance}){
               </div>
             </div>
           </Card>
+          </OwnerScope>
         ))}
-        {!loading&&rooms.length===0&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>ยังไม่มีห้องเสียง — เปิดห้องใหม่ได้เลย!</div>}
+        {!loading&&visibleRooms.length===0&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>ยังไม่มีห้องเสียง — เปิดห้องใหม่ได้เลย!</div>}
       </div>
     </div>
   );
