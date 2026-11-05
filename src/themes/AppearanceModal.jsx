@@ -3,7 +3,7 @@
 // ดูตัวอย่าง: วาดหน้าจอจำลองด้วยธีมที่เลือก (ThemeScope themeId) — ไม่แตะค่าที่บันทึกไว้จนกว่าจะกดใช้
 import { useState, useRef, useMemo, useEffect } from "react";
 import { THEMES, THEME_BY_ID, THEME_SECTIONS, SECTION_LABEL, DEFAULT_THEME, RARITY_T, canUseTheme, themeItemId } from "./catalog.js";
-import { THEME_SHOP_ENABLED, THEME_SHARED_MODE, THEME_SHARED_ADMIN_UIDS } from "./config.js";
+import { THEME_SHOP_ENABLED, THEME_SHARED_MODE, THEME_SHARED_ADMIN_UIDS, THEME_OWNER_MODE } from "./config.js";
 import { planBuyTheme } from "./wallet.js";
 import { useSectionTheme, setSectionTheme, useSharedBy } from "./store.js";
 import ThemeScope from "./ThemeScope.jsx";
@@ -172,6 +172,7 @@ export default function AppearanceModal({ me, user, onClose, api, startSection, 
             <button onClick={onClose} aria-label="ปิด" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.4)", color: "#fff", cursor: "pointer", fontFamily: "inherit" }}>✕</button>
           </div>
           <div style={{ fontSize: 11, color: C.sub, marginTop: 6, lineHeight: 1.5 }}>เลือกธีมแยกกันได้ในแต่ละหน้า (ส่วนหัวและเมนูล่างไม่เปลี่ยนสี) กด "ดูตัวอย่าง" ก่อนได้ — ยังไม่บันทึกจนกว่าจะกด "ใช้ธีมนี้"</div>
+          {THEME_OWNER_MODE && !THEME_SHARED_MODE && <div data-owner-note style={{ fontSize: 11, color: C.brand2, marginTop: 6, lineHeight: 1.5, fontWeight: 700 }}>👥 ธีมที่คุณเลือกจะแสดงกับสิ่งที่เป็นของคุณ — ห้องเสียงที่คุณเป็นโฮสต์ • โพสต์ของคุณ • โปรไฟล์ของคุณ คนอื่นจะเห็นตามนั้น ส่วนหน้าอื่นที่คุณดูอยู่จะเป็นธีมของคุณเอง</div>}
           {THEME_SHARED_MODE && <div data-shared-note style={{ fontSize: 11, color: C.brand2, marginTop: 6, lineHeight: 1.5, fontWeight: 700 }}>🌐 ธีมที่ใช้จะเปลี่ยนให้ทุกคนในแอปเห็นเหมือนกัน{sharedBy ? " (ตั้งล่าสุดโดย " + sharedBy + ")" : ""}{!canSetShared ? " — บัญชีนี้ดูได้อย่างเดียว" : ""}</div>}
           {!guest && <div style={{ marginTop: 8 }}><Wallet gold={bal.gold} purple={bal.purple} /></div>}
         </div>

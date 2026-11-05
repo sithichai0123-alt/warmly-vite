@@ -152,3 +152,13 @@ export function themeStyleVars(theme, section) {
   });
   return out;
 }
+
+// ตัวแปรสำหรับ "กรอบของเจ้าของ" ที่ซ้อนอยู่ในหน้าที่มีธีมของคนดู: ตัวแปรที่ธีมนี้ไม่ได้ตั้ง ต้องล้างค่าที่สืบทอดมา
+// (ไม่งั้นสีจากธีมของคนดูจะรั่วเข้ามาปนกับธีมของเจ้าของ) — "initial" ทำให้ var(--x, สีเดิม) กลับไปใช้สีเดิม
+export function themeStyleVarsIsolated(theme, section) {
+  const v = themeStyleVars(theme, section);
+  const out = { ...v };
+  VAR_KEYS.forEach(k => { if (!(k in out)) out[k] = "initial"; });
+  ALPHA_VARS.forEach(([name]) => { if (!(name in out)) out[name] = "initial"; });
+  return out;
+}

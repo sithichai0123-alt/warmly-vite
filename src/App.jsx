@@ -3,7 +3,7 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction } from "firebase/firestore";
-import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
+import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
 
 // ── Firebase Config ──────────────────────────────────────
@@ -1020,6 +1020,8 @@ function VoiceRoomsPage({user,onAppearance}){
   const isMeM=m=>m.uid?m.uid===myUid:m.init===user.init;
   const me=memberList.find(isMeM);
   const isHost=!!inRoom&&(inRoom.hostUid?inRoom.hostUid===myUid:inRoom.hostInit===user.init);
+  const hostDoc=inRoom&&inRoom.hostUid?_users[inRoom.hostUid]:null; // ธีมของห้อง = ธีม "ห้องเสียง" ของโฮสต์ (ทุกคนในห้องเห็นเหมือนกัน)
+  const hostThemed=!!resolveOwnerTheme(hostDoc,"voice");
 
   // เอฟเฟกต์ตอนมีคนเข้าห้อง (ถ้าเขาใส่ไอเทม "เข้าห้อง" ไว้)
   const memberKeys=memberList.map(m=>m.uid||m.init).join(",");
@@ -1171,7 +1173,9 @@ function VoiceRoomsPage({user,onAppearance}){
     <div>
       {auraOpen&&VOICE_AURA_ENABLED&&!user.isGuest&&<AuraShop me={_users[myUid]||{}} user={user} onClose={()=>setAuraOpen(false)} api={auraApi}/>}
       {inRoom&&(
-        <Card style={{marginBottom:16,border:"1px solid "+T.borderHi,position:"relative"}}>
+        <OwnerScope ownerDoc={hostDoc} section="voice">
+        <div style={hostThemed?{background:T.pageBg,borderRadius:22,padding:8,marginBottom:16}:undefined}>
+        <Card style={{marginBottom:hostThemed?0:16,border:"1px solid "+T.borderHi,position:"relative"}}>
           <GiftFx fx={roomFx}/>
           {entryFx&&entryFx.e.tier&&<EntranceFx fx={entryFx}/>}
           {entryFx&&!entryFx.e.tier&&(
@@ -1256,6 +1260,8 @@ function VoiceRoomsPage({user,onAppearance}){
           {showPL&&<div style={{padding:"0 16px 16px"}}><YoutubePlaylist playlist={inRoom.playlist} nowPlaying={inRoom.nowPlaying||null} songStartedAt={inRoom.songStartedAt||null} onAdd={addSong} onRemove={removeSong} onPlay={playSong} isHost={isHost}/></div>}
           <div style={{padding:"0 16px 16px",borderTop:"1px solid "+T.border}}><RoomChat roomId={inRoomId} user={user} onGift={(gid,d)=>pushRoomGift(gid,d)}/></div>
         </Card>
+        </div>
+        </OwnerScope>
       )}
 
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
@@ -1513,6 +1519,7 @@ function NewPostBox({user}){
 
 // ── Feed (Firebase realtime) ──────────────────────────────
 function FeedPage({user}){
+  const users=useContext(UsersCtx);
   const [posts,setPosts]=useState([]);
   const [loading,setLoading]=useState(true);
 
@@ -1530,7 +1537,7 @@ function FeedPage({user}){
       <NewPostBox user={user}/>
       {loading&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>⏳ กำลังโหลด...</div>}
       {!loading&&posts.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:T.muted,fontSize:14}}>ยังไม่มีโพสต์ — โพสต์แรกได้เลย! ✨</div>}
-      {posts.map(p=><PostCard key={p.id} p={p} user={user}/>)}
+      {posts.map(p=><OwnerScope key={p.id} ownerDoc={p.authorUid?users[p.authorUid]:null} section="feed"><PostCard p={p} user={user}/></OwnerScope>)} {/* โพสต์ใครโพสต์มัน: ใช้ธีม "ฟีด" ของคนโพสต์ */}
     </div>
   );
 }
@@ -3398,7 +3405,7 @@ export default function App(){
       </div>
     {shopOpen&&!user.isGuest&&<ShopModal user={user} onClose={()=>setShopOpen(false)}/>}
     {appear&&<AppearanceModal me={users[getUid()]||{}} user={user} uid={getUid()} api={themeApi} startSection={appear} onClose={()=>setAppear(null)}/>}
-    {viewUid&&<ProfileModal uid={viewUid} posts={posts} user={user} onClose={()=>setViewUid(null)} onChat={id=>{setViewUid(null);setDmTarget(id);setPage("chat");}}/>}
+    {viewUid&&<OwnerScope ownerDoc={users[viewUid]} section="profile"><ProfileModal uid={viewUid} posts={posts} user={user} onClose={()=>setViewUid(null)} onChat={id=>{setViewUid(null);setDmTarget(id);setPage("chat");}}/></OwnerScope>}
     </div>
     </ProfileCtx.Provider>
     </UsersCtx.Provider>
