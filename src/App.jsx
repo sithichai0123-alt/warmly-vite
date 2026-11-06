@@ -4,6 +4,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAut
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction } from "firebase/firestore";
 import { useNow, useRoomHeartbeat, useRoomJanitor, roomExpired, roomCloseInMs, fmtCountdown, ROOM_AUTOCLOSE_ENABLED } from "./roomLife/index.js"; // ปิดห้องเสียงอัตโนมัติเมื่อโฮสต์ไม่อยู่เกิน 5 นาที (ปิดได้ที่ roomLife/config.js)
+import { TextFx, FxGallery, resolveTextFx } from "./textFx/index.js"; // ฟอนต์พิเศษ/เอฟเฟกต์ตัวอักษร (ปิดได้ที่ textFx/config.js)
 import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
 
@@ -459,7 +460,8 @@ function Nm({uid,name,own,style}){
   const col=u&&u.nameColor&&NAME_COLORS[u.nameColor];
   const badge=u&&u.badge&&BADGES[u.badge];
   const pbadge=u&&u.badge&&PREMIUM_BADGES[u.badge];
-  return <span style={style}><span style={col||undefined}>{nm||"ผู้ใช้"}</span>{badge&&<span style={{marginLeft:4}}>{badge}</span>}{pbadge&&<BadgePill b={pbadge}/>}</span>;
+  const fx=resolveTextFx(u,"name"); // ฟอนต์/เอฟเฟกต์ที่เจ้าของชื่อเลือกไว้ (ไม่มี = แบบเดิมทุกอย่าง)
+  return <span style={style}>{fx?<TextFx fx={fx}>{nm||"ผู้ใช้"}</TextFx>:<span style={col||undefined}>{nm||"ผู้ใช้"}</span>}{badge&&<span style={{marginLeft:4}}>{badge}</span>}{pbadge&&<BadgePill b={pbadge}/>}</span>;
 }
 
 function Btn({children,onClick,v="primary",sz="md",full,style={}}){
@@ -3304,6 +3306,7 @@ export default function App(){
   const [viewUid,setViewUid]=useState(null);
   const [dmTarget,setDmTarget]=useState(null);
   const [shopOpen,setShopOpen]=useState(false);
+  const [fxDemo,setFxDemo]=useState(()=>{try{return /[?&]fxdemo=1(&|$)/.test(window.location.search);}catch(e){return false;}}); // ?fxdemo=1 = หน้าดูตัวอย่างฟอนต์
   const [appear,setAppear]=useState(null); // เมนูธีม: null=ปิด, หรือชื่อหน้าที่เริ่มต้น
   const openAppearance=sec=>setAppear(sec||"voice");
   useThemeAccountSync(user?getUid():null,user?users[getUid()]:null);
@@ -3420,7 +3423,8 @@ export default function App(){
         ))}
       </div>
     {shopOpen&&!user.isGuest&&<ShopModal user={user} onClose={()=>setShopOpen(false)}/>}
-    {appear&&<AppearanceModal me={users[getUid()]||{}} user={user} uid={getUid()} api={themeApi} startSection={appear} onClose={()=>setAppear(null)}/>}
+    {fxDemo&&<FxGallery onClose={()=>setFxDemo(false)}/>}
+      {appear&&<AppearanceModal me={users[getUid()]||{}} user={user} uid={getUid()} api={themeApi} startSection={appear} onClose={()=>setAppear(null)}/>}
     {viewUid&&<OwnerScope ownerDoc={users[viewUid]} section="profile"><ProfileModal uid={viewUid} posts={posts} user={user} onClose={()=>setViewUid(null)} onChat={id=>{setViewUid(null);setDmTarget(id);setPage("chat");}}/></OwnerScope>}
     </div>
     </ProfileCtx.Provider>

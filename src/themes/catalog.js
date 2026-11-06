@@ -150,6 +150,7 @@ export function themeStyleVars(theme, section) {
     const rgb = hexToRgb(v[src]);
     if (rgb) out[name] = "rgba(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + "," + a + ")";
   });
+  out["--wm-dark"] = theme.scheme === "light" ? "0" : "1"; // บอกโทนสว่าง/มืดของหน้านี้ ให้เอฟเฟกต์ตัวอักษร (textFx) เลือกโทนสีที่อ่านชัด
   return out;
 }
 
