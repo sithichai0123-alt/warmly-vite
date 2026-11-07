@@ -91,7 +91,8 @@ function Wallet({ gold, purple }) {
   );
 }
 
-export default function AppearanceModal({ me, user, onClose, api, startSection, uid }) {
+export default function AppearanceModal({ me, user, onClose, api, startSection, uid, fontsPanel }) {
+  const [top, setTop] = useState("theme"); // theme = ธีม | font = ตัวอักษร (แท็บนี้มีเมื่อแอปส่ง fontsPanel มา)
   const [section, setSection] = useState(THEME_SECTIONS.includes(startSection) ? startSection : "voice");
   const current = useSectionTheme(section);
   const [tab, setTab] = useState("shop"); // shop = ร้านธีม | mine = ธีมของฉัน
@@ -175,7 +176,14 @@ export default function AppearanceModal({ me, user, onClose, api, startSection, 
           {THEME_OWNER_MODE && !THEME_SHARED_MODE && <div data-owner-note style={{ fontSize: 11, color: C.brand2, marginTop: 6, lineHeight: 1.5, fontWeight: 700 }}>👥 ธีมที่คุณเลือกจะแสดงกับสิ่งที่เป็นของคุณ — ห้องเสียงที่คุณเป็นโฮสต์ • โพสต์ของคุณ • โปรไฟล์ของคุณ คนอื่นจะเห็นตามนั้น ส่วนหน้าอื่นที่คุณดูอยู่จะเป็นธีมของคุณเอง</div>}
           {THEME_SHARED_MODE && <div data-shared-note style={{ fontSize: 11, color: C.brand2, marginTop: 6, lineHeight: 1.5, fontWeight: 700 }}>🌐 ธีมที่ใช้จะเปลี่ยนให้ทุกคนในแอปเห็นเหมือนกัน{sharedBy ? " (ตั้งล่าสุดโดย " + sharedBy + ")" : ""}{!canSetShared ? " — บัญชีนี้ดูได้อย่างเดียว" : ""}</div>}
           {!guest && <div style={{ marginTop: 8 }}><Wallet gold={bal.gold} purple={bal.purple} /></div>}
+          {fontsPanel && (
+            <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+              <button data-top-tab="theme" onClick={() => setTop("theme")} style={btn(top === "theme", { flex: 1 })}>🎨 ธีมหน้าจอ</button>
+              <button data-top-tab="font" onClick={() => setTop("font")} style={btn(top === "font", { flex: 1 })}>🔤 ตัวอักษร</button>
+            </div>
+          )}
         </div>
+        {fontsPanel && top === "font" ? fontsPanel : <>
 
         <div style={{ display: "flex", gap: 6, padding: "10px 14px 0", flexWrap: "wrap" }}>
           {THEME_SECTIONS.map(s => <SectionChip key={s} s={s} active={section === s} onClick={() => { setSection(s); setPv(null); setMsg(""); setConfirm(null); }} />)}
@@ -247,6 +255,7 @@ export default function AppearanceModal({ me, user, onClose, api, startSection, 
           <button disabled={busy} onClick={() => apply(section, null, "กลับธีมเดิมที่หน้า" + SECTION_LABEL[section] + " แล้ว")} style={btn(false)}>↺ กลับธีมเดิม (หน้านี้)</button>
           <button disabled={busy} onClick={() => applyAll(null)} style={btn(false)}>↺ กลับธีมเดิมทุกหน้า</button>
         </div>
+        </>}
       </div>
     </div>
   );

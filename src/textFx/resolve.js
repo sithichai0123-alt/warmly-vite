@@ -23,3 +23,10 @@ export function resolveTextFx(userDoc, area) {
   if (!id || id === FX_DEFAULT || typeof id !== "string" || !FX_BY_ID[id]) return null;
   return canUseFx(userDoc, id) ? id : null;
 }
+
+// ข้อความรายข้อความ (แชท): doc ข้อความเก็บ fx = รหัสไอเทมที่ผู้ส่งเลือก — คนดูตรวจกับคลังไอเทมของ "ผู้ส่ง" อีกชั้น
+// (ใครแก้ข้อมูลส่งมาเป็นไอเทมที่ไม่ได้ซื้อ → แสดงเป็นข้อความธรรมดา)
+export function resolveMessageFx(senderDoc, id) {
+  if (!TEXTFX_ENABLED || !id || typeof id !== "string" || id === FX_DEFAULT || !FX_BY_ID[id]) return null;
+  return canUseFx(senderDoc, id) ? id : null;
+}

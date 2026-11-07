@@ -4,7 +4,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAut
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction } from "firebase/firestore";
 import { useNow, useRoomHeartbeat, useRoomJanitor, roomExpired, roomCloseInMs, fmtCountdown, ROOM_AUTOCLOSE_ENABLED } from "./roomLife/index.js"; // ปิดห้องเสียงอัตโนมัติเมื่อโฮสต์ไม่อยู่เกิน 5 นาที (ปิดได้ที่ roomLife/config.js)
-import { TextFx, FxGallery, resolveTextFx } from "./textFx/index.js"; // ฟอนต์พิเศษ/เอฟเฟกต์ตัวอักษร (ปิดได้ที่ textFx/config.js)
+import { TextFx, FxGallery, FxSettings, MsgFxButton, makeTextFxApi, resolveTextFx, resolveMessageFx, TEXTFX_ENABLED } from "./textFx/index.js"; // ฟอนต์พิเศษ/เอฟเฟกต์ตัวอักษร (ปิดได้ที่ textFx/config.js)
 import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
 
@@ -453,15 +453,23 @@ function Av({init,bg,tc,size=40,online,grad,isSelf,uid}){
 }
 
 // ชื่อผู้ใช้ (ใช้ชื่อล่าสุด + สีชื่อ + ป้ายที่ใส่ไว้)
-function Nm({uid,name,own,style}){
+function Nm({uid,name,own,style,area}){
   const users=useContext(UsersCtx);
   const u=uid?users[uid]:null;
   const nm=own?(name||(u&&u.name)):((u&&u.name)||name);
   const col=u&&u.nameColor&&NAME_COLORS[u.nameColor];
   const badge=u&&u.badge&&BADGES[u.badge];
   const pbadge=u&&u.badge&&PREMIUM_BADGES[u.badge];
-  const fx=resolveTextFx(u,"name"); // ฟอนต์/เอฟเฟกต์ที่เจ้าของชื่อเลือกไว้ (ไม่มี = แบบเดิมทุกอย่าง)
+  const fx=resolveTextFx(u,area||"name"); // ฟอนต์/เอฟเฟกต์ที่เจ้าของชื่อเลือกไว้ (ไม่มี = แบบเดิมทุกอย่าง)
   return <span style={style}>{fx?<TextFx fx={fx}>{nm||"ผู้ใช้"}</TextFx>:<span style={col||undefined}>{nm||"ผู้ใช้"}</span>}{badge&&<span style={{marginLeft:4}}>{badge}</span>}{pbadge&&<BadgePill b={pbadge}/>}</span>;
+}
+
+// ครอบข้อความด้วยสไตล์ของเจ้าของ (uid) ตามจุดที่ระบุ — ไม่มีสไตล์ = แสดง children/fallback เหมือนเดิมทุกอย่าง
+function FxT({uid,area,fallback,children}){
+  const users=useContext(UsersCtx);
+  const fx=uid?resolveTextFx(users[uid],area):null;
+  if(fx)return <TextFx fx={fx}>{children}</TextFx>;
+  return fallback!==undefined?fallback:children;
 }
 
 function Btn({children,onClick,v="primary",sz="md",full,style={}}){
@@ -769,12 +777,14 @@ function GiftLine({m}){
   const g=GIFT_BY_ID[m.gift],tr=g?giftTier(g):1,c=TIER_META[tr].color;
   return(
     <div style={{textAlign:"center",fontSize:12,color:T.sub,padding:tr>=3?"6px 8px":"4px 0",borderRadius:12,background:tr>=3?"linear-gradient(90deg,transparent,"+c+"33,transparent)":undefined,border:tr>=4?"1px solid "+c+"66":undefined,fontWeight:tr>=3?700:400}}>
-      <span style={{fontSize:tr>=3?26:20}}>{(g||{}).emoji||"🎁"}</span> <Nm uid={m.uid} name={m.author}/> {m.text}
+      <span style={{fontSize:tr>=3?26:20}}>{(g||{}).emoji||"🎁"}</span> <Nm uid={m.uid} name={m.author} area="voiceName"/> {m.text}
     </div>
   );
 }
 // ── Room Chat (text chat ในห้องเสียง) ────────────────────
 function RoomChat({roomId,user,onGift}){
+  const users=useContext(UsersCtx);
+  const [msgFx,setMsgFx]=useState(null); // สไตล์ของข้อความที่จะส่ง (null = ข้อความปกติ; ผู้ใช้กดปุ่ม Aa เลือกเอง)
   const [msgs,setMsgs]=useState([]);
   const [input,setInput]=useState("");
   const endRef=useRef();
@@ -804,7 +814,9 @@ function RoomChat({roomId,user,onGift}){
     const txt=input.trim();
     if(!txt||!roomId)return;
     // Optimistic update — แสดงข้อความทันทีก่อน Firebase ตอบกลับ
+    const sendFx=resolveMessageFx(users[getUid()],msgFx); // ส่งเฉพาะสไตล์ที่ใช้ได้จริง
     const tempMsg={id:"tmp-"+Date.now(),uid:getUid(),author:user.name,init:user.init,text:txt,t:{toMillis:()=>Date.now()}};
+    if(sendFx)tempMsg.fx=sendFx;
     setMsgs(prev=>[...prev,tempMsg]);
     setInput("");
     try{
@@ -813,6 +825,7 @@ function RoomChat({roomId,user,onGift}){
         author:user.name,
         init:user.init||user.name.slice(0,2).toUpperCase(),
         text:txt,
+        ...(sendFx?{fx:sendFx}:{}),
         t:serverTimestamp()
       });
     }catch(e){
@@ -834,8 +847,8 @@ function RoomChat({roomId,user,onGift}){
           <div key={m.id} style={{display:"flex",gap:7,alignItems:"flex-start"}}>
             <Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={24}/>
             <div>
-              <span style={{fontSize:11,fontWeight:700,color:T.brand2,marginRight:5}}>{m.author}</span>
-              <span style={{fontSize:13,color:T.text}}>{m.text}</span>
+              <span style={{fontSize:11,fontWeight:700,color:T.brand2,marginRight:5}}><FxT uid={m.uid} area="voiceName">{m.author}</FxT></span>
+              <span style={{fontSize:13,color:T.text}}>{(()=>{const mf=resolveMessageFx(users[m.uid],m.fx);return mf?<TextFx fx={mf} lite={msgs.indexOf(m)<msgs.length-3}>{m.text}</TextFx>:m.text;})()}</span>
             </div>
           </div>
         ))}
@@ -843,6 +856,7 @@ function RoomChat({roomId,user,onGift}){
         <div ref={endRef}/>
       </div>
       <div style={{display:"flex",gap:7,alignItems:"center"}}>
+        {TEXTFX_ENABLED&&<MsgFxButton me={users[getUid()]} value={msgFx} onChange={setMsgFx}/>}
         <input
           value={input}
           onChange={e=>setInput(e.target.value)}
@@ -1206,7 +1220,7 @@ function VoiceRoomsPage({user,onAppearance}){
               <div>
                 <div style={{fontSize:15,fontWeight:700,color:T.text,display:"flex",alignItems:"center",gap:8}}>
                   <div style={{width:8,height:8,borderRadius:"50%",background:connected?T.green:T.yellow,boxShadow:"0 0 8px "+(connected?T.green:T.yellow)}}/>
-                  {inRoom.vibe} {inRoom.name}
+                  {inRoom.vibe} <FxT uid={inRoom.hostUid} area="roomName">{inRoom.name}</FxT>
                 </div>
                 <div style={{fontSize:12,color:T.muted,marginTop:3}}>
                   {connected?(micOn?"🎙️ เชื่อมต่อแล้ว • ไมค์เปิด":"🔇 เชื่อมต่อแล้ว • ไมค์ปิด"):"⏳ กำลังเชื่อมต่อ..."}
@@ -1254,7 +1268,7 @@ function VoiceRoomsPage({user,onAppearance}){
                     {auraId
                       ?<VoiceAura aura={auraId} active={isSpeaking&&showMicOn} lite={memberList.length>AURA_LITE_ROOM_SIZE}>{avatarBtn}</VoiceAura>
                       :avatarBtn}
-                    <div style={{fontSize:11,color:T.brand2,fontWeight:700,maxWidth:56,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",position:"relative",zIndex:1}}>{isMe?"คุณ":m.name}</div>
+                    <div style={{fontSize:11,color:T.brand2,fontWeight:700,maxWidth:56,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",position:"relative",zIndex:1,...(resolveTextFx(m.uid?_users[m.uid]:null,"voiceName")?{padding:"4px 8px",margin:"-4px -8px"}:null)}}><FxT uid={m.uid} area="voiceName" fallback={isMe?"คุณ":m.name}>{m.name}</FxT></div>
                     {/* ไมค์ animation เมื่อพูด */}
                     {isSpeaking?(
                       <div style={{display:"flex",alignItems:"flex-end",gap:1.5,height:14}}>
@@ -1312,7 +1326,7 @@ function VoiceRoomsPage({user,onAppearance}){
             <div style={{padding:"16px"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                 <div>
-                  <div style={{fontSize:15,fontWeight:700,color:T.text}}>{r.vibe||"🎵"} {r.name}</div>
+                  <div style={{fontSize:15,fontWeight:700,color:T.text}}>{r.vibe||"🎵"} <FxT uid={r.hostUid} area="roomName">{r.name}</FxT></div>
                   <div style={{fontSize:12,color:T.muted,display:"flex",alignItems:"center",gap:6,marginTop:4}}>
                     <div style={{width:6,height:6,borderRadius:"50%",background:T.green}}/>{(r.members||[]).length} คน
                     {(r.playlist||[]).length>0&&<span>• 🎵 {r.playlist.length}</span>}
@@ -1578,6 +1592,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
   const [giftOpen,setGiftOpen]=useState(false);
   const [pickTarget,setPickTarget]=useState(null);
   const [fx,setFx]=useState(null);
+  const [msgFx,setMsgFx]=useState(null); // สไตล์ของข้อความที่จะส่ง (null = ข้อความปกติ; ผู้ใช้กดปุ่ม Aa เลือกเอง)
   const fileRef=useRef();const endRef=useRef();
 
   useEffect(()=>{
@@ -1605,6 +1620,8 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
     if(!txt&&!img)return;
     const payload={uid:myUid,author:user.name,init:user.init,t:serverTimestamp()};
     if(txt)payload.text=txt;
+    const sendFx=txt?resolveMessageFx(users[myUid],msgFx):null; // ส่งเฉพาะสไตล์ที่ใช้ได้จริง
+    if(sendFx)payload.fx=sendFx;
     if(img)payload.image=img;
     const keepImg=img;
     setInput("");setImg(null);setErr("");
@@ -1636,13 +1653,14 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
           const head=!me&&showNames&&(!prev||prev.uid!==m.uid);
           const nm=(m.uid&&users[m.uid]&&users[m.uid].name)||m.author||"ผู้ใช้";
           const ms=m.t&&m.t.toMillis?m.t.toMillis():0;
+          const mfx=resolveMessageFx(users[m.uid],m.fx); // สไตล์ที่ผู้ส่งเลือก (ตรวจกับคลังของผู้ส่ง)
           return(
             <div key={m.id} style={{display:"flex",gap:8,alignItems:"flex-end",flexDirection:me?"row-reverse":"row"}}>
               {!me&&<div onClick={()=>{if(avatarGift&&!user.isGuest&&m.uid)setPickTarget({uid:m.uid,name:nm});}} style={{cursor:avatarGift&&!user.isGuest?"pointer":"default"}}><Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={28}/></div>}
               <div style={{maxWidth:"74%",display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start"}}>
                 {head&&<div style={{fontSize:11,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px"}}><Nm uid={m.uid} name={m.author}/></div>}
                 {m.image&&<img src={m.image} alt="" style={{maxWidth:"100%",borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
-                {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me?T.brandGrad:T.bubble,color:me?"#fff":T.text,border:me?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{m.text}</div>}
+                {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?"#fff":T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={i<msgs.length-3}>{m.text}</TextFx>:m.text}</div>}
                 <div style={{fontSize:10,color:T.muted,margin:"2px 4px 0"}}>{fmtTime(ms)}</div>
               </div>
             </div>
@@ -1656,6 +1674,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
         <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,900,0.6).then(setImg).catch(()=>setErr("อ่านรูปไม่ได้"));}}/>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <button onClick={()=>fileRef.current.click()} style={{width:36,height:36,borderRadius:"50%",border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:15,flexShrink:0,fontFamily:"inherit"}}>📷</button>
+          {TEXTFX_ENABLED&&<MsgFxButton me={users[myUid]} value={msgFx} onChange={setMsgFx}/>}
           {giftTo&&!user.isGuest&&<button onClick={()=>setGiftOpen(true)} style={{width:36,height:36,borderRadius:"50%",border:"1px solid "+T.borderHi,background:T.brandA22,cursor:"pointer",fontSize:15,flexShrink:0,fontFamily:"inherit"}}>🎁</button>}
           <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder}
             style={{flex:1,minWidth:0,border:"1px solid "+T.border,borderRadius:20,padding:"9px 16px",fontSize:14,color:T.text,background:T.card,outline:"none",fontFamily:"inherit"}}
@@ -1823,7 +1842,7 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
                 {user.isGuest&&<span style={{fontSize:11,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 8px",fontWeight:600}}>👋 Guest</span>}
                 {!user.isGuest&&user.email&&<div style={{fontSize:12,color:T.muted,marginTop:3}}>🔗 เชื่อมกับ {user.email}</div>}
                 {editing?<div style={{marginTop:7,display:"flex",gap:7}}><Input value={bioInput} onChange={e=>setBioInput(e.target.value)} style={{width:220,padding:"6px 11px",fontSize:13}}/><Btn onClick={saveBio} v="primary" sz="sm">บันทึก</Btn></div>
-                :<div style={{fontSize:13,color:T.sub,marginTop:5,lineHeight:1.6}}>{bio}</div>}
+                :<div style={{fontSize:13,color:T.sub,marginTop:5,lineHeight:1.6}}><FxT uid={getUid()} area="bio">{bio}</FxT></div>}
                 <div style={{marginTop:9}}>
                   <span onClick={()=>setShowMP(!showMP)} style={{background:T.brandA22,color:T.brand2,borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer",border:"1px solid "+T.borderHi}}>✦ {mood}</span>
                 </div>
@@ -3237,7 +3256,7 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
             <div style={{fontSize:19,fontWeight:800,color:T.text}}><Nm uid={uid} name={u.name}/>
               {u.isGuest&&<span style={{fontSize:11,marginLeft:8,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 8px",fontWeight:600}}>👋 Guest</span>}
             </div>
-            <div style={{fontSize:13,color:T.sub,marginTop:5,lineHeight:1.6}}>{u.bio||"ชอบคุยเล่น • ฟังเพื่อนใหม่ 💜"}</div>
+            <div style={{fontSize:13,color:T.sub,marginTop:5,lineHeight:1.6}}><FxT uid={uid} area="bio">{u.bio||"ชอบคุยเล่น • ฟังเพื่อนใหม่ 💜"}</FxT></div>
             {u.mood&&<div style={{marginTop:8}}><span style={{background:T.brandA22,color:T.brand2,borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,border:"1px solid "+T.borderHi}}>✦ {u.mood}</span></div>}
             <div style={{marginTop:10,fontSize:12,color:T.muted}}>🎁 ได้รับของขวัญ {u.giftCount||0} ชิ้น</div>
             {uid!==getUid()&&<div style={{marginTop:12,display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -3294,6 +3313,7 @@ function PrivacyPage(){
 // ── Root ──────────────────────────────────────────────────
 // หน้า → ส่วนของธีม (หน้าอื่น เช่น ความเป็นส่วนตัว ใช้สีเดิม)
 const THEME_PAGE={voice:"voice",feed:"feed",chat:"chat",profile:"profile"};
+const textFxApi=makeTextFxApi({db,getUid,setDoc,doc,runTransaction}); // บันทึกสไตล์ตัวอักษร (users/{uid}.textFx)
 const themeApi=makeThemeApi({db,getUid,setDoc,doc,onSnapshot,runTransaction,collection,serverTimestamp,serverMode:THEME_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))});
 const TABS=[{key:"feed",icon:"🏠",label:"ฟีด"},{key:"chat",icon:"💬",label:"แชท"},{key:"voice",icon:"🎙️",label:"เสียง"},{key:"profile",icon:"👤",label:"โปรไฟล์"},{key:"privacy",icon:"🔒",label:"ส่วนตัว"}];
 
@@ -3424,7 +3444,7 @@ export default function App(){
       </div>
     {shopOpen&&!user.isGuest&&<ShopModal user={user} onClose={()=>setShopOpen(false)}/>}
     {fxDemo&&<FxGallery onClose={()=>setFxDemo(false)}/>}
-      {appear&&<AppearanceModal me={users[getUid()]||{}} user={user} uid={getUid()} api={themeApi} startSection={appear} onClose={()=>setAppear(null)}/>}
+      {appear&&<AppearanceModal me={users[getUid()]||{}} user={user} uid={getUid()} api={themeApi} startSection={appear} onClose={()=>setAppear(null)} fontsPanel={TEXTFX_ENABLED?<FxSettings me={users[getUid()]||{}} user={user} api={textFxApi}/>:undefined}/>}
     {viewUid&&<OwnerScope ownerDoc={users[viewUid]} section="profile"><ProfileModal uid={viewUid} posts={posts} user={user} onClose={()=>setViewUid(null)} onChat={id=>{setViewUid(null);setDmTarget(id);setPage("chat");}}/></OwnerScope>}
     </div>
     </ProfileCtx.Provider>
