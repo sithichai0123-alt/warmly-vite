@@ -472,6 +472,14 @@ function FxT({uid,area,fallback,children}){
   return fallback!==undefined?fallback:children;
 }
 
+// ข้อความที่เจ้าของเลือกสไตล์ไว้เป็นรายชิ้น (โพสต์/คอมเมนต์) — fx เป็นรหัสที่เก็บในเอกสาร ตรวจกับคลังของ "เจ้าของ" อีกชั้น
+// ไม่มีสไตล์/ตรวจไม่ผ่าน = แสดง children เหมือนเดิม; ใช้แบบนิ่งเสมอ (lite) เพราะในฟีดมีหลายโพสต์พร้อมกัน
+function FxMsg({uid,fx,children}){
+  const users=useContext(UsersCtx);
+  const mf=fx&&uid?resolveMessageFx(users[uid],fx):null;
+  return mf?<TextFx fx={mf} lite>{children}</TextFx>:children;
+}
+
 function Btn({children,onClick,v="primary",sz="md",full,style={}}){
   const variants={primary:{background:T.brandGrad,color:"#fff",border:"none",boxShadow:"0 4px 16px rgba(124,92,252,.35)"},ghost:{background:"transparent",color:T.sub,border:"1px solid "+T.border},outline:{background:"transparent",color:T.brand2,border:"1px solid "+T.borderHi},danger:{background:T.redBg,color:T.red,border:"1px solid rgba(244,63,94,.3)"}};
   const sizes={sm:{padding:"6px 14px",borderRadius:10,fontSize:12},md:{padding:"9px 20px",borderRadius:12,fontSize:14},lg:{padding:"13px 28px",borderRadius:14,fontSize:15}};
@@ -1356,6 +1364,7 @@ function PostCard({p,user}){
   const myUid=getUid();
   const [open,setOpen]=useState(false);
   const [cmt,setCmt]=useState("");
+  const [cmtFx,setCmtFx]=useState(null); // สไตล์ของคอมเมนต์ที่จะส่ง (null = ปกติ)
   const [err,setErr]=useState("");
   const [liked,setLiked]=useState(false);
   const [likeCount,setLikeCount]=useState(p.likes||0);
@@ -1378,6 +1387,8 @@ function PostCard({p,user}){
   async function submitComment(){
     if(!cmt.trim()){setErr("เม้นอะไรก่อนนะ");return;}
     const newCmt={id:"c"+Date.now(),uid:myUid,author:user.name,init:user.init,text:cmt.trim(),time:"เมื่อกี้"};
+    const cFx=resolveMessageFx(users[myUid],cmtFx); // สไตล์ของคอมเมนต์ (ถ้าเลือกไว้และใช้ได้จริง)
+    if(cFx)newCmt.fx=cFx;
     const updated=[...comments,newCmt];
     setComments(updated);
     await updateDoc(doc(db,"posts",p.id),{comments:updated});
@@ -1398,7 +1409,7 @@ function PostCard({p,user}){
             </div>
           </div>
         </div>
-        {p.content&&<div style={{fontSize:15,color:T.text,lineHeight:1.75,marginBottom:4}}>{p.content}</div>}
+        {p.content&&<div style={{fontSize:15,color:T.text,lineHeight:1.75,marginBottom:4}}><FxMsg uid={p.authorUid} fx={p.fx}>{p.content}</FxMsg></div>}
       </div>
       <ImgGrid images={p.images} mediaTypes={p.mediaTypes}/>
       <div style={{padding:"0 16px 14px"}}>
@@ -1414,12 +1425,13 @@ function PostCard({p,user}){
                 <Av uid={c.uid} init={c.init||"??"} bg={T.card} tc={T.brand2} size={30}/>
                 <div style={{background:T.surface,borderRadius:14,padding:"8px 13px",flex:1,border:"1px solid "+T.border}}>
                   <div style={{fontSize:12,fontWeight:700,color:T.text}}>{(c.uid&&users[c.uid]&&users[c.uid].name)||c.author} <span style={{fontWeight:400,color:T.muted,fontSize:11}}>{c.time}</span></div>
-                  <div style={{fontSize:13,color:T.sub,marginTop:3,lineHeight:1.5}}>{c.text}</div>
+                  <div style={{fontSize:13,color:T.sub,marginTop:3,lineHeight:1.5}}><FxMsg uid={c.uid} fx={c.fx}>{c.text}</FxMsg></div>
                 </div>
               </div>
             ))}
-            <div style={{display:"flex",gap:9,alignItems:"center",marginTop:6}}>
+            <div style={{display:"flex",gap:9,alignItems:"center",marginTop:6,flexWrap:"wrap"}}>
               <Av uid={myUid} init={user.init} grad size={30}/>
+              {TEXTFX_ENABLED&&!user.isGuest&&<MsgFxButton inline me={users[myUid]} value={cmtFx} onChange={setCmtFx}/>}
               <input value={cmt} onChange={e=>{setCmt(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submitComment()} placeholder="เม้นอะไรสักอย่าง..."
                 style={{flex:1,border:"1px solid "+T.border,borderRadius:20,padding:"8px 14px",fontSize:13,outline:"none",background:T.surface,color:T.text,fontFamily:"inherit"}}
                 onFocus={e=>e.target.style.borderColor=T.borderHi} onBlur={e=>e.target.style.borderColor=T.border}/>
@@ -1444,6 +1456,8 @@ function NewPostBox({user}){
       </div>
     </Card>
   );
+  const users=useContext(UsersCtx);
+  const [postFx,setPostFx]=useState(null); // สไตล์ของโพสต์ที่จะลง (null = ปกติ; ผู้ใช้กดปุ่ม Aa เลือกเอง)
   const [text,setText]=useState("");
   const [mood,setMood]=useState("");
   const [privacy,setPrivacy]=useState("public");
@@ -1498,12 +1512,13 @@ function NewPostBox({user}){
         author:postName, authorInit:postInit,
         authorUid:getUid(),
         content:text.trim(), mood, privacy,
+        ...(resolveMessageFx(users[getUid()],postFx)?{fx:resolveMessageFx(users[getUid()],postFx)}:{}),
         images:urls,
         mediaTypes:images.map(i=>i.isVideo?"video":"image"),
         likes:0, liked:false, comments:[],
         createdAt:serverTimestamp()
       });
-      setText("");setMood("");setImages([]);setErr("");setShowM(false);
+      setText("");setMood("");setImages([]);setErr("");setShowM(false);setPostFx(null);
     }catch(e){setErr("โพสต์ไม่สำเร็จ ลองใหม่");}
     setPosting(false);
   }
@@ -1536,6 +1551,7 @@ function NewPostBox({user}){
           <input ref={fileRef} type="file" accept="image/*,video/*" multiple style={{display:"none"}} onChange={handleFiles}/>
           <Btn onClick={()=>fileRef.current.click()} v="ghost" sz="sm">📷{images.length>0?` (${images.length})`:""}</Btn>
           <Btn onClick={()=>setShowM(!showM)} v={mood?"outline":"ghost"} sz="sm">✦ {mood||"Mood"}</Btn>
+          {TEXTFX_ENABLED&&<MsgFxButton inline me={users[getUid()]} value={postFx} onChange={setPostFx}/>}
           <select value={privacy} onChange={e=>setPrivacy(e.target.value)} style={{padding:"7px 10px",borderRadius:10,border:"1px solid "+T.border,background:T.surface,color:T.sub,fontSize:12,outline:"none",fontFamily:"inherit",cursor:"pointer"}}>
             <option value="public">🌐 สาธารณะ</option>
             <option value="friends">👥 เพื่อนเท่านั้น</option>
@@ -1868,7 +1884,7 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
           {myPosts.map(p=>(
             <div key={p.id} style={{borderBottom:"1px solid "+T.border,paddingBottom:12,marginBottom:12}}>
               {p.images?.length>0&&<div style={{display:"flex",gap:5,marginBottom:7,flexWrap:"wrap"}}>{p.images.map((src,i)=><img key={i} src={src} alt="" style={{width:56,height:56,borderRadius:10,objectFit:"cover",border:"1px solid "+T.border}}/>)}</div>}
-              {p.content&&<div style={{fontSize:13,color:T.sub,lineHeight:1.65}}>{p.content}</div>}
+              {p.content&&<div style={{fontSize:13,color:T.sub,lineHeight:1.65}}><FxMsg uid={p.authorUid||getUid()} fx={p.fx}>{p.content}</FxMsg></div>}
               <div style={{fontSize:11,color:T.muted,marginTop:5,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
                 <span>{p.createdAt?timeAgo(p.createdAt):"เมื่อกี้"}</span>
                 {p.mood&&<span style={{background:T.brandA22,borderRadius:20,padding:"0 7px",color:T.brand2,fontWeight:600}}>✦ {p.mood}</span>}
@@ -3272,7 +3288,7 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
             {list.map(pp=>(
               <div key={pp.id} style={{borderBottom:"1px solid "+T.border,paddingBottom:10,marginBottom:10}}>
                 {pp.images?.length>0&&<div style={{display:"flex",gap:5,marginBottom:6,flexWrap:"wrap"}}>{pp.images.slice(0,4).map((src,i)=>(pp.mediaTypes&&pp.mediaTypes[i]==="video")?null:<img key={i} src={src} alt="" style={{width:56,height:56,borderRadius:10,objectFit:"cover",border:"1px solid "+T.border}}/>)}</div>}
-                {pp.content&&<div style={{fontSize:13,color:T.sub,lineHeight:1.6}}>{pp.content}</div>}
+                {pp.content&&<div style={{fontSize:13,color:T.sub,lineHeight:1.6}}><FxMsg uid={pp.authorUid||uid} fx={pp.fx}>{pp.content}</FxMsg></div>}
                 <div style={{fontSize:11,color:T.muted,marginTop:4}}>{pp.createdAt?timeAgo(pp.createdAt):"เมื่อกี้"} • ❤️{pp.likes||0}</div>
               </div>
             ))}
