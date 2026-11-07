@@ -2,9 +2,11 @@
 // รับเครื่องมือ Firestore จากแอป (ไม่ import firebase ในไฟล์นี้) เขียนเฉพาะฟิลด์ textFx — ไม่แตะเหรียญ/ไอเทม
 import { FX_BY_ID } from "./catalog.js";
 import { TEXTFX_AREAS, canUseFx } from "./resolve.js";
+import { makeFxWallet } from "./wallet.js";
 
 export function makeTextFxApi(deps) {
   const { db, getUid, setDoc, doc, runTransaction } = deps;
+  const wallet = deps.runTransaction && deps.collection ? makeFxWallet(deps) : null;
 
   async function write(userDoc, patch, idsToCheck) {
     const uid = getUid();
@@ -38,6 +40,11 @@ export function makeTextFxApi(deps) {
       const patch = {};
       TEXTFX_AREAS.forEach(a => { patch[a] = id || null; });
       await write(userDoc, patch, id && FX_BY_ID[id].price ? [id] : []);
+    },
+    // ซื้อฟอนต์ (คืน entry ของสมุดบัญชี รวมยอดคงเหลือใน entry.after)
+    async buy(id) {
+      if (!wallet) throw new Error("ระบบซื้อฟอนต์ยังไม่พร้อม");
+      return wallet.buyFx(id);
     },
   };
 }

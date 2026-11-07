@@ -4,7 +4,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAut
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction } from "firebase/firestore";
 import { useNow, useRoomHeartbeat, useRoomJanitor, roomExpired, roomCloseInMs, fmtCountdown, ROOM_AUTOCLOSE_ENABLED } from "./roomLife/index.js"; // ปิดห้องเสียงอัตโนมัติเมื่อโฮสต์ไม่อยู่เกิน 5 นาที (ปิดได้ที่ roomLife/config.js)
-import { TextFx, FxGallery, FxSettings, MsgFxButton, makeTextFxApi, resolveTextFx, resolveMessageFx, TEXTFX_ENABLED } from "./textFx/index.js"; // ฟอนต์พิเศษ/เอฟเฟกต์ตัวอักษร (ปิดได้ที่ textFx/config.js)
+import { TextFx, FxGallery, FxSettings, MsgFxButton, makeTextFxApi, resolveTextFx, resolveMessageFx, TEXTFX_ENABLED, TEXTFX_SERVER_PURCHASE } from "./textFx/index.js"; // ฟอนต์พิเศษ/เอฟเฟกต์ตัวอักษร (ปิดได้ที่ textFx/config.js)
 import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
 
@@ -2992,7 +2992,7 @@ function useLedger(){
   },[]);
   return rows;
 }
-const LEDGER_ICON={buy_theme:"🎨",buy_aura:"✨",welcome:"👋",daily:"🎁",buy_gold:"🛍️",gift_sent:"📤",exchange:"🔁",buy_premium:"💜",reward:"🏆",purchase:"💳",refund:"↩️"};
+const LEDGER_ICON={buy_font:"🔤",buy_theme:"🎨",buy_aura:"✨",welcome:"👋",daily:"🎁",buy_gold:"🛍️",gift_sent:"📤",exchange:"🔁",buy_premium:"💜",reward:"🏆",purchase:"💳",refund:"↩️"};
 function fmtT(ts){
   const ms=ts&&ts.toMillis?ts.toMillis():Date.now();
   return new Date(ms).toLocaleString("th-TH",{timeZone:"Asia/Bangkok",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
@@ -3313,7 +3313,7 @@ function PrivacyPage(){
 // ── Root ──────────────────────────────────────────────────
 // หน้า → ส่วนของธีม (หน้าอื่น เช่น ความเป็นส่วนตัว ใช้สีเดิม)
 const THEME_PAGE={voice:"voice",feed:"feed",chat:"chat",profile:"profile"};
-const textFxApi=makeTextFxApi({db,getUid,setDoc,doc,runTransaction}); // บันทึกสไตล์ตัวอักษร (users/{uid}.textFx)
+const textFxApi=makeTextFxApi({db,getUid,setDoc,doc,runTransaction,collection,serverTimestamp,serverMode:TEXTFX_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))}); // บันทึกสไตล์ตัวอักษร (users/{uid}.textFx)
 const themeApi=makeThemeApi({db,getUid,setDoc,doc,onSnapshot,runTransaction,collection,serverTimestamp,serverMode:THEME_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))});
 const TABS=[{key:"feed",icon:"🏠",label:"ฟีด"},{key:"chat",icon:"💬",label:"แชท"},{key:"voice",icon:"🎙️",label:"เสียง"},{key:"profile",icon:"👤",label:"โปรไฟล์"},{key:"privacy",icon:"🔒",label:"ส่วนตัว"}];
 
