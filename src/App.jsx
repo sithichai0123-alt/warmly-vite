@@ -2,10 +2,13 @@ import { useState, useRef, useEffect, useCallback, useMemo, Component, createCon
 import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction, getCountFromServer, writeBatch } from "firebase/firestore";
 import { useNow, useRoomHeartbeat, useRoomJanitor, roomExpired, roomCloseInMs, fmtCountdown, ROOM_AUTOCLOSE_ENABLED } from "./roomLife/index.js"; // ปิดห้องเสียงอัตโนมัติเมื่อโฮสต์ไม่อยู่เกิน 5 นาที (ปิดได้ที่ roomLife/config.js)
 import { TextFx, FxGallery, FxSettings, MsgFxButton, makeTextFxApi, resolveTextFx, resolveMessageFx, TEXTFX_ENABLED, TEXTFX_SERVER_PURCHASE } from "./textFx/index.js"; // ฟอนต์พิเศษ/เอฟเฟกต์ตัวอักษร (ปิดได้ที่ textFx/config.js)
 import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
+import { makeChatCleanup } from "./chatCleanup/index.js"; // ลบข้อความเก่าเกิน 100 ในแชทรวม/แชทห้องเสียง (แยกไฟล์ — ปิดได้ที่ chatCleanup/config.js)
+import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, createMicGainController, applyYtVolume, applyYtVolumeWhenReady } from "./audioControls/index.js"; // ปรับเสียงไมค์/เพลงแยกกัน (แยกไฟล์ — ปิดได้ที่ audioControls/config.js)
+import { ImageViewerProvider, useImageViewer } from "./imageViewer/index.js"; // ดูรูปเต็มจอ (แยกไฟล์ — ปิดได้ที่ imageViewer/config.js)
 import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
 
 // ── Firebase Config ──────────────────────────────────────
@@ -517,8 +520,12 @@ function FeedVideo({src}){
 }
 
 function ImgGrid({images,mediaTypes}){
+  const viewer=useImageViewer();
   if(!images?.length)return null;
   const n=images.length;
+  // รายการรูป (ไม่รวมวิดีโอ) สำหรับตัวดูรูปเต็มจอ — แตะรูปไหนเปิดที่รูปนั้น
+  const picList=images.map((src,i)=>({src,i})).filter(x=>!(mediaTypes?.[x.i]==="video"||x.src?.startsWith("data:video")));
+  const openPic=i=>{const k=picList.findIndex(x=>x.i===i);if(k>=0)viewer.open(picList.map(x=>x.src),k);};
   return(<div style={{display:"grid",gap:2,margin:"10px 0",borderRadius:14,overflow:"hidden",gridTemplateColumns:n===1?"1fr":"1fr 1fr",maxHeight:n===1?380:260}}>
     {images.slice(0,4).map((src,i)=>{
       const isVid=mediaTypes?.[i]==="video"||src?.startsWith("data:video");
@@ -526,9 +533,9 @@ function ImgGrid({images,mediaTypes}){
         <div key={i} style={{overflow:"hidden",position:"relative",gridColumn:n===3&&i===0?"1/3":undefined,background:"#000",minHeight:130}}>
           {isVid
             ? <FeedVideo src={src}/>
-            : <img src={src} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",minHeight:130}} onError={e=>e.target.style.display="none"}/>
+            : <img src={src} alt="" onClick={viewer.enabled?()=>openPic(i):undefined} style={{width:"100%",height:"100%",objectFit:"cover",display:"block",minHeight:130,cursor:viewer.enabled?"zoom-in":undefined}} onError={e=>e.target.style.display="none"}/>
           }
-          {i===3&&n>4&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:22,fontWeight:700}}>+{n-4}</div>}
+          {i===3&&n>4&&<div onClick={viewer.enabled&&!isVid?()=>openPic(i):undefined} style={{position:"absolute",inset:0,cursor:viewer.enabled?"zoom-in":undefined,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:22,fontWeight:700}}>+{n-4}</div>}
         </div>
       );
     })}
@@ -627,6 +634,13 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
   const [err,setErr]=useState("");
   const [joined,setJoined]=useState(false);
   const [seekSrc,setSeekSrc]=useState(null);
+  // ปรับเสียงเพลง (เฉพาะเครื่องนี้): ส่งคำสั่งเข้าตัวเล่น YouTube — ไม่กระทบเสียงพูดของใคร
+  const ytRef=useRef(null);const ytCancel=useRef(null);
+  const audioPrefs=useAudioPrefs();
+  const ytApi=AUDIO_CONTROLS_ENABLED?"&enablejsapi=1&origin="+encodeURIComponent(window.location.origin):"";
+  const onYtLoad=()=>{if(!AUDIO_CONTROLS_ENABLED)return;if(ytCancel.current)ytCancel.current();ytCancel.current=applyYtVolumeWhenReady(ytRef.current,getAudioPrefs);};
+  useEffect(()=>{if(AUDIO_CONTROLS_ENABLED&&ytRef.current)applyYtVolume(ytRef.current,audioPrefs.music,audioPrefs.musicMuted);},[audioPrefs.music,audioPrefs.musicMuted]);
+  useEffect(()=>()=>{if(ytCancel.current)ytCancel.current();},[]);
   const safeList=Array.isArray(playlist)?playlist:[];
   const currentSong=safeList.find(s=>s.id===nowPlaying);
 
@@ -638,10 +652,10 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
 
   // คำนวณ embed URL พร้อม start time (seconds ที่เพลงเล่นไปแล้ว)
   function getSeekUrl(songId){
-    if(!songStartedAt)return `https://www.youtube.com/embed/${songId}?autoplay=1&rel=0&modestbranding=1`;
+    if(!songStartedAt)return `https://www.youtube.com/embed/${songId}?autoplay=1&rel=0&modestbranding=1${ytApi}`;
     const elapsed=Math.floor((Date.now()-songStartedAt)/1000);
     const start=Math.max(0,elapsed);
-    return `https://www.youtube.com/embed/${songId}?autoplay=1&start=${start}&rel=0&modestbranding=1`;
+    return `https://www.youtube.com/embed/${songId}?autoplay=1&start=${start}&rel=0&modestbranding=1${ytApi}`;
   }
 
   function handleJoin(){
@@ -714,7 +728,8 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
             // Host เล่นตั้งแต่ต้น
             <iframe
               key={currentSong.id}
-              src={`https://www.youtube.com/embed/${currentSong.id}?autoplay=1&rel=0&modestbranding=1`}
+              ref={ytRef} onLoad={onYtLoad}
+              src={`https://www.youtube.com/embed/${currentSong.id}?autoplay=1&rel=0&modestbranding=1${ytApi}`}
               width="100%" height="220" frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen style={{display:"block"}} title="YouTube player"/>
@@ -722,6 +737,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
             // คนอื่น — เล่น sync ณ เวลาที่กด (ข้ามไปตรงที่เพลงเล่นอยู่)
             <iframe
               key={seekSrc}
+              ref={ytRef} onLoad={onYtLoad}
               src={seekSrc}
               width="100%" height="220" frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -836,6 +852,7 @@ function RoomChat({roomId,user,onGift}){
         ...(sendFx?{fx:sendFx}:{}),
         t:serverTimestamp()
       });
+      chatCleanup.trim(["voiceRooms",roomId,"chat"]); // ลบข้อความเก่าที่เกิน 100 (ทำเบื้องหลัง ไม่รอ ไม่ทำให้ส่งช้า)
     }catch(e){
       console.error("send chat error:",e);
       // ถ้า Firebase ส่งไม่ได้ ลบ temp message ออก
@@ -898,6 +915,7 @@ function getUid(){
 // ── LiveKit Voice Hook (imperative: connect ตอนกดปุ่ม เพื่อให้ผ่าน autoplay policy) ──
 function useVoice(){
   const roomRef=useRef(null);
+  const micGainRef=useRef(null); // ตัวคุมระดับเสียงไมค์ (ไม่แตะสตรีมไมค์จนกว่าผู้ใช้จะปรับจาก 100%)
   const [connected,setConnected]=useState(false);
   const [speaking,setSpeaking]=useState({});
   const [mics,setMics]=useState({});
@@ -916,6 +934,7 @@ function useVoice(){
 
   const disconnect=useCallback(()=>{
     const room=roomRef.current; roomRef.current=null;
+    if(micGainRef.current)micGainRef.current.unbind();
     if(room){try{room.removeAllListeners();room.disconnect();}catch(e){}}
     document.querySelectorAll("audio[data-lk]").forEach(el=>{try{el.srcObject=null;}catch(e){} el.remove();});
     setConnected(false);setSpeaking({});setMics({});setMicOn(false);setNeedAudio(false);
@@ -929,6 +948,7 @@ function useVoice(){
       audioCaptureDefaults:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},
     });
     roomRef.current=room;
+    if(AUDIO_CONTROLS_ENABLED){if(!micGainRef.current)micGainRef.current=createMicGainController();micGainRef.current.bind(room);}
     room.on(RoomEvent.ActiveSpeakersChanged,sp=>{const m={};sp.forEach(p=>{m[p.identity]=true;});setSpeaking(m);});
     room.on(RoomEvent.TrackSubscribed,track=>{
       if(track.kind===Track.Kind.Audio){
@@ -1021,6 +1041,7 @@ function VoiceRoomsPage({user,onAppearance}){
   const [inRoomId,setInRoomId]=useState(null);
   const [inRoomName,setInRoomName]=useState("");
   const [showPL,setShowPL]=useState(false);
+  const [audioOpen,setAudioOpen]=useState(false); // แผงปรับระดับเสียง (ไมค์/เพลง)
   const [newName,setNewName]=useState("");
   const [creating,setCreating]=useState(false);
   const [nameErr,setNameErr]=useState("");
@@ -1053,7 +1074,7 @@ function VoiceRoomsPage({user,onAppearance}){
   useRoomHeartbeat(!!inRoomId&&isHost,()=>updateDoc(doc(db,"voiceRooms",inRoomId),{hostSeen:serverTimestamp()}).catch(()=>{}),inRoomId);
   useRoomJanitor(rooms,nowTick,async r=>{
     const sn=await getDoc(doc(db,"voiceRooms",r.id)); // ตรวจซ้ำกับข้อมูลล่าสุด (กันโฮสต์เพิ่งกลับมา)
-    if(sn.exists()&&roomExpired({id:sn.id,...sn.data()},Date.now()))await deleteDoc(doc(db,"voiceRooms",r.id));
+    if(sn.exists()&&roomExpired({id:sn.id,...sn.data()},Date.now())){await deleteDoc(doc(db,"voiceRooms",r.id));chatCleanup.purge(["voiceRooms",r.id,"chat"]);}
   });
   const visibleRooms=ROOM_AUTOCLOSE_ENABLED?rooms.filter(r=>r.id===inRoomId||!roomExpired(r,nowTick)):rooms;
   const closeIn=inRoom&&!isHost?roomCloseInMs(inRoom,nowTick):null;
@@ -1142,7 +1163,7 @@ function VoiceRoomsPage({user,onAppearance}){
     seenRef.current=false;
     setInRoomId(null);setInRoomName("");setShowPL(false);
     try{
-      if(members.length===0){await deleteDoc(doc(db,"voiceRooms",rid));}
+      if(members.length===0){await deleteDoc(doc(db,"voiceRooms",rid));chatCleanup.purge(["voiceRooms",rid,"chat"]);}
       else{await updateDoc(doc(db,"voiceRooms",rid),isHost?{members,hostSeen:serverTimestamp()}:{members});}
     }catch(e){console.error(e);}
   }
@@ -1241,6 +1262,7 @@ function VoiceRoomsPage({user,onAppearance}){
               </div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 <Btn onClick={()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);}} v="ghost" sz="sm">{soundOn?"🔔":"🔕"}</Btn>
+                {AUDIO_CONTROLS_ENABLED&&<Btn onClick={()=>setAudioOpen(o=>!o)} v={audioOpen?"primary":"ghost"} sz="sm">🎚️</Btn>}
                 {VOICE_AURA_ENABLED&&!user.isGuest&&<Btn onClick={()=>setAuraOpen(true)} v="ghost" sz="sm">✨</Btn>}
                 <Btn onClick={()=>setShowPL(!showPL)} v={showPL?"primary":"ghost"} sz="sm">🎵 Playlist</Btn>
                 <Btn onClick={onMicClick} v={micOn?"primary":"danger"} sz="sm">{micOn?"🎙️ เปิด":"🔇 ปิด"}</Btn>
@@ -1294,6 +1316,7 @@ function VoiceRoomsPage({user,onAppearance}){
               })}
             </div>
           </div>
+          {AUDIO_CONTROLS_ENABLED&&audioOpen&&<div style={{padding:"0 16px 12px"}}><AudioControls micOn={micOn} onToggleMic={toggleMic} connected={connected} hasMusic={!!inRoom.nowPlaying}/></div>}
           {showPL&&<div style={{padding:"0 16px 16px"}}><YoutubePlaylist playlist={inRoom.playlist} nowPlaying={inRoom.nowPlaying||null} songStartedAt={inRoom.songStartedAt||null} onAdd={addSong} onRemove={removeSong} onPlay={playSong} isHost={isHost}/></div>}
           <div style={{padding:"0 16px 16px",borderTop:"1px solid "+T.border}}><RoomChat roomId={inRoomId} user={user} onGift={(gid,d)=>pushRoomGift(gid,d)}/></div>
         </Card>
@@ -1599,6 +1622,7 @@ function fmtTime(ms){
 // ── แชทแบบฟองข้อความ (ใช้ทั้งห้องรวมและแชทส่วนตัว) ────────
 function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo,avatarGift}){
   const users=useContext(UsersCtx);
+  const viewer=useImageViewer();
   const myUid=getUid();
   const pathKey=path.join("/");
   const [msgs,setMsgs]=useState([]);
@@ -1643,6 +1667,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
     setInput("");setImg(null);setErr("");
     try{
       await addDoc(collection(db,...path),payload);
+      chatCleanup.trim(path); // เฉพาะแชทรวม — แชทส่วนตัว (dms) จะถูกปฏิเสธในโมดูล ไม่โดนลบ
       onSent&&onSent(txt||"📷 รูปภาพ");
     }catch(e){
       console.error("send",e);
@@ -1675,7 +1700,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
               {!me&&<div onClick={()=>{if(avatarGift&&!user.isGuest&&m.uid)setPickTarget({uid:m.uid,name:nm});}} style={{cursor:avatarGift&&!user.isGuest?"pointer":"default"}}><Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={28}/></div>}
               <div style={{maxWidth:"74%",display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start"}}>
                 {head&&<div style={{fontSize:11,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px"}}><Nm uid={m.uid} name={m.author}/></div>}
-                {m.image&&<img src={m.image} alt="" style={{maxWidth:"100%",borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
+                {m.image&&<img src={m.image} alt="" onClick={viewer.enabled?()=>viewer.open([m.image],0):undefined} style={{maxWidth:"100%",cursor:viewer.enabled?"zoom-in":undefined,borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
                 {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?"#fff":T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={i<msgs.length-3}>{m.text}</TextFx>:m.text}</div>}
                 <div style={{fontSize:10,color:T.muted,margin:"2px 4px 0"}}>{fmtTime(ms)}</div>
               </div>
@@ -3329,6 +3354,7 @@ function PrivacyPage(){
 // ── Root ──────────────────────────────────────────────────
 // หน้า → ส่วนของธีม (หน้าอื่น เช่น ความเป็นส่วนตัว ใช้สีเดิม)
 const THEME_PAGE={voice:"voice",feed:"feed",chat:"chat",profile:"profile"};
+const chatCleanup=makeChatCleanup({db,collection,query,orderBy,limit,where,getDocs,getCountFromServer,writeBatch}); // ลบได้เฉพาะ groupChat และ voiceRooms/*/chat เท่านั้น
 const textFxApi=makeTextFxApi({db,getUid,setDoc,doc,runTransaction,collection,serverTimestamp,serverMode:TEXTFX_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))}); // บันทึกสไตล์ตัวอักษร (users/{uid}.textFx)
 const themeApi=makeThemeApi({db,getUid,setDoc,doc,onSnapshot,runTransaction,collection,serverTimestamp,serverMode:THEME_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))});
 const TABS=[{key:"feed",icon:"🏠",label:"ฟีด"},{key:"chat",icon:"💬",label:"แชท"},{key:"voice",icon:"🎙️",label:"เสียง"},{key:"profile",icon:"👤",label:"โปรไฟล์"},{key:"privacy",icon:"🔒",label:"ส่วนตัว"}];
@@ -3406,7 +3432,7 @@ export default function App(){
     try {
       const snap = await getDocs(collection(db,"voiceRooms"));
       const myRooms = snap.docs.filter(d=>{const x=d.data();return x.hostUid?x.hostUid===uid:x.hostInit===user.init;});
-      for(const r of myRooms){ await deleteDoc(doc(db,"voiceRooms",r.id)); }
+      for(const r of myRooms){ await deleteDoc(doc(db,"voiceRooms",r.id)); chatCleanup.purge(["voiceRooms",r.id,"chat"]); }
     } catch(e){}
     ls.del("user");
     if(wasGoogle){
@@ -3423,6 +3449,7 @@ export default function App(){
 
   return(
     <UsersCtx.Provider value={users}>
+    <ImageViewerProvider>
     <ProfileCtx.Provider value={openProfile}>
     <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",minHeight:"100dvh",background:T.bg,display:"flex",flexDirection:"column",maxWidth:480,margin:"0 auto"}}>
       <style>{`*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:dark}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}@keyframes entryslide{0%{transform:translateY(-34px) scale(.8);opacity:0}14%{transform:translateY(0) scale(1.08);opacity:1}22%{transform:scale(1)}85%{opacity:1}100%{transform:translateY(-8px);opacity:0}}`}</style>
@@ -3464,6 +3491,7 @@ export default function App(){
     {viewUid&&<OwnerScope ownerDoc={users[viewUid]} section="profile"><ProfileModal uid={viewUid} posts={posts} user={user} onClose={()=>setViewUid(null)} onChat={id=>{setViewUid(null);setDmTarget(id);setPage("chat");}}/></OwnerScope>}
     </div>
     </ProfileCtx.Provider>
+    </ImageViewerProvider>
     </UsersCtx.Provider>
   );
 }
