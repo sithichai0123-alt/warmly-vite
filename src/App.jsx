@@ -9,6 +9,9 @@ import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useShar
 import { makeChatCleanup } from "./chatCleanup/index.js"; // ลบข้อความเก่าเกิน 100 ในแชทรวม/แชทห้องเสียง (แยกไฟล์ — ปิดได้ที่ chatCleanup/config.js)
 import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, createMicGainController, applyYtVolume, applyYtVolumeWhenReady } from "./audioControls/index.js"; // ปรับเสียงไมค์/เพลงแยกกัน (แยกไฟล์ — ปิดได้ที่ audioControls/config.js)
 import { ImageViewerProvider, useImageViewer } from "./imageViewer/index.js"; // ดูรูปเต็มจอ (แยกไฟล์ — ปิดได้ที่ imageViewer/config.js)
+import { PRESENCE_ENABLED, DOT_MIN_SIZE, PresenceProvider, PresenceDot, PresenceText, makePresenceApi, usePresencePrefs, setPresencePrefs } from "./presence/index.js"; // สถานะออนไลน์ จุดเขียว/เทา (แยกไฟล์ — ปิดได้ที่ presence/config.js)
+import { PROFILE_PHOTOS_ENABLED, ProfilePhotosManager, PhotoStrip, makePhotosApi } from "./profilePhotos/index.js"; // รูปโปรไฟล์หลายรูป สูงสุด 5 + รูปหลัก (แยกไฟล์ — ปิดได้ที่ profilePhotos/config.js)
+import { DM_TOOLS_ENABLED, makeDmApi, DmNotifier, DmSettings, DmMenu, useBlocks, usePeerBlocksMe, useDmPrefs, setPeerMuted, setActiveDm, clearedAtMs, visibleConversation } from "./dmTools/index.js"; // แชทส่วนตัว: ลบประวัติ/บล็อก/เสียงแจ้งเตือน (แยกไฟล์ — ปิดได้ที่ dmTools/config.js)
 import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
 
 // ── Firebase Config ──────────────────────────────────────
@@ -451,7 +454,8 @@ function Av({init,bg,tc,size=40,online,grad,isSelf,uid}){
           ? <AnimFrame frame={frame} size={size}>{core}</AnimFrame>
           : <div style={{padding:Math.max(2,Math.round(size*.07)),borderRadius:"50%",background:frame.bg,boxShadow:frame.glow,display:"inline-block",lineHeight:0}}>{core}</div>)
       : core}
-    {online&&<div style={{position:"absolute",bottom:1,right:1,width:Math.max(8,size*.2),height:Math.max(8,size*.2),borderRadius:"50%",background:T.green,border:"2px solid "+T.bg}}/>}
+    {online?<div style={{position:"absolute",bottom:1,right:1,width:Math.max(8,size*.2),height:Math.max(8,size*.2),borderRadius:"50%",background:T.green,border:"2px solid "+T.bg}}/>
+      :(PRESENCE_ENABLED&&uid&&size>=DOT_MIN_SIZE?<PresenceDot uid={uid} size={size} bg={T.bg} green={T.green}/>:null)}
   </div>);
 }
 
@@ -1620,7 +1624,7 @@ function fmtTime(ms){
 }
 
 // ── แชทแบบฟองข้อความ (ใช้ทั้งห้องรวมและแชทส่วนตัว) ────────
-function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo,avatarGift}){
+function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo,avatarGift,sinceMs,blockedUids,lock}){
   const users=useContext(UsersCtx);
   const viewer=useImageViewer();
   const myUid=getUid();
@@ -1638,7 +1642,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
   useEffect(()=>{
     setMsgs([]);setErr("");
     let first=true;
-    const q=query(collection(db,...path),orderBy("t","desc"),limit(150));
+    const q=sinceMs?query(collection(db,...path),where("t",">",new Date(sinceMs)),orderBy("t","desc"),limit(150)):query(collection(db,...path),orderBy("t","desc"),limit(150)); // sinceMs = เวลาที่ผู้ใช้ลบประวัติแชทส่วนตัว (ไม่ใส่ = โหลดตามเดิม)
     return onSnapshot(q,snap=>{
       if(!first){
         snap.docChanges().forEach(ch=>{
@@ -1651,9 +1655,10 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
       first=false;
       setMsgs(snap.docs.map(d=>({id:d.id,...d.data({serverTimestamps:"estimate"})})).reverse());
     },e=>{console.error("chat",e);setErr("โหลดแชทไม่ได้ ("+(e.code||e.message)+") — ตรวจ Firestore rules");});
-  },[pathKey]); // eslint-disable-line
+  },[pathKey,sinceMs]); // eslint-disable-line
 
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[msgs.length]);
+  const vis=blockedUids&&blockedUids.size?msgs.filter(m=>!blockedUids.has(m.uid)):msgs; // ข้อความของคนที่บล็อกไว้ไม่แสดง
 
   async function send(){
     const txt=input.trim();
@@ -1680,8 +1685,8 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
     <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0,position:"relative"}}>
       <GiftFx fx={fx}/>
       <div style={{flex:1,overflowY:"auto",padding:"12px 12px",display:"flex",flexDirection:"column",gap:6}}>
-        {msgs.length===0&&!err&&<div style={{textAlign:"center",color:T.muted,fontSize:13,padding:"30px 0"}}>ยังไม่มีข้อความ — ทักทายกันได้เลย 👋</div>}
-        {msgs.map((m,i)=>{
+        {vis.length===0&&!err&&<div style={{textAlign:"center",color:T.muted,fontSize:13,padding:"30px 0"}}>ยังไม่มีข้อความ — ทักทายกันได้เลย 👋</div>}
+        {vis.map((m,i)=>{
           if(m.gift){
             const g=GIFT_BY_ID[m.gift];
             return(<div key={m.id} style={{textAlign:"center",padding:"8px 0"}}>
@@ -1690,7 +1695,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
             </div>);
           }
           const me=m.uid===myUid;
-          const prev=msgs[i-1];
+          const prev=vis[i-1];
           const head=!me&&showNames&&(!prev||prev.uid!==m.uid);
           const nm=(m.uid&&users[m.uid]&&users[m.uid].name)||m.author||"ผู้ใช้";
           const ms=m.t&&m.t.toMillis?m.t.toMillis():0;
@@ -1701,7 +1706,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
               <div style={{maxWidth:"74%",display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start"}}>
                 {head&&<div style={{fontSize:11,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px"}}><Nm uid={m.uid} name={m.author}/></div>}
                 {m.image&&<img src={m.image} alt="" onClick={viewer.enabled?()=>viewer.open([m.image],0):undefined} style={{maxWidth:"100%",cursor:viewer.enabled?"zoom-in":undefined,borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
-                {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?"#fff":T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={i<msgs.length-3}>{m.text}</TextFx>:m.text}</div>}
+                {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?"#fff":T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={i<vis.length-3}>{m.text}</TextFx>:m.text}</div>}
                 <div style={{fontSize:10,color:T.muted,margin:"2px 4px 0"}}>{fmtTime(ms)}</div>
               </div>
             </div>
@@ -1711,6 +1716,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
       </div>
       {err&&<div style={{fontSize:12,color:T.red,padding:"6px 14px",background:T.redBg}}>⚠️ {err}</div>}
       {img&&<div style={{padding:"8px 14px 0"}}><div style={{position:"relative",display:"inline-block"}}><img src={img} alt="" style={{height:60,borderRadius:10,objectFit:"cover",border:"1px solid "+T.border}}/><button onClick={()=>setImg(null)} style={{position:"absolute",top:-4,right:-4,width:18,height:18,borderRadius:"50%",background:"#444",border:"none",color:"#fff",cursor:"pointer",fontSize:10}}>✕</button></div></div>}
+      {lock?<div data-dm-lock style={{padding:"12px 14px",borderTop:"1px solid "+T.border,background:T.surface,flexShrink:0,fontSize:13,color:T.sub,textAlign:"center"}}>{lock}</div>:
       <div style={{padding:"10px 12px",borderTop:"1px solid "+T.border,background:T.surface,flexShrink:0}}>
         <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,900,0.6).then(setImg).catch(()=>setErr("อ่านรูปไม่ได้"));}}/>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -1722,7 +1728,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
             onFocus={e=>e.target.style.borderColor=T.borderHi} onBlur={e=>e.target.style.borderColor=T.border}/>
           <button onClick={send} style={{width:38,height:38,borderRadius:"50%",background:T.brandGrad,border:"none",cursor:"pointer",color:"#fff",flexShrink:0,fontSize:17,fontFamily:"inherit"}}>↑</button>
         </div>
-      </div>
+      </div>}
       {giftOpen&&giftTo&&<GiftPicker user={user} to={giftTo} onClose={()=>setGiftOpen(false)}/>}
       {pickTarget&&<GiftPicker user={user} to={pickTarget} ctx={{type:"group"}} onClose={()=>setPickTarget(null)}/>}
     </div>
@@ -1741,8 +1747,14 @@ function ChatPage({user,openPeer,onPeerOpened}){
 
   useEffect(()=>{
     const q=query(collection(db,"dms"),where("uids","array-contains",myUid));
-    return onSnapshot(q,snap=>setConvs(snap.docs.map(d=>({id:d.id,...d.data()}))),e=>console.error("dms",e));
+    return onSnapshot(q,snap=>setConvs(snap.docs.map(d=>({id:d.id,...d.data({serverTimestamps:"estimate"})}))),e=>console.error("dms",e));
   },[myUid]);
+  const dmOn=DM_TOOLS_ENABLED?dmApi:null; // ปิดโมดูล = ไม่มีการฟัง/ไม่มีเมนูใด ๆ
+  const blocks=useBlocks(dmOn,myUid);
+  const peerBlocksMe=usePeerBlocksMe(dmOn,peer,myUid);
+  const dmPrefs=useDmPrefs();
+  const [dmSettings,setDmSettings]=useState(false);
+  useEffect(()=>{ if(!DM_TOOLS_ENABLED)return; setActiveDm(tab==="dm"&&peer?[myUid,peer].sort().join("_"):null); return ()=>setActiveDm(null); },[tab,peer,myUid]); // เปิดแชทนี้อยู่ = ไม่ต้องมีเสียงแจ้งเตือนซ้ำ
 
   const pairId=uid=>[myUid,uid].sort().join("_");
   const people=Object.entries(users).filter(([id])=>id!==myUid).map(([id,u])=>({id,...u}))
@@ -1780,17 +1792,19 @@ function ChatPage({user,openPeer,onPeerOpened}){
       {tab==="dm"&&!peer&&(
         <div style={{flex:1,overflowY:"auto",padding:"12px 14px"}}>
           <div style={{fontSize:13,fontWeight:700,color:T.sub,marginBottom:8}}>บทสนทนาของฉัน</div>
-          {sortedConvs.length===0&&<div style={{fontSize:13,color:T.muted,padding:"6px 0 14px"}}>ยังไม่มีแชทส่วนตัว — เลือกคนด้านล่างเพื่อเริ่มคุย</div>}
+          {DM_TOOLS_ENABLED&&<div style={{display:"flex",justifyContent:"flex-end",margin:"-4px 0 6px"}}><button type="button" data-dm-open-settings onClick={()=>setDmSettings(true)} style={{border:"1px solid "+T.border,background:"transparent",color:T.sub,borderRadius:20,padding:"4px 11px",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>⚙️ ตั้งค่าแชท</button></div>}
+          {(DM_TOOLS_ENABLED?sortedConvs.filter(c=>visibleConversation(c,myUid)):sortedConvs).length===0&&<div style={{fontSize:13,color:T.muted,padding:"6px 0 14px"}}>ยังไม่มีแชทส่วนตัว — เลือกคนด้านล่างเพื่อเริ่มคุย</div>}
           {sortedConvs.map(c=>{
             const other=(c.uids||[]).find(x=>x!==myUid);
             if(!other)return null;
+            if(DM_TOOLS_ENABLED&&!visibleConversation(c,myUid))return null; // ลบประวัติแล้วและยังไม่มีข้อความใหม่ = ซ่อนจากรายการ
             const ou=users[other]||{};
             return(
               <div key={c.id} onClick={()=>setPeer(other)} style={{display:"flex",gap:11,alignItems:"center",padding:"10px 6px",borderBottom:"1px solid "+T.border,cursor:"pointer"}}>
                 <Av uid={other} init={ou.init||"??"} bg={T.card} tc={T.brand2} size={42}/>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:14,fontWeight:700,color:T.text}}>{ou.name||"ผู้ใช้"}</div>
-                  <div style={{fontSize:12,color:T.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.lastFrom===myUid?"คุณ: ":""}{c.last||""}</div>
+                  <div style={{fontSize:12,color:T.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{DM_TOOLS_ENABLED&&blocks.isBlocked(other)?"🚫 บล็อกอยู่":<>{c.lastFrom===myUid?"คุณ: ":""}{c.last||""}</>}</div>
                 </div>
               </div>
             );
@@ -1813,11 +1827,16 @@ function ChatPage({user,openPeer,onPeerOpened}){
           <div style={{padding:"8px 12px",display:"flex",alignItems:"center",gap:10,background:T.surface,borderBottom:"1px solid "+T.border,flexShrink:0}}>
             <button onClick={()=>setPeer(null)} style={{border:"none",background:"transparent",color:T.sub,fontSize:20,cursor:"pointer",padding:"0 6px",fontFamily:"inherit"}}>‹</button>
             <Av uid={peer} init={pu.init||"??"} bg={T.card} tc={T.brand2} size={34}/>
-            <div style={{fontSize:14,fontWeight:700,color:T.text}}>{pu.name||"ผู้ใช้"}</div>
+            <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:700,color:T.text}}>{pu.name||"ผู้ใช้"}</div>{PRESENCE_ENABLED&&<div style={{color:T.muted,lineHeight:1.2}}><PresenceText uid={peer} green={T.green}/></div>}</div>
+            {DM_TOOLS_ENABLED&&<DmMenu peerName={pu.name||"ผู้ใช้นี้"} muted={!!dmPrefs.mutedPeers[peer]} blocked={blocks.isBlocked(peer)} onToggleMute={()=>setPeerMuted(peer,!dmPrefs.mutedPeers[peer])} onClear={()=>dmApi.clearHistory(myUid,peer)} onToggleBlock={()=>blocks.isBlocked(peer)?blocks.unblock(peer):blocks.block(peer)}/>}
           </div>
-          <BubbleChat path={["dms",pairId(peer),"messages"]} user={user} giftTo={{uid:peer,name:pu.name||"เพื่อน"}} placeholder={"ข้อความถึง "+(pu.name||"เพื่อน")+"..."} onSent={onDmSent}/>
+          <BubbleChat path={["dms",pairId(peer),"messages"]} user={user} giftTo={{uid:peer,name:pu.name||"เพื่อน"}} placeholder={"ข้อความถึง "+(pu.name||"เพื่อน")+"..."} onSent={onDmSent}
+            sinceMs={DM_TOOLS_ENABLED?clearedAtMs(convs.find(c=>c.id===pairId(peer)),myUid):0}
+            blockedUids={DM_TOOLS_ENABLED?blocks.set:undefined}
+            lock={DM_TOOLS_ENABLED?(blocks.isBlocked(peer)?<span>🚫 คุณบล็อกผู้ใช้นี้ไว้ — <span data-dm-unblock-inline onClick={()=>blocks.unblock(peer)} style={{color:T.brand2,fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>เลิกบล็อก</span></span>:(peerBlocksMe?"ไม่สามารถส่งข้อความถึงผู้ใช้นี้ได้":null)):null}/>
         </div>
       )}
+      {DM_TOOLS_ENABLED&&dmSettings&&<DmSettings blocks={blocks} users={users} onClose={()=>setDmSettings(false)}/>}
     </div>
   );
 }
@@ -1846,6 +1865,8 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
   const [coverImg,setCoverImg]=useState(()=>ls.get("coverImg",""));
   const [avatarImg,setAvatarImg]=useState(()=>ls.get("avatarImg",""));
   const coverRef=useRef();const avatarRef=useRef();
+  const [photosOpen,setPhotosOpen]=useState(false);
+  const viewer=useImageViewer();
   const _allUsers=useContext(UsersCtx);
   // ซิงค์รูปปก/รูปโปรไฟล์ข้ามอุปกรณ์แบบเรียลไทม์
   useEffect(()=>{
@@ -1868,10 +1889,11 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
           <input ref={coverRef} type="file" accept="image/*" style={{display:"none"}} onChange={saveCover}/>
         </div>
         <div style={{padding:"0 18px 20px",position:"relative"}}>
-          <div style={{position:"absolute",top:-34,left:18,cursor:"pointer"}} onClick={()=>avatarRef.current.click()}>
+          <div data-avatar-btn style={{position:"absolute",top:-34,left:18,cursor:"pointer"}} onClick={()=>{ if(PROFILE_PHOTOS_ENABLED&&!user.isGuest)setPhotosOpen(true); else avatarRef.current.click(); }}>
             {avatarImg?<div style={{width:68,height:68,borderRadius:"50%",overflow:"hidden",border:"4px solid "+T.bg,boxShadow:"0 4px 16px rgba(124,92,252,.4)"}}><img src={avatarImg} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>
             :<div style={{width:68,height:68,borderRadius:"50%",background:T.brandGrad,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:700,border:"4px solid "+T.bg,boxShadow:"0 4px 16px rgba(124,92,252,.4)"}}>{user.init}</div>}
             <input ref={avatarRef} type="file" accept="image/*" style={{display:"none"}} onChange={saveAvatar}/>
+            {PROFILE_PHOTOS_ENABLED&&!user.isGuest&&<div style={{position:"absolute",right:-2,bottom:-2,width:24,height:24,borderRadius:"50%",background:T.brandGrad,border:"2px solid "+T.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>📸</div>}
           </div>
           <div style={{paddingTop:42}}>
             <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}}>
@@ -1902,6 +1924,7 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
           </div>
         </div>
       </Card>
+      {photosOpen&&<ProfilePhotosManager uid={getUid()} api={photosApi} legacyAvatar={avatarImg} onOpen={viewer.open} onClose={()=>setPhotosOpen(false)} onMainChange={async thumb=>{setAvatarImg(thumb);ls.set("avatarImg",thumb);await saveMyProfile({avatar:thumb});}}/>}
       <Card>
         <div style={{padding:"16px 18px"}}>
           <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:14}}>โพสต์ของฉัน</div>
@@ -3274,6 +3297,7 @@ function NamePrompt({user,onDone}){
 // ── ดูโปรไฟล์คนอื่น (รูปปก รูปโปรไฟล์ โพสต์) ───────────────
 function ProfileModal({uid,posts,user,onClose,onChat}){
   const users=useContext(UsersCtx);
+  const viewer=useImageViewer();
   const u=users[uid]||{};
   const [cover,setCover]=useState("");
   const [giftOpen,setGiftOpen]=useState(false);
@@ -3297,8 +3321,10 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
             <div style={{fontSize:19,fontWeight:800,color:T.text}}><Nm uid={uid} name={u.name}/>
               {u.isGuest&&<span style={{fontSize:11,marginLeft:8,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 8px",fontWeight:600}}>👋 Guest</span>}
             </div>
+            {PRESENCE_ENABLED&&<div style={{marginTop:3,color:T.muted}}><PresenceText uid={uid} green={T.green}/></div>}
             <div style={{fontSize:13,color:T.sub,marginTop:5,lineHeight:1.6}}><FxT uid={uid} area="bio">{u.bio||"ชอบคุยเล่น • ฟังเพื่อนใหม่ 💜"}</FxT></div>
             {u.mood&&<div style={{marginTop:8}}><span style={{background:T.brandA22,color:T.brand2,borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,border:"1px solid "+T.borderHi}}>✦ {u.mood}</span></div>}
+            {PROFILE_PHOTOS_ENABLED&&<PhotoStrip uid={uid} api={photosApi} onOpen={viewer.open}/>}
             <div style={{marginTop:10,fontSize:12,color:T.muted}}>🎁 ได้รับของขวัญ {u.giftCount||0} ชิ้น</div>
             {uid!==getUid()&&<div style={{marginTop:12,display:"flex",gap:8,flexWrap:"wrap"}}>
               <Btn onClick={()=>onChat(uid)} v="primary" sz="sm">💬 แชทส่วนตัว</Btn>
@@ -3327,14 +3353,17 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
 // ── Privacy ───────────────────────────────────────────────
 function PrivacyPage(){
   const [s,setS]=useState({postDef:"public",whoSee:"public",whoCmt:"everyone",whoMsg:"everyone",showMood:true,showOnline:true,showLast:true,friendList:"friends"});
-  const set=(k,v)=>setS(p=>({...p,[k]:v}));
+  const pp=usePresencePrefs(); // ตั้งค่าออนไลน์/ออนไลน์ล่าสุด เก็บจริง (ข้ามอุปกรณ์) — ตัวอื่นยังเป็นค่าตัวอย่างเหมือนเดิม
+  const isPres=k=>PRESENCE_ENABLED&&(k==="showOnline"||k==="showLast");
+  const val=k=>isPres(k)?pp[k]:s[k];
+  const set=(k,v)=>{ if(isPres(k)){setPresencePrefs({[k]:v});return;} setS(p=>({...p,[k]:v})); };
   const pv=[{v:"public",l:"🌐 สาธารณะ"},{v:"friends",l:"👥 เพื่อนเท่านั้น"},{v:"only_me",l:"🔒 ฉันเท่านั้น"}];
   const ev=[{v:"everyone",l:"ทุกคน"},{v:"friends",l:"เพื่อนเท่านั้น"},{v:"none",l:"ไม่มีใคร"}];
   const Row=({label,desc,k,type,opts})=>(
     <div style={{padding:"13px 0",borderBottom:"1px solid "+T.border,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
       <div><div style={{fontSize:14,color:T.text,fontWeight:500}}>{label}</div>{desc&&<div style={{fontSize:12,color:T.muted,marginTop:2}}>{desc}</div>}</div>
       {type==="toggle"
-        ?<div onClick={()=>set(k,!s[k])} style={{width:46,height:26,borderRadius:13,cursor:"pointer",background:s[k]?T.brand:"#333",position:"relative",transition:"background .2s",flexShrink:0}}><div style={{width:20,height:20,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:s[k]?23:3,transition:"left .22s",boxShadow:"0 1px 4px rgba(0,0,0,.4)"}}/></div>
+        ?<div data-priv-toggle={k} data-on={val(k)?"1":"0"} onClick={()=>set(k,!val(k))} style={{width:46,height:26,borderRadius:13,cursor:"pointer",background:val(k)?T.brand:"#333",position:"relative",transition:"background .2s",flexShrink:0}}><div style={{width:20,height:20,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:val(k)?23:3,transition:"left .22s",boxShadow:"0 1px 4px rgba(0,0,0,.4)"}}/></div>
         :<select value={s[k]} onChange={e=>set(k,e.target.value)} style={{padding:"7px 10px",borderRadius:10,border:"1px solid "+T.border,background:T.surface,color:T.sub,fontSize:13,outline:"none",flexShrink:0,fontFamily:"inherit",cursor:"pointer"}}>{opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>
       }
     </div>
@@ -3344,7 +3373,7 @@ function PrivacyPage(){
     <div>
       <Card style={{marginBottom:14}}><div style={{padding:"18px 20px"}}><div style={{fontSize:17,fontWeight:800,color:T.text}}>ความเป็นส่วนตัว 🔒</div><div style={{fontSize:13,color:T.muted,marginTop:4}}>ปรับว่าใครเห็นอะไรได้บ้าง</div></div></Card>
       <Sec title="โพสต์"><Row label="โพสต์เริ่มต้น" desc="ค่าเริ่มต้น" k="postDef" type="select" opts={pv}/><Row label="ใครเห็นโพสต์" k="whoSee" type="select" opts={pv}/><Row label="ใครเม้นได้" k="whoCmt" type="select" opts={ev}/></Sec>
-      <Sec title="โปรไฟล์"><Row label="แสดง Mood" k="showMood" type="toggle"/><Row label="แสดงสถานะออนไลน์" k="showOnline" type="toggle"/><Row label="แสดงเวลาออนไลน์ล่าสุด" k="showLast" type="toggle"/><Row label="ใครเห็นรายชื่อเพื่อน" k="friendList" type="select" opts={pv}/></Sec>
+      <Sec title="โปรไฟล์"><Row label="แสดง Mood" k="showMood" type="toggle"/><Row label="แสดงสถานะออนไลน์" desc={PRESENCE_ENABLED?(pp.showOnline?"คนอื่นเห็นจุดเขียวเมื่อคุณออนไลน์":"โหมดซ่อน — คุณจะแสดงเป็นออฟไลน์เสมอ"):undefined} k="showOnline" type="toggle"/><Row label="แสดงเวลาออนไลน์ล่าสุด" k="showLast" type="toggle"/><Row label="ใครเห็นรายชื่อเพื่อน" k="friendList" type="select" opts={pv}/></Sec>
       <Sec title="ข้อความ"><Row label="ใครส่งข้อความได้" k="whoMsg" type="select" opts={ev}/></Sec>
       <Card><div style={{padding:"18px 20px"}}><div style={{fontSize:14,fontWeight:700,color:T.red,marginBottom:10}}>โซนอันตราย ⚠️</div><Btn v="danger" sz="md" full>ปิดบัญชีชั่วคราว</Btn></div></Card>
     </div>
@@ -3354,6 +3383,9 @@ function PrivacyPage(){
 // ── Root ──────────────────────────────────────────────────
 // หน้า → ส่วนของธีม (หน้าอื่น เช่น ความเป็นส่วนตัว ใช้สีเดิม)
 const THEME_PAGE={voice:"voice",feed:"feed",chat:"chat",profile:"profile"};
+const dmApi=makeDmApi({db,doc,setDoc,onSnapshot,collection,query,where,serverTimestamp}); // เครื่องมือแชทส่วนตัว (บล็อกเก็บที่ userBlocks/{uid}, ลบประวัติเก็บที่ dms/{pair}.clearedAt)
+const photosApi=makePhotosApi({db,doc,setDoc,onSnapshot}); // เก็บรูปโปรไฟล์ที่ profilePhotos/{uid} (แยกจาก users)
+const presenceApi=makePresenceApi({db,doc,setDoc,collection,onSnapshot,serverTimestamp}); // เก็บสถานะออนไลน์ที่ presence/{uid} (แยกจาก users)
 const chatCleanup=makeChatCleanup({db,collection,query,orderBy,limit,where,getDocs,getCountFromServer,writeBatch}); // ลบได้เฉพาะ groupChat และ voiceRooms/*/chat เท่านั้น
 const textFxApi=makeTextFxApi({db,getUid,setDoc,doc,runTransaction,collection,serverTimestamp,serverMode:TEXTFX_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))}); // บันทึกสไตล์ตัวอักษร (users/{uid}.textFx)
 const themeApi=makeThemeApi({db,getUid,setDoc,doc,onSnapshot,runTransaction,collection,serverTimestamp,serverMode:THEME_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))});
@@ -3449,6 +3481,7 @@ export default function App(){
 
   return(
     <UsersCtx.Provider value={users}>
+    <PresenceProvider api={presenceApi} uid={getUid()}>
     <ImageViewerProvider>
     <ProfileCtx.Provider value={openProfile}>
     <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",minHeight:"100dvh",background:T.bg,display:"flex",flexDirection:"column",maxWidth:480,margin:"0 auto"}}>
@@ -3485,6 +3518,7 @@ export default function App(){
           </button>
         ))}
       </div>
+    {DM_TOOLS_ENABLED&&<DmNotifier api={dmApi} myUid={getUid()}/>}
     {shopOpen&&!user.isGuest&&<ShopModal user={user} onClose={()=>setShopOpen(false)}/>}
     {fxDemo&&<FxGallery onClose={()=>setFxDemo(false)}/>}
       {appear&&<AppearanceModal me={users[getUid()]||{}} user={user} uid={getUid()} api={themeApi} startSection={appear} onClose={()=>setAppear(null)} fontsPanel={TEXTFX_ENABLED?<FxSettings me={users[getUid()]||{}} user={user} api={textFxApi}/>:undefined}/>}
@@ -3492,6 +3526,7 @@ export default function App(){
     </div>
     </ProfileCtx.Provider>
     </ImageViewerProvider>
+    </PresenceProvider>
     </UsersCtx.Provider>
   );
 }
