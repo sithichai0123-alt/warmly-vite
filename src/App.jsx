@@ -10,8 +10,10 @@ import { makeChatCleanup } from "./chatCleanup/index.js"; // ลบข้อค�
 import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, createMicGainController, applyYtVolume, applyYtVolumeWhenReady } from "./audioControls/index.js"; // ปรับเสียงไมค์/เพลงแยกกัน (แยกไฟล์ — ปิดได้ที่ audioControls/config.js)
 import { ImageViewerProvider, useImageViewer } from "./imageViewer/index.js"; // ดูรูปเต็มจอ (แยกไฟล์ — ปิดได้ที่ imageViewer/config.js)
 import { PRESENCE_ENABLED, DOT_MIN_SIZE, PresenceProvider, PresenceDot, PresenceText, makePresenceApi, usePresencePrefs, setPresencePrefs } from "./presence/index.js"; // สถานะออนไลน์ จุดเขียว/เทา (แยกไฟล์ — ปิดได้ที่ presence/config.js)
+import { CHAT_DELETE_ENABLED, makeChatDeleteApi, makeClientFallback, MessageDeleteControl } from "./chatDelete/index.js"; // ลบข้อความแชทส่วนตัว (ทีละข้อความ/ทั้งหมด) ผ่าน Backend — ปิดได้ที่ chatDelete/config.js
 import { PROFILE_PHOTOS_ENABLED, ProfilePhotosManager, PhotoStrip, makePhotosApi } from "./profilePhotos/index.js"; // รูปโปรไฟล์หลายรูป สูงสุด 5 + รูปหลัก (แยกไฟล์ — ปิดได้ที่ profilePhotos/config.js)
 import { DM_TOOLS_ENABLED, makeDmApi, DmNotifier, DmSettings, DmMenu, useBlocks, usePeerBlocksMe, useDmPrefs, setPeerMuted, setActiveDm, clearedAtMs, visibleConversation } from "./dmTools/index.js"; // แชทส่วนตัว: ลบประวัติ/บล็อก/เสียงแจ้งเตือน (แยกไฟล์ — ปิดได้ที่ dmTools/config.js)
+import { FEED_VIDEO_ENABLED, TRIM_ON_UPLOAD, MAX_VIDEO_SECONDS, FeedVideoPlayer, trimVideoUrl, needsTrim } from "./feedVideo/index.js"; // วิดีโอฟีด: ขนาดพอดี/เสียง/ตัด 30 วิ/เล่น-หยุดอัตโนมัติ/เล่นทีละคลิป (แยกไฟล์ — ปิดได้ที่ feedVideo/config.js)
 import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
 
 // ── Firebase Config ──────────────────────────────────────
@@ -502,7 +504,7 @@ function Input({value,onChange,placeholder,type="text",onKeyDown,style={}}){
 }
 
 // วิดีโอในฟีด: เล่นเองแบบปิดเสียงเมื่อเลื่อนมาถึง หยุดเมื่อเลื่อนผ่าน (กดที่วิดีโอเพื่อเปิดเสียง/ควบคุม)
-function FeedVideo({src}){
+function LegacyFeedVideo({src}){ // ตัวเล่นเดิม — ใช้เมื่อปิดโมดูล feedVideo
   const ref=useRef();
   useEffect(()=>{
     const v=ref.current;
@@ -523,6 +525,8 @@ function FeedVideo({src}){
   return <video ref={ref} src={src} controls muted loop playsInline preload="metadata" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",minHeight:130}}/>;
 }
 
+function FeedVideo({src,single}){return FEED_VIDEO_ENABLED?<FeedVideoPlayer src={src} single={single}/>:<LegacyFeedVideo src={src}/>;}
+
 function ImgGrid({images,mediaTypes}){
   const viewer=useImageViewer();
   if(!images?.length)return null;
@@ -530,13 +534,13 @@ function ImgGrid({images,mediaTypes}){
   // รายการรูป (ไม่รวมวิดีโอ) สำหรับตัวดูรูปเต็มจอ — แตะรูปไหนเปิดที่รูปนั้น
   const picList=images.map((src,i)=>({src,i})).filter(x=>!(mediaTypes?.[x.i]==="video"||x.src?.startsWith("data:video")));
   const openPic=i=>{const k=picList.findIndex(x=>x.i===i);if(k>=0)viewer.open(picList.map(x=>x.src),k);};
-  return(<div style={{display:"grid",gap:2,margin:"10px 0",borderRadius:14,overflow:"hidden",gridTemplateColumns:n===1?"1fr":"1fr 1fr",maxHeight:n===1?380:260}}>
+  return(<div style={{display:"grid",gap:2,margin:"10px 0",borderRadius:14,overflow:"hidden",gridTemplateColumns:n===1?"1fr":"1fr 1fr",maxHeight:n===1?(FEED_VIDEO_ENABLED&&(mediaTypes?.[0]==="video"||images[0]?.startsWith("data:video"))?"none":380):260}}>
     {images.slice(0,4).map((src,i)=>{
       const isVid=mediaTypes?.[i]==="video"||src?.startsWith("data:video");
       return(
         <div key={i} style={{overflow:"hidden",position:"relative",gridColumn:n===3&&i===0?"1/3":undefined,background:"#000",minHeight:130}}>
           {isVid
-            ? <FeedVideo src={src}/>
+            ? <FeedVideo src={src} single={n===1}/>
             : <img src={src} alt="" onClick={viewer.enabled?()=>openPic(i):undefined} style={{width:"100%",height:"100%",objectFit:"cover",display:"block",minHeight:130,cursor:viewer.enabled?"zoom-in":undefined}} onError={e=>e.target.style.display="none"}/>
           }
           {i===3&&n>4&&<div onClick={viewer.enabled&&!isVid?()=>openPic(i):undefined} style={{position:"absolute",inset:0,cursor:viewer.enabled?"zoom-in":undefined,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:22,fontWeight:700}}>+{n-4}</div>}
@@ -1503,8 +1507,10 @@ function NewPostBox({user}){
         const vid=document.createElement("video");
         vid.preload="metadata";
         vid.onloadedmetadata=()=>{
-          if(vid.duration>30){URL.revokeObjectURL(url);setErr("วิดีโอต้องไม่เกิน 30 วินาที (ของคุณ: "+Math.round(vid.duration)+"วิ)");return;}
-          setImages(p=>[...p,{src:url,file:f,name:f.name,isVideo:true,duration:Math.round(vid.duration)}]);
+          const long=needsTrim(vid.duration);
+          if(!FEED_VIDEO_ENABLED&&vid.duration>30){URL.revokeObjectURL(url);setErr("วิดีโอต้องไม่เกิน 30 วินาที (ของคุณ: "+Math.round(vid.duration)+"วิ)");return;}
+          // เปิดโมดูล: วิดีโอยาวเกิน 30 วินาทียังรับ แล้วตัดเหลือ 30 วินาทีแรกให้อัตโนมัติตอนโพสต์
+          setImages(p=>[...p,{src:url,file:f,name:f.name,isVideo:true,duration:Math.round(Math.min(Number.isFinite(vid.duration)?vid.duration:MAX_VIDEO_SECONDS,FEED_VIDEO_ENABLED?MAX_VIDEO_SECONDS:1e9)),trim:FEED_VIDEO_ENABLED&&long,origDuration:Math.round(vid.duration)}]);
         };
         vid.onerror=()=>setErr("อ่านวิดีโอนี้ไม่ได้ ลองไฟล์อื่น (MP4)");
         vid.src=url;
@@ -1524,7 +1530,7 @@ function NewPostBox({user}){
     const urls=[];
     try{
       for(const i of images){
-        if(i.isVideo&&i.file)urls.push(await uploadVideo(i.file,setProgress));
+        if(i.isVideo&&i.file){const u=await uploadVideo(i.file,setProgress);urls.push(FEED_VIDEO_ENABLED&&TRIM_ON_UPLOAD&&i.trim?trimVideoUrl(u):u);}
         else urls.push(i.src);
       }
     }catch(e){
@@ -1573,6 +1579,7 @@ function NewPostBox({user}){
             ))}
           </div>
         )}
+        {images.some(i=>i.trim)&&<div data-video-trim-note style={{fontSize:12,color:T.yellow,marginTop:7,marginLeft:54}}>✂️ วิดีโอยาวเกิน {MAX_VIDEO_SECONDS} วินาที — จะตัดเหลือ {MAX_VIDEO_SECONDS} วินาทีแรกให้อัตโนมัติ</div>}
         {err&&<div style={{fontSize:12,color:T.red,marginTop:7,marginLeft:54,fontWeight:500}}>{err}</div>}
         <div style={{display:"flex",alignItems:"center",gap:7,marginTop:12,marginLeft:54,flexWrap:"wrap"}}>
           <input ref={fileRef} type="file" accept="image/*,video/*" multiple style={{display:"none"}} onChange={handleFiles}/>
@@ -1624,7 +1631,7 @@ function fmtTime(ms){
 }
 
 // ── แชทแบบฟองข้อความ (ใช้ทั้งห้องรวมและแชทส่วนตัว) ────────
-function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo,avatarGift,sinceMs,blockedUids,lock}){
+function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo,avatarGift,sinceMs,blockedUids,lock,onDeleteMessage}){
   const users=useContext(UsersCtx);
   const viewer=useImageViewer();
   const myUid=getUid();
@@ -1707,7 +1714,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
                 {head&&<div style={{fontSize:11,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px"}}><Nm uid={m.uid} name={m.author}/></div>}
                 {m.image&&<img src={m.image} alt="" onClick={viewer.enabled?()=>viewer.open([m.image],0):undefined} style={{maxWidth:"100%",cursor:viewer.enabled?"zoom-in":undefined,borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
                 {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?"#fff":T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={i<vis.length-3}>{m.text}</TextFx>:m.text}</div>}
-                <div style={{fontSize:10,color:T.muted,margin:"2px 4px 0"}}>{fmtTime(ms)}</div>
+                <div style={{fontSize:10,color:T.muted,margin:"2px 4px 0",display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:me?"flex-end":"flex-start",gap:4}}><span>{fmtTime(ms)}</span>{onDeleteMessage&&me&&!String(m.id).startsWith("tmp-")&&<MessageDeleteControl onDelete={async()=>{await onDeleteMessage(m.id);setMsgs(prev=>prev.filter(x=>x.id!==m.id));}}/>}</div>
               </div>
             </div>
           );
@@ -1828,9 +1835,10 @@ function ChatPage({user,openPeer,onPeerOpened}){
             <button onClick={()=>setPeer(null)} style={{border:"none",background:"transparent",color:T.sub,fontSize:20,cursor:"pointer",padding:"0 6px",fontFamily:"inherit"}}>‹</button>
             <Av uid={peer} init={pu.init||"??"} bg={T.card} tc={T.brand2} size={34}/>
             <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:700,color:T.text}}>{pu.name||"ผู้ใช้"}</div>{PRESENCE_ENABLED&&<div style={{color:T.muted,lineHeight:1.2}}><PresenceText uid={peer} green={T.green}/></div>}</div>
-            {DM_TOOLS_ENABLED&&<DmMenu peerName={pu.name||"ผู้ใช้นี้"} muted={!!dmPrefs.mutedPeers[peer]} blocked={blocks.isBlocked(peer)} onToggleMute={()=>setPeerMuted(peer,!dmPrefs.mutedPeers[peer])} onClear={()=>dmApi.clearHistory(myUid,peer)} onToggleBlock={()=>blocks.isBlocked(peer)?blocks.unblock(peer):blocks.block(peer)}/>}
+            {DM_TOOLS_ENABLED&&<DmMenu peerName={pu.name||"ผู้ใช้นี้"} muted={!!dmPrefs.mutedPeers[peer]} blocked={blocks.isBlocked(peer)} onToggleMute={()=>setPeerMuted(peer,!dmPrefs.mutedPeers[peer])} onClear={()=>dmApi.clearHistory(myUid,peer)} onDeleteAll={CHAT_DELETE_ENABLED&&!user.isGuest?()=>chatDeleteApi.deleteAll(peer):undefined} onToggleBlock={()=>blocks.isBlocked(peer)?blocks.unblock(peer):blocks.block(peer)}/>}
           </div>
           <BubbleChat path={["dms",pairId(peer),"messages"]} user={user} giftTo={{uid:peer,name:pu.name||"เพื่อน"}} placeholder={"ข้อความถึง "+(pu.name||"เพื่อน")+"..."} onSent={onDmSent}
+            onDeleteMessage={CHAT_DELETE_ENABLED&&!user.isGuest?(id=>chatDeleteApi.deleteOne(peer,id)):undefined}
             sinceMs={DM_TOOLS_ENABLED?clearedAtMs(convs.find(c=>c.id===pairId(peer)),myUid):0}
             blockedUids={DM_TOOLS_ENABLED?blocks.set:undefined}
             lock={DM_TOOLS_ENABLED?(blocks.isBlocked(peer)?<span>🚫 คุณบล็อกผู้ใช้นี้ไว้ — <span data-dm-unblock-inline onClick={()=>blocks.unblock(peer)} style={{color:T.brand2,fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>เลิกบล็อก</span></span>:(peerBlocksMe?"ไม่สามารถส่งข้อความถึงผู้ใช้นี้ได้":null)):null}/>
@@ -3384,6 +3392,7 @@ function PrivacyPage(){
 // หน้า → ส่วนของธีม (หน้าอื่น เช่น ความเป็นส่วนตัว ใช้สีเดิม)
 const THEME_PAGE={voice:"voice",feed:"feed",chat:"chat",profile:"profile"};
 const dmApi=makeDmApi({db,doc,setDoc,onSnapshot,collection,query,where,serverTimestamp}); // เครื่องมือแชทส่วนตัว (บล็อกเก็บที่ userBlocks/{uid}, ลบประวัติเก็บที่ dms/{pair}.clearedAt)
+const chatDeleteApi=makeChatDeleteApi({getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("guest")),fallback:makeClientFallback({db,getUid,doc,collection,query,orderBy,limit,getDocs,getDoc,deleteDoc,setDoc,writeBatch})}); // เรียก /api/chat-delete (ลบจริงที่เซิร์ฟเวอร์ ตรวจสิทธิ์เองทุกครั้ง)
 const photosApi=makePhotosApi({db,doc,setDoc,onSnapshot}); // เก็บรูปโปรไฟล์ที่ profilePhotos/{uid} (แยกจาก users)
 const presenceApi=makePresenceApi({db,doc,setDoc,collection,onSnapshot,serverTimestamp}); // เก็บสถานะออนไลน์ที่ presence/{uid} (แยกจาก users)
 const chatCleanup=makeChatCleanup({db,collection,query,orderBy,limit,where,getDocs,getCountFromServer,writeBatch}); // ลบได้เฉพาะ groupChat และ voiceRooms/*/chat เท่านั้น
