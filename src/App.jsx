@@ -18,7 +18,7 @@ import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortG
 import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
 import { BannerStack, MemberMenu } from "./social/index.js"; // แถบแจ้งเตือน + เมนูแตะรูปสมาชิก (ชุดกลางของเฟส C)
-import { PROFILE_PHOTOS_ENABLED, ProfilePhotosManager, PhotoStrip, makePhotosApi } from "./profilePhotos/index.js"; // รูปโปรไฟล์หลายรูป สูงสุด 5 + รูปหลัก (แยกไฟล์ — ปิดได้ที่ profilePhotos/config.js)
+import { PROFILE_PHOTOS_ENABLED, ProfilePhotosManager, PhotoStrip, PhotoCropper, processFile as processPhotoFile, makePhotosApi } from "./profilePhotos/index.js"; // รูปโปรไฟล์หลายรูป สูงสุด 5 + รูปหลัก (แยกไฟล์ — ปิดได้ที่ profilePhotos/config.js)
 import { DM_TOOLS_ENABLED, makeDmApi, DmNotifier, DmSettings, DmMenu, useBlocks, usePeerBlocksMe, useDmPrefs, setPeerMuted, setActiveDm, clearedAtMs, visibleConversation } from "./dmTools/index.js"; // แชทส่วนตัว: ลบประวัติ/บล็อก/เสียงแจ้งเตือน (แยกไฟล์ — ปิดได้ที่ dmTools/config.js)
 import { FEED_VIDEO_ENABLED, TRIM_ON_UPLOAD, MAX_VIDEO_SECONDS, FeedVideoPlayer, trimVideoUrl, needsTrim } from "./feedVideo/index.js"; // วิดีโอฟีด: ขนาดพอดี/เสียง/ตัด 30 วิ/เล่น-หยุดอัตโนมัติ/เล่นทีละคลิป (แยกไฟล์ — ปิดได้ที่ feedVideo/config.js)
 import { VoiceAura, AuraShop, makeAuraWallet, resolveAura, useAuraMode, VOICE_AURA_ENABLED, AURA_LITE_ROOM_SIZE, AURA_SERVER_PURCHASE } from "./voiceAura/index.js"; // Voice Aura (ระบบแยกไฟล์ — ปิดได้ที่ voiceAura/config.js)
@@ -2014,12 +2014,14 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
   const myPosts=posts.filter(p=>p.authorUid?p.authorUid===getUid():(p.author===user.name||p.author===displayName));
   const saveBio=()=>{setBio(bioInput);ls.set("bio",bioInput);saveMyProfile({bio:bioInput}).catch(()=>{});setEditing(false);};
   const saveMood=m=>{setMood(m);ls.set("mood",m);saveMyProfile({mood:m}).catch(()=>{});setShowMP(false);};
-  const saveCover=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,900,0.6).then(src=>{setCoverImg(src);ls.set("coverImg",src);return setDoc(doc(db,"covers",getUid()),{cover:src,lastSeen:serverTimestamp()});}).catch(err=>{console.error("cover",err);alert("เปลี่ยนรูปปกไม่สำเร็จ: "+((err&&(err.code||err.message))||"ไฟล์รูปนี้ไม่รองรับ ลองรูป JPG/PNG"));});};
+  const [coverJob,setCoverJob]=useState(null); // ไฟล์ปกที่รอจัดตำแหน่ง
+  const saveCover=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;setCoverJob(f);};
+  const commitCover=(f,crop)=>{setCoverJob(null);processPhotoFile(f,{crop,maxPx:900,maxChars:400000}).then(r=>{if(!r.ok)throw new Error(r.reason);const src=r.src;setCoverImg(src);ls.set("coverImg",src);return setDoc(doc(db,"covers",getUid()),{cover:src,lastSeen:serverTimestamp()});}).catch(err=>{console.error("cover",err);alert("เปลี่ยนรูปปกไม่สำเร็จ: "+((err&&(err.code||err.message))||"ไฟล์รูปนี้ไม่รองรับ ลองรูป JPG/PNG"));});};
   const saveAvatar=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,160,0.72).then(src=>{setAvatarImg(src);ls.set("avatarImg",src);return saveMyProfile({avatar:src});}).catch(err=>{console.error("avatar",err);alert("เปลี่ยนรูปโปรไฟล์ไม่สำเร็จ: "+((err&&(err.code||err.message))||"ไฟล์รูปนี้ไม่รองรับ ลองรูป JPG/PNG"));});};
   return(
     <div>
       <Card style={{marginBottom:14,overflow:"hidden"}}>
-        <div style={{height:120,background:coverImg?`url(${coverImg}) center/cover`:T.brandGrad,position:"relative",cursor:"pointer"}} onClick={()=>coverRef.current.click()}>
+        <div style={{aspectRatio:"3 / 1",background:coverImg?`url(${coverImg}) center/cover`:T.brandGrad,position:"relative",cursor:"pointer"}} onClick={()=>coverRef.current.click()}>
           {!coverImg&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",color:"rgba(255,255,255,.4)",fontSize:13}}>✏️ เปลี่ยนรูปปก</div>}
           <input ref={coverRef} type="file" accept="image/*" style={{display:"none"}} onChange={saveCover}/>
         </div>
@@ -2060,6 +2062,7 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
           </div>
         </div>
       </Card>
+      {coverJob&&<PhotoCropper file={coverJob} aspect={3} circle={false} title="จัดตำแหน่งรูปปก" hint="กรอบนี้คือส่วนที่จะแสดงเป็นรูปปก" onDone={c=>commitCover(coverJob,c)} onCancel={()=>setCoverJob(null)}/>}
       {photosOpen&&<ProfilePhotosManager uid={getUid()} api={photosApi} legacyAvatar={avatarImg} onOpen={viewer.open} onClose={()=>setPhotosOpen(false)} onMainChange={async thumb=>{setAvatarImg(thumb);ls.set("avatarImg",thumb);await saveMyProfile({avatar:thumb});}}/>}
       <Card>
         <div style={{padding:"16px 18px"}}>
@@ -3469,7 +3472,7 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
   return(
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",zIndex:60,display:"flex",alignItems:"flex-start",justifyContent:"center",overflowY:"auto",padding:"20px 12px"}}>
       <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:440,background:T.card,border:"1px solid "+T.borderHi,borderRadius:20,overflow:"hidden"}}>
-        <div style={{height:120,background:cover?`url(${cover}) center/cover`:T.brandGrad,position:"relative"}}>
+        <div style={{aspectRatio:"3 / 1",background:cover?`url(${cover}) center/cover`:T.brandGrad,position:"relative"}}>
           <button onClick={onClose} style={{position:"absolute",top:10,right:10,width:30,height:30,borderRadius:"50%",border:"none",background:"rgba(0,0,0,.5)",color:"#fff",cursor:"pointer",fontSize:14,fontFamily:"inherit"}}>✕</button>
         </div>
         <div style={{padding:"0 18px 18px",position:"relative"}}>
