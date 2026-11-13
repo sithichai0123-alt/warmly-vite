@@ -14,7 +14,7 @@ import { CHAT_DELETE_ENABLED, makeChatDeleteApi, makeClientFallback, MessageDele
 import { DM_UNREAD_ENABLED, DmUnreadProvider, useDmUnread, UnreadBadge, UnreadDot } from "./dmUnread/index.js"; // จุด/ตัวเลขข้อความใหม่ในแชทส่วนตัว — ปิดได้ที่ dmUnread/config.js
 import { FRIENDS_ENABLED, makeFriendsApi, FriendsProvider, useFriends, FriendButton, FriendsPanel } from "./friends/index.js"; // ระบบเพื่อน — ปิดได้ที่ friends/config.js
 import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from "./roomInvite/index.js"; // เชิญเพื่อนเข้าห้องเสียง — ปิดได้ที่ roomInvite/config.js
-import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
+import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds, PLUS_MODELS } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
 import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
 import { BannerStack, MemberMenu } from "./social/index.js"; // แถบแจ้งเตือน + เมนูแตะรูปสมาชิก (ชุดกลางของเฟส C)
@@ -2046,6 +2046,7 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
 // <3D-MODELS>
 // สร้างโมเดล 3 มิติแบบโปรซีเดอรัล (ไม่ต้องใช้ไฟล์โมเดลภายนอก)
 function build3DModel(THREE,name){
+  if(GIFTS_PLUS_ENABLED&&PLUS_MODELS[name])return PLUS_MODELS[name](THREE); // โมเดลของขวัญชุดใหม่ (giftsPlus/models3d.js) — ของเดิมด้านล่างไม่ถูกแตะ
   const g=new THREE.Group();
   const M=(c,o={})=>new THREE.MeshStandardMaterial({color:c,roughness:.45,metalness:.1,...o});
   g.userData.cam=[0,1.1,5.4];
@@ -3126,6 +3127,7 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
             const ok2=pcoins>=g.price,on=sel&&sel.id===g.id;
             return(
               <button key={g.id} data-gift={g.id} data-gift-cur="purple" onClick={()=>{setSel(g);setMsg("");}} style={{position:"relative",background:on?"rgba(168,85,247,.22)":T.surface,border:"1px solid "+(on?"#C084FC":(ok2?"rgba(168,85,247,.5)":"rgba(244,63,94,.3)")),boxShadow:ok2?"0 0 10px rgba(168,85,247,.25)":undefined,borderRadius:14,padding:"10px 2px",cursor:"pointer",opacity:ok2?1:.55,fontFamily:"inherit"}}>
+                {g.model&&<span style={{position:"absolute",top:3,right:4,fontSize:9,fontWeight:800,color:T.brand2,background:T.brandA33,borderRadius:6,padding:"0 4px"}}>3D</span>}
                 <span style={{position:"absolute",left:10,right:10,bottom:3,height:2,borderRadius:2,background:TIER_META[giftTier(g)].color}}/>
                 <div style={{fontSize:30}}>{g.emoji}</div>
                 <div style={{fontSize:11,color:T.text,marginTop:2}}>{g.name}</div>
