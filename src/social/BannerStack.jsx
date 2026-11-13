@@ -12,7 +12,7 @@ export default function BannerStack() {
         <div key={b.key} data-banner={b.key} role="status" style={{ pointerEvents: "auto", background: C.card, border: "1px solid " + C.border, borderRadius: 14, padding: "10px 12px", boxShadow: "0 8px 24px rgba(0,0,0,.5)", display: "flex", gap: 10, alignItems: "center" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text, lineHeight: 1.4 }}>{b.title}</div>
-            {b.body && <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>{b.body}</div>}
+            {b.body && <div style={{ fontSize:12, color: C.sub, marginTop: 2 }}>{b.body}</div>}
           </div>
           <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
             {(b.actions || []).map((a, i) => (

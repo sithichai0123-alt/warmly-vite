@@ -22,9 +22,9 @@ export default function FriendButton({ uid, name, Btn, hidden, compact }) {
             <Btn onClick={() => run(() => f.accept(uid))} v="primary" sz="sm"><span data-fr-accept>✅ ตอบรับ</span></Btn>
             <Btn onClick={() => run(() => f.remove(uid))} v="ghost" sz="sm"><span data-fr-decline>ปฏิเสธ</span></Btn>
           </>}
-          {rel === "friends" && <span data-fr-friends-badge style={{ fontSize: 11, color: "#34D399", fontWeight: 700, whiteSpace: "nowrap" }}>✅ เพื่อน</span>}
+          {rel === "friends" && <span data-fr-friends-badge style={{ fontSize:12, color: "#34D399", fontWeight: 700, whiteSpace: "nowrap" }}>✅ เพื่อน</span>}
         </div>
-        {err && <div data-fr-err style={{ fontSize: 10, color: "#F59E0B", maxWidth: 150, textAlign: "right" }}>⚠️ {err}</div>}
+        {err && <div data-fr-err style={{ fontSize:12, color: "#F59E0B", maxWidth: 150, textAlign: "right" }}>⚠️ {err}</div>}
       </div>
     );
   }
@@ -45,7 +45,7 @@ export default function FriendButton({ uid, name, Btn, hidden, compact }) {
           <Btn onClick={() => setConfirm(false)} v="ghost" sz="sm">ยกเลิก</Btn>
         </span>
       )}
-      {err && <div data-fr-err style={{ flexBasis: "100%", fontSize: 11, color: "#F59E0B" }}>⚠️ {err}</div>}
+      {err && <div data-fr-err style={{ flexBasis: "100%", fontSize:12, color: "#F59E0B" }}>⚠️ {err}</div>}
     </>
   );
 }

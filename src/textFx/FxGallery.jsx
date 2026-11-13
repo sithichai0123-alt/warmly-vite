@@ -28,14 +28,14 @@ export default function FxGallery({ onClose }) {
         <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(135deg,#7C5CFC33," + C.card + ")" }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 800 }}>🔤 ตัวอย่างฟอนต์และเอฟเฟกต์ตัวอักษร</div>
-            <div style={{ fontSize: 11, color: C.sub, marginTop: 3 }}>หน้าดูตัวอย่างเท่านั้น (ยังไม่เปิดขาย) — เทียบ ฟรี / ทอง / ม่วง</div>
+            <div style={{ fontSize:12, color: C.sub, marginTop: 3 }}>หน้าดูตัวอย่างเท่านั้น (ยังไม่เปิดขาย) — เทียบ ฟรี / ทอง / ม่วง</div>
           </div>
           <button onClick={onClose} aria-label="ปิด" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.4)", color: "#fff", cursor: "pointer", fontFamily: "inherit" }}>✕</button>
         </div>
         <div style={{ padding: "10px 14px 4px" }}>
-          <div style={{ fontSize: 11, color: C.sub, marginBottom: 5, fontWeight: 700 }}>การเคลื่อนไหว</div>
+          <div style={{ fontSize:12, color: C.sub, marginBottom: 5, fontWeight: 700 }}>การเคลื่อนไหว</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{TEXTFX_MODES.map(m => <button key={m} onClick={() => setTextFxMode(m)} style={pill(mode === m)}>{MODE_LABEL[m]}</button>)}</div>
-          <div style={{ fontSize: 11, color: C.sub, margin: "10px 0 5px", fontWeight: 700 }}>พื้นหลังทดสอบ (จำลองธีม)</div>
+          <div style={{ fontSize:12, color: C.sub, margin: "10px 0 5px", fontWeight: 700 }}>พื้นหลังทดสอบ (จำลองธีม)</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{BGS.map(b => <button key={b.id} onClick={() => setBgId(b.id)} style={pill(bgId === b.id)}>{b.label}</button>)}</div>
         </div>
         {["free", "gold", "purple"].map(tier => (
@@ -52,7 +52,7 @@ export default function FxGallery({ onClose }) {
                 <div style={{ padding: "10px 12px", background: bg.bg, color: bg.fg, "--wm-dark": bg.dark }}>
                   <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.35 }}><TextFx fx={t.id}>{SAMPLES[0]}</TextFx></div>
                   <div style={{ fontSize: 14, marginTop: 2, lineHeight: 1.5 }}><TextFx fx={t.id}>{SAMPLES[1]}</TextFx></div>
-                  <div style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>{t.th}</div>
+                  <div style={{ fontSize:12, opacity: 0.7, marginTop: 4 }}>{t.th}</div>
                 </div>
               </div>
             ))}

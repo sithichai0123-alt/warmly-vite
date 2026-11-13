@@ -25,25 +25,25 @@ export default function DmMenu({ peerName, muted, blocked, onToggleMute, onClear
           {confirm === "clear" && (
             <div data-dm-confirm="clear" style={{ padding: 12 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>ลบประวัติแชทกับ {peerName}?</div>
-              <div style={{ fontSize: 11, color: C.sub, margin: "4px 0 10px" }}>ข้อความเก่าจะหายจากหน้าจอของคุณเท่านั้น อีกฝ่ายยังเห็นตามเดิม ข้อความใหม่หลังจากนี้จะแสดงตามปกติ</div>
+              <div style={{ fontSize:12, color: C.sub, margin: "4px 0 10px" }}>ข้อความเก่าจะหายจากหน้าจอของคุณเท่านั้น อีกฝ่ายยังเห็นตามเดิม ข้อความใหม่หลังจากนี้จะแสดงตามปกติ</div>
               <div style={{ display: "flex", gap: 6 }}><button type="button" data-dm-confirm-yes onClick={() => run(onClear)} style={item({ flex: 1, textAlign: "center", background: C.red, color: "#fff", borderRadius: 8, padding: "8px" })}>ลบเลย</button><button type="button" onClick={() => setConfirm(null)} style={item({ flex: 1, textAlign: "center", border: "1px solid " + C.border, borderRadius: 8, padding: "8px" })}>ยกเลิก</button></div>
             </div>
           )}
           {confirm === "all" && (
             <div data-dm-confirm="all" style={{ padding: 12 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>ลบข้อความทั้งหมดกับ {peerName}?</div>
-              <div style={{ fontSize: 11, color: C.sub, margin: "4px 0 10px" }}>ข้อความทุกข้อความในแชทนี้ (รวมของ {peerName}) จะหายไปจากหน้าจอของทั้งสองฝั่งทันที และกู้คืนไม่ได้ แชทอื่นไม่ได้รับผลกระทบ</div>
+              <div style={{ fontSize:12, color: C.sub, margin: "4px 0 10px" }}>ข้อความทุกข้อความในแชทนี้ (รวมของ {peerName}) จะหายไปจากหน้าจอของทั้งสองฝั่งทันที และกู้คืนไม่ได้ แชทอื่นไม่ได้รับผลกระทบ</div>
               <div style={{ display: "flex", gap: 6 }}><button type="button" data-dm-confirm-yes onClick={() => run(onDeleteAll)} style={item({ flex: 1, textAlign: "center", background: C.red, color: "#fff", borderRadius: 8, padding: "8px" })}>ลบทั้งหมด</button><button type="button" onClick={() => setConfirm(null)} style={item({ flex: 1, textAlign: "center", border: "1px solid " + C.border, borderRadius: 8, padding: "8px" })}>ยกเลิก</button></div>
             </div>
           )}
           {confirm === "block" && (
             <div data-dm-confirm="block" style={{ padding: 12 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>บล็อก {peerName}?</div>
-              <div style={{ fontSize: 11, color: C.sub, margin: "4px 0 10px" }}>เขาจะส่งข้อความหาคุณไม่ได้ ข้อความของเขาจะไม่แสดงในแชทส่วนตัวของคุณ และคุณจะไม่ได้ยินเสียงแจ้งเตือนจากเขา เลิกบล็อกได้ทุกเมื่อ</div>
+              <div style={{ fontSize:12, color: C.sub, margin: "4px 0 10px" }}>เขาจะส่งข้อความหาคุณไม่ได้ ข้อความของเขาจะไม่แสดงในแชทส่วนตัวของคุณ และคุณจะไม่ได้ยินเสียงแจ้งเตือนจากเขา เลิกบล็อกได้ทุกเมื่อ</div>
               <div style={{ display: "flex", gap: 6 }}><button type="button" data-dm-confirm-yes onClick={() => run(onToggleBlock)} style={item({ flex: 1, textAlign: "center", background: C.red, color: "#fff", borderRadius: 8, padding: "8px" })}>บล็อก</button><button type="button" onClick={() => setConfirm(null)} style={item({ flex: 1, textAlign: "center", border: "1px solid " + C.border, borderRadius: 8, padding: "8px" })}>ยกเลิก</button></div>
             </div>
           )}
-          {err && <div data-dm-err style={{ padding: "6px 12px 10px", fontSize: 11, color: C.yellow }}>⚠️ {err}</div>}
+          {err && <div data-dm-err style={{ padding: "6px 12px 10px", fontSize:12, color: C.yellow }}>⚠️ {err}</div>}
         </div>
       </>)}
     </div>

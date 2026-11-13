@@ -18,7 +18,7 @@ export default function FriendsPanel({ Avatar, nameOf, Name, isOnline, onProfile
       <div onClick={() => onProfile && onProfile(p.uid)} style={{ cursor: "pointer" }}><Avatar uid={p.uid} size={40}/></div>
       <div onClick={() => onProfile && onProfile(p.uid)} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{Name ? <Name uid={p.uid} /> : nameOf(p.uid)}</div>
-        {isOnline && <div style={{ fontSize: 11, color: isOnline(p.uid) ? "#10B981" : C.muted }}>{isOnline(p.uid) ? "ออนไลน์" : "ออฟไลน์"}</div>}
+        {isOnline && <div style={{ fontSize:12, color: isOnline(p.uid) ? "#10B981" : C.muted }}>{isOnline(p.uid) ? "ออนไลน์" : "ออฟไลน์"}</div>}
       </div>
       <div style={{ display: "flex", gap: 6 }}>{right}</div>
     </div>
