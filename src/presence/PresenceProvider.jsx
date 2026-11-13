@@ -86,5 +86,5 @@ export function PresenceText({ uid, style, green = "#22C55E" }) {
   const st = usePresence(uid);
   const label = usePresenceLabel(uid);
   if (!label) return null;
-  return <span data-presence-text={st.state} style={{ fontSize: 11, color: st.state === "online" ? green : undefined, ...style }}>{st.state === "online" ? "● " : ""}{label}</span>;
+  return <span data-presence-text={st.state} style={{ fontSize:12, color: st.state === "online" ? green : undefined, ...style }}>{st.state === "online" ? "● " : ""}{label}</span>;
 }

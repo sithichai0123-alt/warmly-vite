@@ -28,7 +28,7 @@ export default function FriendButton({ uid, name, Btn, hidden }) {
           <Btn onClick={() => setConfirm(false)} v="ghost" sz="sm">ยกเลิก</Btn>
         </span>
       )}
-      {err && <div data-fr-err style={{ flexBasis: "100%", fontSize: 11, color: "#F59E0B" }}>⚠️ {err}</div>}
+      {err && <div data-fr-err style={{ flexBasis: "100%", fontSize:12, color: "#F59E0B" }}>⚠️ {err}</div>}
     </>
   );
 }

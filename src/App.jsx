@@ -1559,10 +1559,8 @@ function PostCard({p,user}){
 function NewPostBox({user}){
   if(user.isGuest) return(
     <Card style={{marginBottom:14}}>
-      <div style={{padding:"20px 16px",textAlign:"center"}}>
-        <div style={{fontSize:20,marginBottom:8}}>🔒</div>
-        <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:4}}>ต้องเข้าสู่ระบบด้วย Google</div>
-        <div style={{fontSize:13,color:T.muted}}>ผู้เยี่ยมชมไม่สามารถโพสต์ได้</div>
+      <div style={{padding:"12px 16px",textAlign:"center",fontSize:13,color:T.sub}}>
+        🔒 โพสต์ได้เมื่อเข้าสู่ระบบด้วย Google
       </div>
     </Card>
   );

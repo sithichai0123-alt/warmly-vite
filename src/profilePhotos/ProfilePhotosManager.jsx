@@ -6,7 +6,7 @@ import { processFile, makeThumb } from "./image.js";
 import { emptyState, planAdd, planRemove, planSetMain, mainOf, ordered } from "./photos.js";
 
 const C = { card: "#221F33", surface: "#1A1825", border: "#2E2A45", borderHi: "#4F46A8", brand2: "#A78BFA", text: "#F0EEFF", sub: "#9B94C4", muted: "#8A84B0", yellow: "#F59E0B", red: "#F87171", grad: "linear-gradient(135deg,#7C5CFC,#A78BFA)" };
-const btn = (extra) => ({ fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "5px 9px", borderRadius: 8, border: "1px solid " + C.borderHi, background: "transparent", color: C.brand2, cursor: "pointer", ...extra });
+const btn = (extra) => ({ fontFamily: "inherit", fontSize:12, fontWeight: 700, padding: "5px 9px", borderRadius: 8, border: "1px solid " + C.borderHi, background: "transparent", color: C.brand2, cursor: "pointer", ...extra });
 
 export default function ProfilePhotosManager({ uid, api, legacyAvatar, onMainChange, onOpen, onClose }) {
   const [state, setState] = useState(emptyState());
@@ -95,7 +95,7 @@ export default function ProfilePhotosManager({ uid, api, legacyAvatar, onMainCha
                 <div key={p.id} data-photo={p.id} data-main={isMain ? "1" : "0"} style={{ background: C.surface, border: "2px solid " + (isMain ? C.brand2 : C.border), borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column", minWidth: 0 }}>
                   <div style={{ position: "relative", aspectRatio: "1/1", cursor: onOpen ? "zoom-in" : "default" }} onClick={() => onOpen && onOpen(srcs, srcs.indexOf(p.src))}>
                     <img src={p.src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                    {isMain && <span style={{ position: "absolute", top: 4, left: 4, fontSize: 10, fontWeight: 800, background: C.grad, color: "#fff", borderRadius: 8, padding: "2px 6px" }}>⭐ รูปหลัก</span>}
+                    {isMain && <span style={{ position: "absolute", top: 4, left: 4, fontSize:12, fontWeight: 800, background: C.grad, color: "#fff", borderRadius: 8, padding: "2px 6px" }}>⭐ รูปหลัก</span>}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: 5 }}>
                     {!isMain && <button type="button" data-photo-setmain onClick={() => setMain(p.id)} disabled={busy} style={btn({ opacity: busy ? .5 : 1 })}>ตั้งเป็นรูปหลัก</button>}

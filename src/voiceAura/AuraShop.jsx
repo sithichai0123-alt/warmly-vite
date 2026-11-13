@@ -18,7 +18,7 @@ function Price({ a }) {
 }
 function RarityChip({ a }) {
   const r = RARITY[a.rarity];
-  return <span style={{ fontSize: 10, fontWeight: 800, color: r.color, border: "1px solid " + r.color + "66", background: r.color + "1A", borderRadius: 20, padding: "1px 7px" }}>{r.label}</span>;
+  return <span style={{ fontSize:12, fontWeight: 800, color: r.color, border: "1px solid " + r.color + "66", background: r.color + "1A", borderRadius: 20, padding: "1px 7px" }}>{r.label}</span>;
 }
 
 // รูปจำลองของผู้ใช้ (ใช้รูปจริงถ้ามี)
@@ -86,7 +86,7 @@ export default function AuraShop({ me, user, onClose, api }) {
 
   function BuyBtn({ a }) {
     if (!a.price) return null;
-    if (ownsAura(me, a.id)) return <span style={{ fontSize: 11, color: C.green, fontWeight: 800 }}>✓ เป็นเจ้าของ</span>;
+    if (ownsAura(me, a.id)) return <span style={{ fontSize:12, color: C.green, fontWeight: 800 }}>✓ เป็นเจ้าของ</span>;
     const enough = a.cur === "gold" ? gold >= a.price : purple >= a.price;
     if (!enough) return <button disabled style={btn(false, { opacity: 0.45, cursor: "not-allowed", borderColor: C.border, color: C.muted })}>เหรียญไม่พอ</button>;
     const ask = confirmId === a.id;
@@ -109,7 +109,7 @@ export default function AuraShop({ me, user, onClose, api }) {
             <div style={{ fontSize: 20, fontWeight: 800, color: C.yellow }}>🪙 {gold.toLocaleString()}</div>
             <div style={{ fontSize: 18, fontWeight: 800, color: C.purple, display: "flex", alignItems: "center", gap: 6 }}><PCoin size={16} />{purple}</div>
           </div>
-          <div style={{ fontSize: 11, color: C.sub, marginTop: 6, lineHeight: 1.5 }}>เอฟเฟกต์จะแสดงรอบรูปของคุณตอนพูดในห้องเสียง ทุกคนในห้องเห็นเหมือนกัน</div>
+          <div style={{ fontSize:12, color: C.sub, marginTop: 6, lineHeight: 1.5 }}>เอฟเฟกต์จะแสดงรอบรูปของคุณตอนพูดในห้องเสียง ทุกคนในห้องเห็นเหมือนกัน</div>
           {msg && <div style={{ fontSize: 12, color: msg.startsWith("⚠️") ? C.red : C.green, marginTop: 8, lineHeight: 1.5 }}>{msg}</div>}
         </div>
 
@@ -131,12 +131,12 @@ export default function AuraShop({ me, user, onClose, api }) {
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 13, fontWeight: 800 }}>{a.name}</span><RarityChip a={a} />
                       </div>
-                      <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>{a.th}</div>
+                      <div style={{ fontSize:12, color: C.sub, marginTop: 2 }}>{a.th}</div>
                       <div style={{ fontSize: 12, marginTop: 3 }}><Price a={a} /></div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-end" }}>
                       <BuyBtn a={a} />
-                      <button onClick={() => { setSel(a.id); setTab("preview"); setSpeak(true); }} style={btn(false, { fontSize: 11, padding: "4px 10px" })}>ดูตัวอย่าง</button>
+                      <button onClick={() => { setSel(a.id); setTab("preview"); setSpeak(true); }} style={btn(false, { fontSize:12, padding: "4px 10px" })}>ดูตัวอย่าง</button>
                     </div>
                   </div>
                 ))}
@@ -147,7 +147,7 @@ export default function AuraShop({ me, user, onClose, api }) {
 
         {tab === "mine" && (
           <div style={{ padding: "6px 14px 10px" }}>
-            <div style={{ fontSize: 11, color: C.sub, padding: "8px 2px" }}>เลือกเอฟเฟกต์ที่ใช้ตอนพูด หรือกลับไปใช้วงเขียวเดิมได้ตลอดเวลา</div>
+            <div style={{ fontSize:12, color: C.sub, padding: "8px 2px" }}>เลือกเอฟเฟกต์ที่ใช้ตอนพูด หรือกลับไปใช้วงเขียวเดิมได้ตลอดเวลา</div>
             {owned.map(a => {
               const on = equipped === a.id;
               return (
@@ -155,13 +155,13 @@ export default function AuraShop({ me, user, onClose, api }) {
                   <Thumb a={a} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}><span style={{ fontSize: 13, fontWeight: 800 }}>{a.name}</span><RarityChip a={a} /></div>
-                    <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>{a.id === "green" ? "ค่าเริ่มต้น (ฟรี)" : a.th}</div>
+                    <div style={{ fontSize:12, color: C.sub, marginTop: 2 }}>{a.id === "green" ? "ค่าเริ่มต้น (ฟรี)" : a.th}</div>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-end" }}>
                     {on
-                      ? <span style={{ fontSize: 11, color: C.green, fontWeight: 800 }}>● ใช้อยู่</span>
+                      ? <span style={{ fontSize:12, color: C.green, fontWeight: 800 }}>● ใช้อยู่</span>
                       : <button disabled={busy} onClick={() => equip(a.id === "green" ? null : a.id, a.id === "green" ? "กลับไปใช้วงเขียวเดิมแล้ว" : "สวมใส่ " + a.name + " แล้ว")} style={btn(true)}>{a.id === "green" ? "ใช้วงเขียว" : "สวมใส่"}</button>}
-                    <button onClick={() => { setSel(a.id); setTab("preview"); setSpeak(true); }} style={btn(false, { fontSize: 11, padding: "4px 10px" })}>ดูตัวอย่าง</button>
+                    <button onClick={() => { setSel(a.id); setTab("preview"); setSpeak(true); }} style={btn(false, { fontSize:12, padding: "4px 10px" })}>ดูตัวอย่าง</button>
                   </div>
                 </div>
               );
@@ -174,15 +174,15 @@ export default function AuraShop({ me, user, onClose, api }) {
           <div style={{ padding: "14px 16px 16px" }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
               {AURAS.filter(a => a.id !== "green").map(a => (
-                <button key={a.id} onClick={() => setSel(a.id)} style={btn(sel === a.id, { fontSize: 11, padding: "4px 9px" })}>{a.name}</button>
+                <button key={a.id} onClick={() => setSel(a.id)} style={btn(sel === a.id, { fontSize:12, padding: "4px 9px" })}>{a.name}</button>
               ))}
             </div>
             <div style={{ background: C.surface, border: "1px solid " + C.border, borderRadius: 16, height: 168, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                 <VoiceAura aura={sel} active={speak}><MiniAvatar me={me} user={user} size={72} /></VoiceAura>
-                <div style={{ fontSize: 11, color: C.brand2, fontWeight: 700 }}>คุณ</div>
+                <div style={{ fontSize:12, color: C.brand2, fontWeight: 700 }}>คุณ</div>
               </div>
-              <div style={{ position: "absolute", top: 8, left: 10, fontSize: 11, fontWeight: 800, color: speak ? C.green : C.muted }}>{speak ? "● กำลังพูด" : "○ เงียบ"}</div>
+              <div style={{ position: "absolute", top: 8, left: 10, fontSize:12, fontWeight: 800, color: speak ? C.green : C.muted }}>{speak ? "● กำลังพูด" : "○ เงียบ"}</div>
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
               <button onClick={() => { setAuto(false); setSpeak(true); }} style={btn(speak && !auto)}>▶ เริ่มพูด</button>
@@ -194,7 +194,7 @@ export default function AuraShop({ me, user, onClose, api }) {
               <span style={{ marginLeft: "auto", fontSize: 13 }}><Price a={sa} /></span>
             </div>
             <div style={{ fontSize: 12, color: C.sub, marginTop: 4, lineHeight: 1.6 }}>{sa.th} — {sa.desc}</div>
-            {mode !== "full" && <div style={{ fontSize: 11, color: C.yellow, marginTop: 8 }}>{mode === "off" ? "คุณปิดเอฟเฟกต์ไว้ — ตัวอย่างนี้จึงไม่แสดงในห้องเสียง (เปลี่ยนได้ด้านล่าง)" : "โหมดลดเอฟเฟกต์เปิดอยู่ — ตัวอย่างแสดงแบบเบา (ไม่มีอนุภาค)"}</div>}
+            {mode !== "full" && <div style={{ fontSize:12, color: C.yellow, marginTop: 8 }}>{mode === "off" ? "คุณปิดเอฟเฟกต์ไว้ — ตัวอย่างนี้จึงไม่แสดงในห้องเสียง (เปลี่ยนได้ด้านล่าง)" : "โหมดลดเอฟเฟกต์เปิดอยู่ — ตัวอย่างแสดงแบบเบา (ไม่มีอนุภาค)"}</div>}
             <div style={{ marginTop: 12, display: "flex", gap: 8, alignItems: "center", justifyContent: "flex-end" }}>
               {ownsAura(me, sa.id)
                 ? (equipped === sa.id
@@ -206,13 +206,13 @@ export default function AuraShop({ me, user, onClose, api }) {
         )}
 
         <div style={{ padding: "10px 16px 14px", borderTop: "1px solid " + C.border }}>
-          <div style={{ fontSize: 11, color: C.sub, marginBottom: 6, fontWeight: 700 }}>การแสดงผลเอฟเฟกต์ (เฉพาะเครื่องคุณ)</div>
+          <div style={{ fontSize:12, color: C.sub, marginBottom: 6, fontWeight: 700 }}>การแสดงผลเอฟเฟกต์ (เฉพาะเครื่องคุณ)</div>
           <div style={{ display: "flex", gap: 6 }}>
             {[["full", "เต็ม"], ["reduced", "ลดเอฟเฟกต์"], ["off", "ปิด"]].map(([k, l]) => (
               <button key={k} onClick={() => setMode(k)} style={btn(mode === k, { flex: 1 })}>{l}</button>
             ))}
           </div>
-          <div style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>"ปิด" = กลับเป็นวงเขียวแบบเดิมสำหรับทุกคน • ถ้าเครื่องตั้งค่า "ลดการเคลื่อนไหว" ไว้ ระบบจะใช้แบบเบาให้อัตโนมัติ • ไม่มีเสียงประกอบเอฟเฟกต์</div>
+          <div style={{ fontSize:12, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>"ปิด" = กลับเป็นวงเขียวแบบเดิมสำหรับทุกคน • ถ้าเครื่องตั้งค่า "ลดการเคลื่อนไหว" ไว้ ระบบจะใช้แบบเบาให้อัตโนมัติ • ไม่มีเสียงประกอบเอฟเฟกต์</div>
         </div>
       </div>
     </div>

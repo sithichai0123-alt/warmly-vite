@@ -180,13 +180,13 @@ export function CallProvider({ api, uid, myName, guest, nameOf, Name, isUserGues
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{call.phase === "ringing" ? <>{"📞 กำลังโทรหา "}{Name ? <Name uid={call.peer} /> : peerName}{"…"}</> : <>{"📞 คุยส่วนตัวกับ "}{Name ? <Name uid={call.peer} /> : peerName}</>}</div>
-              <div style={{ fontSize: 11, color: C.sub }}>{call.phase === "ringing" ? "รออีกฝ่ายรับสาย (ไมค์ยังไม่เปิด)" : <span data-call-timer>{fmtDuration(Date.now() - call.startedAt)}</span>}{call.phase === "active" && " • " + (aud.connected ? (aud.micOn ? "🎙️ ไมค์เปิด" : "🔇 ไมค์ปิด") : "⏳ กำลังเชื่อมต่อเสียง")}</div>
+              <div style={{ fontSize:12, color: C.sub }}>{call.phase === "ringing" ? "รออีกฝ่ายรับสาย (ไมค์ยังไม่เปิด)" : <span data-call-timer>{fmtDuration(Date.now() - call.startedAt)}</span>}{call.phase === "active" && " • " + (aud.connected ? (aud.micOn ? "🎙️ ไมค์เปิด" : "🔇 ไมค์ปิด") : "⏳ กำลังเชื่อมต่อเสียง")}</div>
             </div>
             {call.phase === "active" && <button type="button" data-call-mic onClick={() => audio.current.setMic(!aud.micOn)} style={btn(aud.micOn ? C.brand : "#3A3552", { padding: "8px 12px", fontSize: 13 })}>{aud.micOn ? "🎙️" : "🔇"}</button>}
             <button type="button" data-call-end onClick={hangup} style={btn(C.red, { padding: "8px 12px", fontSize: 13 })}>{call.phase === "ringing" ? "ยกเลิก" : "📵 วางสาย"}</button>
           </div>
           {aud.needAudio && <div data-call-audio onClick={() => audio.current.enableAudio()} style={{ fontSize: 12, color: "#F59E0B", marginTop: 6, cursor: "pointer", fontWeight: 700 }}>🔊 แตะที่นี่เพื่อเปิดเสียงสาย</div>}
-          {aud.error && <div data-call-err style={{ fontSize: 11, color: "#F59E0B", marginTop: 6 }}>⚠️ {aud.error}</div>}
+          {aud.error && <div data-call-err style={{ fontSize:12, color: "#F59E0B", marginTop: 6 }}>⚠️ {aud.error}</div>}
         </div>
       )}
     </Ctx.Provider>

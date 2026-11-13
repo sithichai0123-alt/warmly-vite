@@ -9,7 +9,7 @@ export default function MemberMenu({ title, subtitle, items, onClose }) {
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: C.card, border: "1px solid " + C.borderHi, borderRadius: 18, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", borderBottom: "1px solid " + C.border }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{title}</div>
-          {subtitle && <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>{subtitle}</div>}
+          {subtitle && <div style={{ fontSize:12, color: C.sub, marginTop: 2 }}>{subtitle}</div>}
         </div>
         {shown.map(i => (
           <button key={i.key} type="button" data-mm={i.key} disabled={i.disabled} onClick={() => { onClose(); i.onClick && i.onClick(); }} style={{ display: "block", width: "100%", textAlign: "left", border: "none", borderBottom: "1px solid " + C.border, background: "transparent", color: i.danger ? C.red : C.text, fontFamily: "inherit", fontSize: 14, padding: "13px 16px", cursor: i.disabled ? "default" : "pointer", opacity: i.disabled ? 0.5 : 1 }}>{i.label}</button>

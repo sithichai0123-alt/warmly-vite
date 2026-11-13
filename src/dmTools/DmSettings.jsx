@@ -49,7 +49,7 @@ export default function DmSettings({ blocks, users, onClose }) {
 
         <div style={{ marginTop: 14, background: C.surface, border: "1px solid " + C.border, borderRadius: 14, padding: 12 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <div><div style={{ fontSize: 14, fontWeight: 700 }}>🔔 เสียงแจ้งเตือนข้อความใหม่</div><div style={{ fontSize: 11, color: C.muted }}>ดังเมื่อมีข้อความส่วนตัวใหม่เข้ามา (เฉพาะเครื่องนี้)</div></div>
+            <div><div style={{ fontSize: 14, fontWeight: 700 }}>🔔 เสียงแจ้งเตือนข้อความใหม่</div><div style={{ fontSize:12, color: C.muted }}>ดังเมื่อมีข้อความส่วนตัวใหม่เข้ามา (เฉพาะเครื่องนี้)</div></div>
             <div data-dms-sound-toggle data-on={p.soundOn ? "1" : "0"} onClick={() => setDmPrefs({ soundOn: !p.soundOn })} style={{ width: 46, height: 26, borderRadius: 13, cursor: "pointer", background: p.soundOn ? "#7C5CFC" : "#333", position: "relative", flexShrink: 0 }}><div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: p.soundOn ? 23 : 3, transition: "left .2s" }} /></div>
           </div>
           <div style={{ opacity: p.soundOn ? 1 : 0.45, pointerEvents: p.soundOn ? "auto" : "none" }}>
@@ -60,14 +60,14 @@ export default function DmSettings({ blocks, users, onClose }) {
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "12px 0 0" }}>
               <label htmlFor="wm-dm-vol" style={{ fontSize: 12, fontWeight: 700, color: C.sub }}>ความดัง {Math.round(p.volume * 100)}%</label>
-              <button type="button" data-dms-test onClick={() => playNotification(p)} style={{ fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 8, border: "1px solid " + C.borderHi, background: "transparent", color: C.brand2, cursor: "pointer" }}>▶ ทดลองฟัง</button>
+              <button type="button" data-dms-test onClick={() => playNotification(p)} style={{ fontFamily: "inherit", fontSize:12, fontWeight: 700, padding: "4px 10px", borderRadius: 8, border: "1px solid " + C.borderHi, background: "transparent", color: C.brand2, cursor: "pointer" }}>▶ ทดลองฟัง</button>
             </div>
             <input id="wm-dm-vol" data-dms-volume type="range" min="0" max="100" step="5" value={Math.round(p.volume * 100)} onChange={e => setDmPrefs({ volume: Number(e.target.value) / 100 })} style={{ width: "100%", accentColor: "#A78BFA", height: 28 }} />
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
               <button type="button" data-dms-upload onClick={() => fileRef.current && fileRef.current.click()} disabled={busy} style={chip(false)}>{busy ? "⏳ กำลังตรวจไฟล์..." : "⬆️ อัปโหลดเสียงของฉัน"}</button>
               {p.customSound && <button type="button" data-dms-remove-custom onClick={() => setDmPrefs({ customSound: "", tone: p.tone === "custom" ? "pop" : p.tone })} style={{ ...chip(false), color: C.red, borderColor: "#5B2A35" }}>ลบเสียงของฉัน</button>}
             </div>
-            <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>MP3 / WAV / OGG / M4A ไม่เกิน {Math.round(MAX_CUSTOM_SOUND_BYTES / 1024)} KB และยาวไม่เกิน {MAX_CUSTOM_SOUND_SECONDS} วินาที</div>
+            <div style={{ fontSize:12, color: C.muted, marginTop: 4 }}>MP3 / WAV / OGG / M4A ไม่เกิน {Math.round(MAX_CUSTOM_SOUND_BYTES / 1024)} KB และยาวไม่เกิน {MAX_CUSTOM_SOUND_SECONDS} วินาที</div>
             <input ref={fileRef} data-dms-file type="file" accept={ALLOWED_SOUND_TYPES.join(",") + ",.mp3,.wav,.ogg,.m4a"} style={{ display: "none" }} onChange={onFile} />
           </div>
           {msg && <div data-dms-msg style={{ marginTop: 8, fontSize: 12, color: C.yellow }}>⚠️ {msg}</div>}
@@ -75,7 +75,7 @@ export default function DmSettings({ blocks, users, onClose }) {
 
         <div style={{ marginTop: 12, background: C.surface, border: "1px solid " + C.border, borderRadius: 14, padding: 12 }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>🚫 รายชื่อที่บล็อก <span style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>({list.length})</span></div>
-          <div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>คนที่บล็อกจะส่งข้อความหาคุณไม่ได้ และข้อความของเขาจะไม่แสดงในแชทส่วนตัวของคุณ</div>
+          <div style={{ fontSize:12, color: C.muted, marginBottom: 6 }}>คนที่บล็อกจะส่งข้อความหาคุณไม่ได้ และข้อความของเขาจะไม่แสดงในแชทส่วนตัวของคุณ</div>
           {list.length === 0 && <div data-dms-nobloc style={{ fontSize: 12, color: C.muted, padding: "6px 0" }}>ยังไม่ได้บล็อกใคร</div>}
           {list.map(uid => (
             <div key={uid} data-blocked={uid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderTop: "1px solid " + C.border }}>
