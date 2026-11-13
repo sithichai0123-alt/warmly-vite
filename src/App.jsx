@@ -1330,32 +1330,47 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
             {key:"call",hidden:!PRIVATE_CALL_ENABLED||tg,label:"📞 โทรส่วนตัว (แยกจากห้อง)",onClick:()=>callCtx.requestCall(t,{sameRoom:true,isFriend:friendsCtx.friendSet.has(t)})},
           ];})()}/>}
           <div style={{background:"linear-gradient(135deg,"+T.card+","+T.surface+")",padding:"16px 16px 0"}}>
-            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:14,gap:10}}>
-              <div>
-                <div style={{fontSize:15,fontWeight:700,color:T.text,display:"flex",alignItems:"center",gap:8}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",background:connected?T.green:T.yellow,boxShadow:"0 0 8px "+(connected?T.green:T.yellow)}}/>
-                  {inRoom.vibe} <FxT uid={inRoom.hostUid} area="roomName">{inRoom.name}</FxT>
+            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12,gap:10}}>
+              <div style={{minWidth:0,flex:1}}>
+                <div style={{fontSize:16,fontWeight:700,color:T.text,display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:8,height:8,borderRadius:"50%",flexShrink:0,background:connected?T.green:T.yellow,boxShadow:"0 0 8px "+(connected?T.green:T.yellow)}}/>
+                  <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{inRoom.vibe} <FxT uid={inRoom.hostUid} area="roomName">{inRoom.name}</FxT></span>
                 </div>
                 <div style={{fontSize:12,color:T.muted,marginTop:3}}>
-                  {connected?(micOn?"🎙️ เชื่อมต่อแล้ว • ไมค์เปิด":"🔇 เชื่อมต่อแล้ว • ไมค์ปิด"):"⏳ กำลังเชื่อมต่อ..."}
+                  {connected?(micOn?"🎙️ ไมค์เปิด":"🔇 ไมค์ปิด"):"⏳ กำลังเชื่อมต่อ..."}
                   {" • "}{(inRoom.members||[]).length} คน
                 </div>
                 {voiceError&&<div style={{fontSize:12,color:T.red,marginTop:3}}>⚠️ {voiceError}</div>}
-                {isHost&&(inRoom.members||[]).length>1&&<div style={{fontSize:12,color:T.brand2,marginTop:3}}>👑 คุณเป็นเจ้าของห้อง — กด 🚫 ที่มุมรูปสมาชิกเพื่อเตะออก</div>}
-                {!user.isGuest&&(inRoom.members||[]).length>1&&<div style={{fontSize:12,color:T.muted,marginTop:3}}>{socialOn?"👆 แตะรูปสมาชิก: โปรไฟล์ / ส่งของขวัญ / เพิ่มเพื่อน / โทรส่วนตัว":"🎁 แตะรูปสมาชิกเพื่อส่งของขวัญ"}</div>}
                 {needAudio&&<div onClick={enableAudio} style={{fontSize:12,color:T.yellow,marginTop:4,cursor:"pointer",fontWeight:700}}>🔊 แตะที่นี่เพื่อเปิดเสียงห้อง</div>}
               </div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                <Btn onClick={()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);}} v="ghost" sz="sm">{soundOn?"🔔":"🔕"}</Btn>
-                {AUDIO_CONTROLS_ENABLED&&<Btn onClick={()=>setAudioOpen(o=>!o)} v={audioOpen?"primary":"ghost"} sz="sm">🎚️</Btn>}
-                {BACKGROUND_AUDIO_ENABLED&&<Btn onClick={()=>setBgOpen(true)} v="ghost" sz="sm"><span data-bg-open>🌙</span></Btn>}
-                {VOICE_AURA_ENABLED&&!user.isGuest&&<Btn onClick={()=>setAuraOpen(true)} v="ghost" sz="sm">✨</Btn>}
-                {ROOM_INVITE_ENABLED&&FRIENDS_ENABLED&&!user.isGuest&&<Btn onClick={()=>setInviteOpen(true)} v="ghost" sz="sm">➕ เชิญ</Btn>}
-                <Btn onClick={()=>setShowPL(!showPL)} v={showPL?"primary":"ghost"} sz="sm">🎵 Playlist</Btn>
-                <Btn onClick={onMicClick} v={micOn?"primary":"danger"} sz="sm">{micOn?"🎙️ เปิด":"🔇 ปิด"}</Btn>
-                <Btn onClick={leave} v="danger" sz="sm">📵</Btn>
-              </div>
+              <Btn onClick={leave} v="danger" sz="sm" style={{flexShrink:0}}>ออกจากห้อง</Btn>
             </div>
+
+            {/* ปุ่มหลัก: เท่ากันทุกปุ่ม */}
+            <div style={{display:"flex",gap:8,marginBottom:10}}>
+              <Btn onClick={onMicClick} v={micOn?"primary":"danger"} sz="md" style={{flex:1}}>{micOn?"🎙️ ไมค์เปิด":"🔇 ไมค์ปิด"}</Btn>
+              <Btn onClick={()=>setShowPL(!showPL)} v={showPL?"primary":"ghost"} sz="md" style={{flex:1}}>🎵 เพลง</Btn>
+              {ROOM_INVITE_ENABLED&&FRIENDS_ENABLED&&!user.isGuest&&<Btn onClick={()=>setInviteOpen(true)} v="ghost" sz="md" style={{flex:1}}>➕ เชิญ</Btn>}
+            </div>
+
+            {/* ปุ่มรอง: ไอคอน + ป้ายชื่อ เรียงเป็นตาราง */}
+            <div style={{display:"flex",gap:8,marginBottom:12}}>
+              {[
+                {k:"snd",on:soundOn,ic:soundOn?"🔔":"🔕",l:"แจ้งเตือน",fn:()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);},show:true},
+                {k:"mix",on:audioOpen,ic:"🎚️",l:"ระดับเสียง",fn:()=>setAudioOpen(o=>!o),show:AUDIO_CONTROLS_ENABLED},
+                {k:"bg",on:false,ic:"🌙",l:"เสียงพื้นหลัง",fn:()=>setBgOpen(true),show:BACKGROUND_AUDIO_ENABLED,bg:true},
+                {k:"aura",on:false,ic:"✨",l:"ออร่าเสียง",fn:()=>setAuraOpen(true),show:VOICE_AURA_ENABLED&&!user.isGuest},
+              ].filter(x=>x.show).map(x=>(
+                <button key={x.k} onClick={x.fn} {...(x.bg?{"data-bg-open":true}:{})} style={{flex:1,minWidth:0,padding:"7px 2px",borderRadius:12,border:"1px solid "+(x.on?T.brand:T.border),background:x.on?T.brandA33:"transparent",color:x.on?T.brand2:T.sub,cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                  <span style={{fontSize:18,lineHeight:1}}>{x.ic}</span>
+                  <span style={{fontSize:12,whiteSpace:"nowrap"}}>{x.l}</span>
+                </button>
+              ))}
+            </div>
+
+            {(inRoom.members||[]).length>1&&<div style={{fontSize:12,color:T.muted,marginBottom:12,lineHeight:1.6}}>
+              👆 {user.isGuest?"แตะรูปสมาชิกเพื่อส่งของขวัญ":(socialOn?"แตะรูปสมาชิกเพื่อดูโปรไฟล์ ส่งของขวัญ เพิ่มเพื่อน":"แตะรูปสมาชิกเพื่อส่งของขวัญ")}{isHost?" • 🚫 ที่มุมรูป = เตะออก":""}
+            </div>}
 
             {/* Members */}
             <div style={{display:"flex",gap:12,flexWrap:"wrap",paddingBottom:16}}>
