@@ -2048,6 +2048,7 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
               </div>
               <div style={{display:"flex",gap:6}}>{onAppearance&&<Btn onClick={onAppearance} v="ghost" sz="sm">🎨 แต่งโปรไฟล์</Btn>}<Btn onClick={()=>{setEditing(!editing);setBioInput(bio);}} v="ghost" sz="sm">✏️ แก้ไข</Btn></div>
             </div>
+            {PROFILE_PHOTOS_ENABLED&&!user.isGuest&&<PhotoStrip uid={getUid()} api={photosApi} onOpen={viewer.open} size={72} wrap label="รูปภาพของฉัน"/>}
             <div style={{display:"flex",gap:28,marginTop:16,paddingTop:14,borderTop:"1px solid "+T.border}}>
               {[[FRIENDS_ENABLED&&!user.isGuest?String(friendsCtx.friends.length):"48","เพื่อน"],[String(myPosts.length),"โพสต์"],[String((_allUsers[getUid()]&&_allUsers[getUid()].giftCount)||0),"ของขวัญ"]].map(([n,l])=>(
                 <div key={l} style={{textAlign:"center"}}>
@@ -3482,7 +3483,7 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
             {PRESENCE_ENABLED&&<div style={{marginTop:3,color:T.muted}}><PresenceText uid={uid} green={T.green}/></div>}
             <div style={{fontSize:13,color:T.sub,marginTop:5,lineHeight:1.6}}><FxT uid={uid} area="bio">{u.bio||"ชอบคุยเล่น • ฟังเพื่อนใหม่ 💜"}</FxT></div>
             {u.mood&&<div style={{marginTop:8}}><span style={{background:T.brandA22,color:T.brand2,borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,border:"1px solid "+T.borderHi}}>✦ {u.mood}</span></div>}
-            {PROFILE_PHOTOS_ENABLED&&<PhotoStrip uid={uid} api={photosApi} onOpen={viewer.open}/>}
+            {PROFILE_PHOTOS_ENABLED&&<PhotoStrip uid={uid} api={photosApi} onOpen={viewer.open} size={72} wrap label="รูปภาพ"/>}
             <div style={{marginTop:10,fontSize:12,color:T.muted}}>🎁 ได้รับของขวัญ {u.giftCount||0} ชิ้น</div>
             {uid!==getUid()&&<div style={{marginTop:12,display:"flex",gap:8,flexWrap:"wrap"}}>
               <Btn onClick={()=>onChat(uid)} v="primary" sz="sm">💬 แชทส่วนตัว</Btn>
