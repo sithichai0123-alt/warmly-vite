@@ -14,6 +14,7 @@ import { CHAT_DELETE_ENABLED, makeChatDeleteApi, makeClientFallback, MessageDele
 import { DM_UNREAD_ENABLED, DmUnreadProvider, useDmUnread, UnreadBadge, UnreadDot } from "./dmUnread/index.js"; // จุด/ตัวเลขข้อความใหม่ในแชทส่วนตัว — ปิดได้ที่ dmUnread/config.js
 import { FRIENDS_ENABLED, makeFriendsApi, FriendsProvider, useFriends, FriendButton, FriendsPanel } from "./friends/index.js"; // ระบบเพื่อน — ปิดได้ที่ friends/config.js
 import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from "./roomInvite/index.js"; // เชิญเพื่อนเข้าห้องเสียง — ปิดได้ที่ roomInvite/config.js
+import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
 import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
 import { BannerStack, MemberMenu } from "./social/index.js"; // แถบแจ้งเตือน + เมนูแตะรูปสมาชิก (ชุดกลางของเฟส C)
@@ -176,6 +177,10 @@ function giftAvailable(g){
   const t=todayBkk();
   return t>=g.event.from&&t<=g.event.to;
 }
+// Gifts Plus: ต่อท้ายรายการของขวัญเดิม (ไม่แก้ของเดิมสักชิ้น) — ปิดที่ giftsPlus/config.js แล้วกลับเป็นแบบเดิมทั้งหมด
+if(GIFTS_PLUS_ENABLED){GIFTS.push(...plusGifts({purple:GIFTS_PLUS_PURPLE_ENABLED}));Object.assign(GIFT_FX,plusFx({purple:GIFTS_PLUS_PURPLE_ENABLED}));}
+// ลำดับแสดงในหน้าเลือก: ทอง (ราคาน้อย→มาก) แล้วม่วง (น้อย→มาก) — ปิดสวิตช์ = ลำดับเดิมของ GIFTS
+const GIFT_GROUPS=GIFTS_PLUS_ENABLED?sortGifts(GIFTS):{gold:GIFTS,purple:[]};
 const GIFT_BY_ID=Object.fromEntries(GIFTS.map(g=>[g.id,g]));
 const FRAMES={
   gold:{bg:"linear-gradient(135deg,#FDE68A,#F59E0B,#B45309)",glow:"0 0 12px rgba(245,158,11,.6)"},
@@ -319,6 +324,14 @@ async function sendGift(gift,fromUser,toUid,toName,ctx){
   const meRef=doc(db,"users",myUid),toRef=doc(db,"users",toUid);
   await runTransaction(db,async tx=>{
     const sn=await tx.get(meRef);
+    if(isPurpleGift(gift)){
+      // ของขวัญเหรียญม่วง: หักเหรียญม่วง (ฟรีก่อนแล้วค่อยที่ซื้อ) + เขียนประวัติใน transaction เดียวกัน — ผู้รับนับชิ้นแต่ไม่ได้มูลค่าทอง
+      const p=planSendGiftPurple(sn.exists()?sn.data():{},gift,toName);
+      tx.set(meRef,{...p.patch,giftsSent:increment(1)},{merge:true});
+      tx.set(toRef,{giftCount:increment(1),giftPurple:increment(gift.price)},{merge:true});
+      tx.set(doc(collection(db,"ledger")),{uid:myUid,gold:0,purple:0,purpleBought:0,...p.entry,t:serverTimestamp()});
+      return;
+    }
     const coins=(sn.exists()&&sn.data().coins)||0;
     if(coins<gift.price)throw new Error("เหรียญไม่พอ");
     tx.set(meRef,{coins:coins-gift.price,giftsSent:increment(1)},{merge:true});
@@ -419,6 +432,7 @@ async function buyItemLogged(item){
 }
 async function sendGiftLogged(gift,fromUser,toUid,toName,ctx){
   await sendGift(gift,fromUser,toUid,toName,ctx);
+  if(isPurpleGift(gift))return; // ของขวัญม่วงเขียนประวัติไปแล้วใน transaction
   logLedger({kind:"gift_sent",label:"ส่ง "+gift.emoji+" "+gift.name+" ให้ "+toName,gold:-gift.price,ref:gift.id});
 }
 
@@ -2839,6 +2853,7 @@ const sfx=(()=>{
       arp([24,28,31,36,40],3.6,.1,{dur:.5,vol:.2});
     },
   };
+  if(GIFTS_PLUS_ENABLED)Object.assign(GIFT,makeGiftSounds({tone,noise,arp,bell,pluck,thump,brass,nt})); // เสียงของขวัญชุดใหม่
   const tierFallback=tier=>{
     if(tier<=1){tone(nt(12),0,.12,{vol:.3});tone(nt(19),.07,.14,{vol:.3});}
     else if(tier===2){arp([12,16,19,24],0,.07,{dur:.22,vol:.35});}
@@ -3047,6 +3062,8 @@ function PCoin({size=14}){
 function GiftPicker({user,to,onClose,onSent,ctx}){
   const users=useContext(UsersCtx);
   const coins=(users[getUid()]&&users[getUid()].coins)||0;
+  const meDoc=users[getUid()]||{};
+  const pcoins=giftBalance(meDoc,{cur:"purple"});
   const [sel,setSel]=useState(null);
   const [busy,setBusy]=useState(false);
   const [msg,setMsg]=useState("");
@@ -3062,7 +3079,7 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
       onClose();
       return;
     }catch(e){
-      setMsg(e.message==="เหรียญไม่พอ"?"เหรียญไม่พอ — รับเหรียญฟรีรายวันได้ที่ปุ่ม 🪙 มุมขวาบน":"ส่งไม่ได้: "+(e.code||e.message));
+      setMsg(e.message==="เหรียญไม่พอ"?"เหรียญไม่พอ — รับเหรียญฟรีรายวันได้ที่ปุ่ม 🪙 มุมขวาบน":e.message==="เหรียญม่วงไม่พอ"?"เหรียญม่วงไม่พอ — แลกจากเหรียญทอง หรือรับรางวัลจากของขวัญที่ได้รับ ที่ปุ่ม 🪙 มุมขวาบน":"ส่งไม่ได้: "+(e.code||e.message));
     }
     setBusy(false);
   }
@@ -3072,7 +3089,7 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
       <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:480,maxHeight:"90vh",overflowY:"auto",background:T.card,borderTop:"1px solid "+T.borderHi,borderRadius:"20px 20px 0 0",padding:"16px 16px 24px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
           <div style={{fontSize:15,fontWeight:800,color:T.text}}>🎁 ส่งของขวัญให้ {to.name}</div>
-          <div style={{fontSize:13,color:T.yellow,fontWeight:700}}>🪙 {coins}</div>
+          <div style={{fontSize:13,color:T.yellow,fontWeight:700,display:"flex",gap:10,alignItems:"center"}}><span>🪙 {coins}</span>{GIFTS_PLUS_ENABLED&&GIFTS_PLUS_PURPLE_ENABLED&&<span data-gift-purple-bal style={{color:"#C084FC",display:"inline-flex",alignItems:"center",gap:4}}><PCoin size={13}/>{pcoins}</span>}</div>
         </div>
         {sel&&(
           <div style={{textAlign:"center",background:T.surface,border:"1px solid "+T.border,borderRadius:16,padding:"10px 10px 14px",marginBottom:12}}>
@@ -3086,21 +3103,33 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
             <div style={{marginTop:10,display:"flex",gap:8,justifyContent:"center",alignItems:"center",flexWrap:"wrap"}}>
               <Btn onClick={()=>triggerGiftFx(sel.id,setPv)} v="outline" sz="md">▶ ดูแอนิเมชัน</Btn>
               {ok
-                ? <Btn onClick={send} v="primary" sz="md">{busy?"กำลังส่ง...":"ส่ง 🪙 "+sel.price}</Btn>
+                ? <Btn onClick={send} v="primary" sz="md">{busy?"กำลังส่ง...":(isPurpleGift(sel)?<>ส่ง <PCoin size={13}/> {sel.price}</>:"ส่ง 🪙 "+sel.price)}</Btn>
                 : <div style={{fontSize:12,color:T.muted}}>ยังส่งไม่ได้ในตอนนี้</div>}
             </div>
           </div>
         )}
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
-          {GIFTS.map(g=>{
+          {GIFT_GROUPS.gold.map(g=>{
             const av=giftAvailable(g);
             return(
-              <button key={g.id} onClick={()=>{setSel(g);setMsg("");}} style={{position:"relative",background:sel&&sel.id===g.id?T.brandA33:T.surface,border:"1px solid "+(sel&&sel.id===g.id?T.borderHi:(coins>=g.price?T.border:"rgba(244,63,94,.3)")),borderRadius:14,padding:"10px 2px",cursor:"pointer",opacity:av&&coins>=g.price?1:.55,fontFamily:"inherit"}}>
+              <button key={g.id} data-gift={g.id} onClick={()=>{setSel(g);setMsg("");}} style={{position:"relative",background:sel&&sel.id===g.id?T.brandA33:T.surface,border:"1px solid "+(sel&&sel.id===g.id?T.borderHi:(coins>=g.price?T.border:"rgba(244,63,94,.3)")),borderRadius:14,padding:"10px 2px",cursor:"pointer",opacity:av&&coins>=g.price?1:.55,fontFamily:"inherit"}}>
                 {g.model&&<span style={{position:"absolute",top:3,right:4,fontSize:9,fontWeight:800,color:T.brand2,background:T.brandA33,borderRadius:6,padding:"0 4px"}}>3D</span>}
                 <span style={{position:"absolute",left:10,right:10,bottom:3,height:2,borderRadius:2,background:TIER_META[giftTier(g)].color}}/>
                 <div style={{fontSize:30}}>{g.emoji}</div>
                 <div style={{fontSize:11,color:T.text,marginTop:2}}>{g.name}</div>
                 <div style={{fontSize:11,color:av?T.yellow:T.muted,fontWeight:700}}>{av?"🪙 "+g.price:"🔒 "+g.event.label}</div>
+              </button>
+            );
+          })}
+          {GIFT_GROUPS.purple.length>0&&<div data-gift-purple-head style={{gridColumn:"1 / -1",margin:"8px 0 0",fontSize:12,fontWeight:800,color:"#C084FC",display:"flex",alignItems:"center",gap:6}}><PCoin size={13}/>ของขวัญเหรียญม่วง <span style={{fontWeight:500,color:T.muted}}>— พิเศษกว่า เอฟเฟกต์ใหญ่</span></div>}
+          {GIFT_GROUPS.purple.map(g=>{
+            const ok2=pcoins>=g.price,on=sel&&sel.id===g.id;
+            return(
+              <button key={g.id} data-gift={g.id} data-gift-cur="purple" onClick={()=>{setSel(g);setMsg("");}} style={{position:"relative",background:on?"rgba(168,85,247,.22)":T.surface,border:"1px solid "+(on?"#C084FC":(ok2?"rgba(168,85,247,.5)":"rgba(244,63,94,.3)")),boxShadow:ok2?"0 0 10px rgba(168,85,247,.25)":undefined,borderRadius:14,padding:"10px 2px",cursor:"pointer",opacity:ok2?1:.55,fontFamily:"inherit"}}>
+                <span style={{position:"absolute",left:10,right:10,bottom:3,height:2,borderRadius:2,background:TIER_META[giftTier(g)].color}}/>
+                <div style={{fontSize:30}}>{g.emoji}</div>
+                <div style={{fontSize:11,color:T.text,marginTop:2}}>{g.name}</div>
+                <div style={{fontSize:11,color:"#C084FC",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:3}}><PCoin size={11}/>{g.price}</div>
               </button>
             );
           })}
