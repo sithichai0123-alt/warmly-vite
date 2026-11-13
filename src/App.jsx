@@ -14,7 +14,8 @@ import { CHAT_DELETE_ENABLED, makeChatDeleteApi, makeClientFallback, MessageDele
 import { DM_UNREAD_ENABLED, DmUnreadProvider, useDmUnread, UnreadBadge, UnreadDot } from "./dmUnread/index.js"; // จุด/ตัวเลขข้อความใหม่ในแชทส่วนตัว — ปิดได้ที่ dmUnread/config.js
 import { FRIENDS_ENABLED, makeFriendsApi, FriendsProvider, useFriends, FriendButton, FriendsPanel } from "./friends/index.js"; // ระบบเพื่อน — ปิดได้ที่ friends/config.js
 import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from "./roomInvite/index.js"; // เชิญเพื่อนเข้าห้องเสียง — ปิดได้ที่ roomInvite/config.js
-import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
+import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
+import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
 import { BannerStack, MemberMenu } from "./social/index.js"; // แถบแจ้งเตือน + เมนูแตะรูปสมาชิก (ชุดกลางของเฟส C)
 import { PROFILE_PHOTOS_ENABLED, ProfilePhotosManager, PhotoStrip, makePhotosApi } from "./profilePhotos/index.js"; // รูปโปรไฟล์หลายรูป สูงสุด 5 + รูปหลัก (แยกไฟล์ — ปิดได้ที่ profilePhotos/config.js)
 import { DM_TOOLS_ENABLED, makeDmApi, DmNotifier, DmSettings, DmMenu, useBlocks, usePeerBlocksMe, useDmPrefs, setPeerMuted, setActiveDm, clearedAtMs, visibleConversation } from "./dmTools/index.js"; // แชทส่วนตัว: ลบประวัติ/บล็อก/เสียงแจ้งเตือน (แยกไฟล์ — ปิดได้ที่ dmTools/config.js)
@@ -928,6 +929,7 @@ function getUid(){
 // ── LiveKit Voice Hook (imperative: connect ตอนกดปุ่ม เพื่อให้ผ่าน autoplay policy) ──
 function useVoice(){
   const roomRef=useRef(null);
+  const leftRef=useRef(true),connectingRef=useRef(false),lastConnRef=useRef(null),wantMicRef=useRef(true); // ใช้กับ "เชื่อมต่อใหม่อัตโนมัติ" ตอนกลับมาจากเบื้องหลัง
   const micGainRef=useRef(null); // ตัวคุมระดับเสียงไมค์ (ไม่แตะสตรีมไมค์จนกว่าผู้ใช้จะปรับจาก 100%)
   const [connected,setConnected]=useState(false);
   const [speaking,setSpeaking]=useState({});
@@ -946,6 +948,7 @@ function useVoice(){
   },[]);
 
   const disconnect=useCallback(()=>{
+    leftRef.current=true;
     const room=roomRef.current; roomRef.current=null;
     if(micGainRef.current)micGainRef.current.unbind();
     if(room){try{room.removeAllListeners();room.disconnect();}catch(e){}}
@@ -953,8 +956,9 @@ function useVoice(){
     setConnected(false);setSpeaking({});setMics({});setMicOn(false);setNeedAudio(false);
   },[]);
 
-  const connect=useCallback(async(roomId,identity,name)=>{
+  const connect=useCallback(async(roomId,identity,name,opts)=>{
     disconnect();
+    leftRef.current=false;connectingRef.current=true;lastConnRef.current={roomId,identity,name};wantMicRef.current=!(opts&&opts.mic===false);
     setError("");
     const room=new Room({
       adaptiveStream:true,dynacast:true,
@@ -989,7 +993,7 @@ function useVoice(){
       try{await room.startAudio();}catch(e){}
       setNeedAudio(!room.canPlaybackAudio);
       try{
-        await room.localParticipant.setMicrophoneEnabled(true);
+        if(wantMicRef.current)await room.localParticipant.setMicrophoneEnabled(true);
       }catch(e){
         console.error("mic error",e);
         setError("เปิดไมค์ไม่ได้ — กดอนุญาตไมค์ในเบราว์เซอร์ แล้วกดปุ่มไมค์อีกครั้ง");
@@ -998,11 +1002,14 @@ function useVoice(){
     }catch(e){
       console.error("voice connect error",e);
       if(roomRef.current===room)setError("เชื่อมต่อเสียงไม่สำเร็จ: "+(e&&e.message?e.message:e));
+    }finally{
+      if(roomRef.current===room)connectingRef.current=false;
     }
   },[disconnect,refreshMics]);
 
   const setMic=useCallback(async(on)=>{
     const room=roomRef.current; if(!room)return;
+    wantMicRef.current=!!on;
     try{
       await room.localParticipant.setMicrophoneEnabled(on);
       setError("");
@@ -1024,9 +1031,21 @@ function useVoice(){
     setNeedAudio(!room.canPlaybackAudio);
   },[]);
 
+  // สถานะการเชื่อมต่อ (ให้โมดูลเสียงเบื้องหลังตัดสินใจ): "left" = เราออกจากห้องเอง → ห้ามเชื่อมต่อใหม่
+  const getRoomState=useCallback(()=>{
+    if(connectingRef.current)return "connecting";
+    if(leftRef.current||!roomRef.current)return "left";
+    return roomRef.current.state||"connected";
+  },[]);
+  const rejoin=useCallback(()=>{
+    const c=lastConnRef.current;
+    if(!c||leftRef.current)return Promise.resolve();
+    return connect(c.roomId,c.identity,c.name,{mic:wantMicRef.current}); // เปิดไมค์คืนเฉพาะถ้าก่อนหลุดเปิดไว้
+  },[connect]);
+
   useEffect(()=>()=>disconnect(),[disconnect]);
 
-  return{connected,micOn,speaking,mics,needAudio,error,connect,disconnect,toggleMic,setMic,enableAudio};
+  return{connected,micOn,speaking,mics,needAudio,error,connect,disconnect,toggleMic,setMic,enableAudio,getRoomState,rejoin};
 }
 
 // ── Error Boundary (class จริง จับ error ตอน render ได้) ────────
@@ -1076,9 +1095,14 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
   const friendsCtx=useFriends();const callCtx=useCall();const onlineFn=useIsOnline();const openProfileFromRoom=useContext(ProfileCtx);
   const duckActive=useRoomDuck({micOn,setMic:voice.setMic}); // ระหว่างคุยสายส่วนตัว: ปิดไมค์/เสียงห้องหลักเฉพาะฝั่งเรา
   const [inviteOpen,setInviteOpen]=useState(false);
+  const [bgOpen,setBgOpen]=useState(false);
   const [memberMenu,setMemberMenu]=useState(null);
   const socialOn=(FRIENDS_ENABLED||PRIVATE_CALL_ENABLED)&&!user.isGuest;
 
+  useEffect(()=>{ // อยู่ในห้อง = ลงทะเบียนให้โมดูลเสียงเบื้องหลังดูแล (ออกจากห้อง = ถอนทะเบียน)
+    if(!BACKGROUND_AUDIO_ENABLED||!inRoomId)return undefined;
+    return registerBgSession({id:"room",title:inRoomName,getState:voice.getRoomState,enableAudio:voice.enableAudio,rejoin:voice.rejoin,onPause:()=>voice.setMic(false)});
+  },[inRoomId]); // eslint-disable-line
   const inRoom=rooms.find(r=>r.id===inRoomId);
   const memberList=inRoom&&Array.isArray(inRoom.members)?inRoom.members:[];
   const isMeM=m=>m.uid?m.uid===myUid:m.init===user.init;
@@ -1273,6 +1297,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
             </div>
           )}
           {giftTo&&<GiftPicker user={user} to={giftTo} ctx={{type:"room",roomId:inRoomId}} onClose={()=>setGiftTo(null)}/>}
+          {bgOpen&&BACKGROUND_AUDIO_ENABLED&&<BackgroundAudioPanel onClose={()=>setBgOpen(false)}/>}
           {inviteOpen&&ROOM_INVITE_ENABLED&&<InvitePanel roomId={inRoomId} roomName={inRoom.name} friends={friendsCtx.friends} memberUids={new Set(memberList.map(m=>m.uid).filter(Boolean))} Avatar={UAv} nameOf={id=>(_users[id]&&_users[id].name)||"ผู้ใช้"} isOnline={PRESENCE_ENABLED?onlineFn:undefined} onInvite={uid=>inviteApi.send(myUid,{fromName:user.name,to:uid,roomId:inRoomId,roomName:inRoom.name})} onClose={()=>setInviteOpen(false)}/>}
           {memberMenu&&<MemberMenu title={memberMenu.name||"สมาชิก"} subtitle="เลือกสิ่งที่จะทำกับผู้ใช้นี้" onClose={()=>setMemberMenu(null)} items={(()=>{const t=memberMenu.uid;const rel=friendsCtx.relation(t);const tg=!!(_users[t]&&_users[t].isGuest);return[
             {key:"profile",label:"👤 ดูโปรไฟล์",onClick:()=>openProfileFromRoom&&openProfileFromRoom(t)},
@@ -1299,6 +1324,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 <Btn onClick={()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);}} v="ghost" sz="sm">{soundOn?"🔔":"🔕"}</Btn>
                 {AUDIO_CONTROLS_ENABLED&&<Btn onClick={()=>setAudioOpen(o=>!o)} v={audioOpen?"primary":"ghost"} sz="sm">🎚️</Btn>}
+                {BACKGROUND_AUDIO_ENABLED&&<Btn onClick={()=>setBgOpen(true)} v="ghost" sz="sm"><span data-bg-open>🌙</span></Btn>}
                 {VOICE_AURA_ENABLED&&!user.isGuest&&<Btn onClick={()=>setAuraOpen(true)} v="ghost" sz="sm">✨</Btn>}
                 {ROOM_INVITE_ENABLED&&FRIENDS_ENABLED&&!user.isGuest&&<Btn onClick={()=>setInviteOpen(true)} v="ghost" sz="sm">➕ เชิญ</Btn>}
                 <Btn onClick={()=>setShowPL(!showPL)} v={showPL?"primary":"ghost"} sz="sm">🎵 Playlist</Btn>
@@ -3457,6 +3483,7 @@ function SocialProviders({user,onOpenFriends,onJoinRoom,children}){
   const myUid=getUid();
   const guest=!!user.isGuest;
   const blocks=useBlocks(DM_TOOLS_ENABLED?dmApi:null,guest?null:myUid);
+  const callActiveNow=useCallActive();
   const nameOf=useCallback(id=>(users[id]&&users[id].name)||"ผู้ใช้",[users]);
   const isUserGuest=useCallback(id=>!!(users[id]&&users[id].isGuest),[users]);
   let tree=children;
@@ -3464,7 +3491,8 @@ function SocialProviders({user,onOpenFriends,onJoinRoom,children}){
   if(DM_UNREAD_ENABLED)tree=<DmUnreadProvider api={dmApi} uid={guest?null:myUid} blocked={blocks.set}>{tree}</DmUnreadProvider>;
   if(FRIENDS_ENABLED)tree=<FriendsProvider api={friendsApi} uid={guest?null:myUid} blocked={blocks.set} nameOf={nameOf} onOpenFriends={onOpenFriends}>{tree}</FriendsProvider>;
   return(<>{tree}
-    {(FRIENDS_ENABLED||ROOM_INVITE_ENABLED||PRIVATE_CALL_ENABLED)&&<BannerStack/>}
+    {(FRIENDS_ENABLED||ROOM_INVITE_ENABLED||PRIVATE_CALL_ENABLED||BACKGROUND_AUDIO_ENABLED)&&<BannerStack/>}
+    {BACKGROUND_AUDIO_ENABLED&&<BackgroundAudioKeeper callActive={callActiveNow}/>}
     {ROOM_INVITE_ENABLED&&FRIENDS_ENABLED&&!guest&&<InviteNotifier api={inviteApi} uid={myUid} blocked={blocks.set} nameOf={nameOf} onAccept={onJoinRoom}/>}
   </>);
 }
