@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { MAX_PHOTOS, ALLOWED_TYPES } from "./config.js";
 import { validateFile, validateCount } from "./validate.js";
 import { processFile, makeThumb } from "./image.js";
+import PhotoCropper from "./PhotoCropper.jsx";
 import { emptyState, planAdd, planRemove, planSetMain, mainOf, ordered } from "./photos.js";
 
 const C = { card: "#221F33", surface: "#1A1825", border: "#2E2A45", borderHi: "#4F46A8", brand2: "#A78BFA", text: "#F0EEFF", sub: "#9B94C4", muted: "#8A84B0", yellow: "#F59E0B", red: "#F87171", grad: "linear-gradient(135deg,#7C5CFC,#A78BFA)" };
@@ -14,6 +15,7 @@ export default function ProfilePhotosManager({ uid, api, legacyAvatar, onMainCha
   const [busy, setBusy] = useState(false);
   const [msgs, setMsgs] = useState([]);
   const [confirmDel, setConfirmDel] = useState(null);
+  const [cropJob, setCropJob] = useState(null); // { file, index, total, resolve }
   const ref = useRef(emptyState());
   const fileRef = useRef(null);
 
@@ -33,6 +35,9 @@ export default function ProfilePhotosManager({ uid, api, legacyAvatar, onMainCha
     }
   }
 
+  // เปิดหน้าจัดตำแหน่งรูป → คืน { sx, sy, size } | null (ไม่ครอป) | "skip" (ข้ามรูปนี้)
+  const askCrop = (file, index, total) => new Promise(resolve => setCropJob({ file, index, total, resolve }));
+
   async function onPick(e) {
     const files = Array.from(e.target.files || []); e.target.value = "";
     if (!files.length || busy) return;
@@ -42,9 +47,13 @@ export default function ProfilePhotosManager({ uid, api, legacyAvatar, onMainCha
     if (files.length > room) out.push("เลือกมา " + files.length + " รูป แต่เพิ่มได้อีก " + room + " รูป — ใช้ " + room + " รูปแรก");
     setBusy(true); setMsgs([]);
     try {
-      for (const f of files.slice(0, room)) {
+      const picked = files.slice(0, room);
+      for (let i = 0; i < picked.length; i++) {
+        const f = picked[i];
         const v = validateFile(f); if (!v.ok) { out.push(v.reason); continue; }
-        const r = await processFile(f); if (!r.ok) { out.push(r.reason); continue; }
+        const crop = await askCrop(f, i + 1, picked.length);
+        if (crop === "skip") continue;
+        const r = await processFile(f, { crop }); if (!r.ok) { out.push(r.reason); continue; }
         const plan = planAdd(ref.current, { src: r.src });
         if (!plan.ok) { out.push(plan.reason); continue; }
         try { await commit(plan.state, ref.current.mainId); }
@@ -115,6 +124,7 @@ export default function ProfilePhotosManager({ uid, api, legacyAvatar, onMainCha
         )}
         {full && <div data-photos-full style={{ fontSize: 12, color: C.yellow, marginTop: 8 }}>ครบ {MAX_PHOTOS} รูปแล้ว — ลบรูปเดิมก่อนถึงจะเพิ่มรูปใหม่ได้</div>}
         <input ref={fileRef} data-photos-input type="file" multiple accept={ALLOWED_TYPES.join(",")} style={{ display: "none" }} onChange={onPick} />
+        {cropJob && <PhotoCropper file={cropJob.file} index={cropJob.index} total={cropJob.total} onDone={c => { cropJob.resolve(c); setCropJob(null); }} onCancel={() => { cropJob.resolve("skip"); setCropJob(null); }} />}
         {msgs.length > 0 && <div data-photos-msgs style={{ marginTop: 10, fontSize: 12, color: C.yellow, display: "flex", flexDirection: "column", gap: 3 }}>{msgs.map((m, i) => <div key={i}>⚠️ {m}</div>)}</div>}
       </div>
     </div>
