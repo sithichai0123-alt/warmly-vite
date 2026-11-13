@@ -725,8 +725,8 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
     <div style={{borderTop:"1px solid "+T.border,paddingTop:14,marginTop:14}}>
       <div style={{fontSize:13,fontWeight:700,color:T.brand2,marginBottom:12,display:"flex",alignItems:"center",gap:7}}>
         🎵 Playlist
-        <span style={{fontSize:11,fontWeight:400,color:T.muted}}>({safeList.length})</span>
-        {currentSong&&<span style={{fontSize:11,background:T.greenA33,color:T.green,borderRadius:20,padding:"2px 8px",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
+        <span style={{fontSize:12,fontWeight:400,color:T.muted}}>({safeList.length})</span>
+        {currentSong&&<span style={{fontSize:12,background:T.greenA33,color:T.green,borderRadius:20,padding:"2px 8px",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
           <span style={{width:5,height:5,borderRadius:"50%",background:T.green,display:"inline-block",animation:"pulse 1.5s infinite"}}/>LIVE
         </span>}
       </div>
@@ -751,7 +751,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
               <img src={currentSong.thumb} alt="" style={{width:36,height:26,borderRadius:6,objectFit:"cover"}} onError={e=>e.target.style.display="none"}/>
               <div>
                 <div style={{fontSize:12,fontWeight:700,color:T.brand2,maxWidth:160,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{currentSong.title}</div>
-                <div style={{fontSize:11,color:T.green,display:"flex",alignItems:"center",gap:5}}>
+                <div style={{fontSize:12,color:T.green,display:"flex",alignItems:"center",gap:5}}>
                   <span style={{width:5,height:5,borderRadius:"50%",background:T.green,display:"inline-block",animation:"pulse 1.5s infinite"}}/>
                   {isHost?"คุณกำลังเปิดให้ทุกคน":"Host กำลังเปิด"}
                   {songStartedAt&&<span style={{color:T.muted,marginLeft:4}}>⏱ {elapsed()}</span>}
@@ -794,7 +794,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
               <div style={{marginTop:4}}>
                 <Btn onClick={handleJoin} v="primary" sz="md">▶ เข้าฟัง (sync เวลา)</Btn>
               </div>
-              <div style={{fontSize:11,color:T.muted,marginTop:8}}>เพลงจะเริ่มตรงที่กำลังเล่นอยู่ทันที</div>
+              <div style={{fontSize:12,color:T.muted,marginTop:8}}>เพลงจะเริ่มตรงที่กำลังเล่นอยู่ทันที</div>
             </div>
           )}
         </div>
@@ -818,7 +818,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
               <img src={s.thumb} alt="" style={{width:48,height:34,borderRadius:8,objectFit:"cover",flexShrink:0,border:"1px solid "+T.border}} onError={e=>e.target.style.display="none"}/>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:600,color:isPlaying?T.brand2:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.title}</div>
-                <div style={{fontSize:11,color:isPlaying?T.green:T.muted,marginTop:2}}>
+                <div style={{fontSize:12,color:isPlaying?T.green:T.muted,marginTop:2}}>
                   {isPlaying?"🎵 กำลังเล่น — sync เวลา":(isHost?"กด ▶ เพื่อเปิดให้ทุกคน":"—")}
                 </div>
               </div>
@@ -901,7 +901,7 @@ function RoomChat({roomId,user,onGift}){
   return(
     <div style={{borderTop:"1px solid "+T.border,marginTop:12}}>
       <div style={{fontSize:12,fontWeight:700,color:T.sub,padding:"10px 0 8px",display:"flex",alignItems:"center",gap:6}}>
-        💬 แชทในห้อง <span style={{fontSize:11,fontWeight:400,color:T.muted}}>(สำหรับคนที่ไม่อยากพูดเสียง)</span>
+        💬 แชทในห้อง <span style={{fontSize:12,fontWeight:400,color:T.muted}}>(สำหรับคนที่ไม่อยากพูดเสียง)</span>
       </div>
       <div style={{maxHeight:160,overflowY:"auto",display:"flex",flexDirection:"column",gap:6,marginBottom:8}}>
         {msgs.map(m=>m.gift?(
@@ -910,7 +910,7 @@ function RoomChat({roomId,user,onGift}){
           <div key={m.id} style={{display:"flex",gap:7,alignItems:"flex-start"}}>
             <Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={24}/>
             <div>
-              <span style={{fontSize:11,fontWeight:700,color:T.brand2,marginRight:5}}><FxT uid={m.uid} area="voiceName">{m.author}</FxT></span>
+              <span style={{fontSize:12,fontWeight:700,color:T.brand2,marginRight:5}}><FxT uid={m.uid} area="voiceName">{m.author}</FxT></span>
               <span style={{fontSize:13,color:T.text}}>{(()=>{const mf=resolveMessageFx(users[m.uid],m.fx);return mf?<TextFx fx={mf} lite={msgs.indexOf(m)<msgs.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text;})()}</span>
             </div>
           </div>
@@ -1340,9 +1340,9 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                   {connected?(micOn?"🎙️ เชื่อมต่อแล้ว • ไมค์เปิด":"🔇 เชื่อมต่อแล้ว • ไมค์ปิด"):"⏳ กำลังเชื่อมต่อ..."}
                   {" • "}{(inRoom.members||[]).length} คน
                 </div>
-                {voiceError&&<div style={{fontSize:11,color:T.red,marginTop:3}}>⚠️ {voiceError}</div>}
-                {isHost&&(inRoom.members||[]).length>1&&<div style={{fontSize:11,color:T.brand2,marginTop:3}}>👑 คุณเป็นเจ้าของห้อง — กด 🚫 ที่มุมรูปสมาชิกเพื่อเตะออก</div>}
-                {!user.isGuest&&(inRoom.members||[]).length>1&&<div style={{fontSize:11,color:T.muted,marginTop:3}}>{socialOn?"👆 แตะรูปสมาชิก: โปรไฟล์ / ส่งของขวัญ / เพิ่มเพื่อน / โทรส่วนตัว":"🎁 แตะรูปสมาชิกเพื่อส่งของขวัญ"}</div>}
+                {voiceError&&<div style={{fontSize:12,color:T.red,marginTop:3}}>⚠️ {voiceError}</div>}
+                {isHost&&(inRoom.members||[]).length>1&&<div style={{fontSize:12,color:T.brand2,marginTop:3}}>👑 คุณเป็นเจ้าของห้อง — กด 🚫 ที่มุมรูปสมาชิกเพื่อเตะออก</div>}
+                {!user.isGuest&&(inRoom.members||[]).length>1&&<div style={{fontSize:12,color:T.muted,marginTop:3}}>{socialOn?"👆 แตะรูปสมาชิก: โปรไฟล์ / ส่งของขวัญ / เพิ่มเพื่อน / โทรส่วนตัว":"🎁 แตะรูปสมาชิกเพื่อส่งของขวัญ"}</div>}
                 {needAudio&&<div onClick={enableAudio} style={{fontSize:12,color:T.yellow,marginTop:4,cursor:"pointer",fontWeight:700}}>🔊 แตะที่นี่เพื่อเปิดเสียงห้อง</div>}
               </div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -1385,7 +1385,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                     {auraId
                       ?<VoiceAura aura={auraId} active={isSpeaking&&showMicOn} lite={memberList.length>AURA_LITE_ROOM_SIZE}>{avatarBtn}</VoiceAura>
                       :avatarBtn}
-                    <div style={{fontSize:11,color:T.brand2,fontWeight:700,maxWidth:56,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",position:"relative",zIndex:1,...(resolveTextFx(m.uid?_users[m.uid]:null,"voiceName")?{padding:"4px 8px",margin:"-4px -8px"}:null)}}><FxT uid={m.uid} area="voiceName" fallback={isMe?"คุณ":m.name}>{m.name}</FxT></div>
+                    <div style={{fontSize:12,color:T.brand2,fontWeight:700,maxWidth:56,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",position:"relative",zIndex:1,...(resolveTextFx(m.uid?_users[m.uid]:null,"voiceName")?{padding:"4px 8px",margin:"-4px -8px"}:null)}}><FxT uid={m.uid} area="voiceName" fallback={isMe?"คุณ":m.name}>{m.name}</FxT></div>
                     {/* ไมค์ animation เมื่อพูด */}
                     {isSpeaking?(
                       <div style={{display:"flex",alignItems:"flex-end",gap:1.5,height:14}}>
@@ -1396,7 +1396,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                         ))}
                       </div>
                     ):(
-                      <span style={{fontSize:11,color:T.muted}}>{showMicOn?"🎙️":"🔇"}</span>
+                      <span style={{fontSize:12,color:T.muted}}>{showMicOn?"🎙️":"🔇"}</span>
                     )}
                   </div>
                 );
@@ -1454,7 +1454,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
               </div>
               <div style={{display:"flex"}}>
                 {(r.members||[]).slice(0,7).map((m,i)=>(
-                  <div key={i} style={{width:28,height:28,borderRadius:"50%",background:T.card,color:T.brand2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,border:"2px solid "+T.bg,marginLeft:i>0?-8:0}}>{m.init}</div>
+                  <div key={i} style={{width:28,height:28,borderRadius:"50%",background:T.card,color:T.brand2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,border:"2px solid "+T.bg,marginLeft:i>0?-8:0}}>{m.init}</div>
                 ))}
               </div>
             </div>
@@ -1534,7 +1534,7 @@ function PostCard({p,user}){
               <div key={c.id} style={{display:"flex",gap:9,marginBottom:10}}>
                 <Av uid={c.uid} init={c.init||"??"} bg={T.card} tc={T.brand2} size={30}/>
                 <div style={{background:T.surface,borderRadius:14,padding:"8px 13px",flex:1,border:"1px solid "+T.border}}>
-                  <div style={{fontSize:12,fontWeight:700,color:T.text}}>{(c.uid&&users[c.uid]&&users[c.uid].name)||c.author} <span style={{fontWeight:400,color:T.muted,fontSize:11}}>{c.time}</span></div>
+                  <div style={{fontSize:12,fontWeight:700,color:T.text}}>{(c.uid&&users[c.uid]&&users[c.uid].name)||c.author} <span style={{fontWeight:400,color:T.muted,fontSize:12}}>{c.time}</span></div>
                   <div style={{fontSize:13,color:T.sub,marginTop:3,lineHeight:1.5}}><FxMsg uid={c.uid} fx={c.fx}>{c.text}</FxMsg></div>
                 </div>
               </div>
@@ -1652,8 +1652,8 @@ function NewPostBox({user}){
                   ? <video src={img.src} style={{width:"100%",height:"100%",objectFit:"cover"}} muted/>
                   : <img src={img.src} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                 }
-                {img.isVideo&&<div style={{position:"absolute",bottom:2,left:2,background:"rgba(0,0,0,.7)",color:"#fff",fontSize:9,padding:"1px 4px",borderRadius:4}}>{img.duration}วิ 🎬</div>}
-                <button onClick={()=>setImages(imgs=>imgs.filter((_,j)=>j!==i))} style={{position:"absolute",top:3,right:3,width:18,height:18,borderRadius:"50%",background:"rgba(0,0,0,.7)",border:"none",color:"#fff",cursor:"pointer",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>✕</button>
+                {img.isVideo&&<div style={{position:"absolute",bottom:2,left:2,background:"rgba(0,0,0,.7)",color:"#fff",fontSize:12,padding:"1px 4px",borderRadius:4}}>{img.duration}วิ 🎬</div>}
+                <button onClick={()=>setImages(imgs=>imgs.filter((_,j)=>j!==i))} style={{position:"absolute",top:3,right:3,width:18,height:18,borderRadius:"50%",background:"rgba(0,0,0,.7)",border:"none",color:"#fff",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>✕</button>
               </div>
             ))}
           </div>
@@ -1813,10 +1813,10 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
             <div key={m.id} style={{display:"flex",gap:8,alignItems:"flex-end",flexDirection:me?"row-reverse":"row"}}>
               {!me&&<div onClick={()=>{if(avatarGift&&!user.isGuest&&m.uid)setPickTarget({uid:m.uid,name:nm});}} style={{cursor:avatarGift&&!user.isGuest?"pointer":"default"}}><Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={28}/></div>}
               <div style={{maxWidth:"74%",display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start"}}>
-                {head&&<div style={{fontSize:11,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px"}}><Nm uid={m.uid} name={m.author}/></div>}
+                {head&&<div style={{fontSize:12,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px"}}><Nm uid={m.uid} name={m.author}/></div>}
                 {m.image&&<img src={m.image} alt="" onClick={viewer.enabled?()=>viewer.open([m.image],0):undefined} style={{maxWidth:"100%",cursor:viewer.enabled?"zoom-in":undefined,borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
                 {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?"#fff":T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={i<vis.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text}</div>}
-                <div style={{fontSize:10,color:T.muted,margin:"2px 4px 0",display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:me?"flex-end":"flex-start",gap:4}}><span>{fmtTime(ms)}</span>{onDeleteMessage&&me&&!String(m.id).startsWith("tmp-")&&<MessageDeleteControl onDelete={async()=>{await onDeleteMessage(m.id);setMsgs(prev=>prev.filter(x=>x.id!==m.id));}}/>}</div>
+                <div style={{fontSize:12,color:T.muted,margin:"2px 4px 0",display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:me?"flex-end":"flex-start",gap:4}}><span>{fmtTime(ms)}</span>{onDeleteMessage&&me&&!String(m.id).startsWith("tmp-")&&<MessageDeleteControl onDelete={async()=>{await onDeleteMessage(m.id);setMsgs(prev=>prev.filter(x=>x.id!==m.id));}}/>}</div>
               </div>
             </div>
           );
@@ -1824,7 +1824,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
         <div ref={endRef}/>
       </div>
       {err&&<div style={{fontSize:12,color:T.red,padding:"6px 14px",background:T.redBg}}>⚠️ {err}</div>}
-      {img&&<div style={{padding:"8px 14px 0"}}><div style={{position:"relative",display:"inline-block"}}><img src={img} alt="" style={{height:60,borderRadius:10,objectFit:"cover",border:"1px solid "+T.border}}/><button onClick={()=>setImg(null)} style={{position:"absolute",top:-4,right:-4,width:18,height:18,borderRadius:"50%",background:"#444",border:"none",color:"#fff",cursor:"pointer",fontSize:10}}>✕</button></div></div>}
+      {img&&<div style={{padding:"8px 14px 0"}}><div style={{position:"relative",display:"inline-block"}}><img src={img} alt="" style={{height:60,borderRadius:10,objectFit:"cover",border:"1px solid "+T.border}}/><button onClick={()=>setImg(null)} style={{position:"absolute",top:-4,right:-4,width:18,height:18,borderRadius:"50%",background:"#444",border:"none",color:"#fff",cursor:"pointer",fontSize:12}}>✕</button></div></div>}
       {lock?<div data-dm-lock style={{padding:"12px 14px",borderTop:"1px solid "+T.border,background:T.surface,flexShrink:0,fontSize:13,color:T.sub,textAlign:"center"}}>{lock}</div>:
       <div style={{padding:"10px 12px",borderTop:"1px solid "+T.border,background:T.surface,flexShrink:0}}>
         <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,900,0.6).then(setImg).catch(()=>setErr("อ่านรูปไม่ได้"));}}/>
@@ -1932,7 +1932,7 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
           {people.map(u=>(
             <div key={u.id} onClick={()=>setPeer(u.id)} style={{display:"flex",gap:11,alignItems:"center",padding:"9px 6px",borderBottom:"1px solid "+T.border,cursor:"pointer"}}>
               <Av uid={u.id} init={u.init||"??"} bg={T.card} tc={T.brand2} size={38}/>
-              <div style={{flex:1,fontSize:14,fontWeight:600,color:T.text}}><FxT uid={u.id} area="name" lite>{u.name||"ผู้ใช้"}</FxT>{u.isGuest&&<span style={{fontSize:10,marginLeft:6,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"1px 7px",fontWeight:700}}>Guest</span>}</div>
+              <div style={{flex:1,fontSize:14,fontWeight:600,color:T.text}}><FxT uid={u.id} area="name" lite>{u.name||"ผู้ใช้"}</FxT>{u.isGuest&&<span style={{fontSize:12,marginLeft:6,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"1px 7px",fontWeight:700}}>Guest</span>}</div>
               <span style={{fontSize:12,color:T.brand2}}>💬</span>
             </div>
           ))}
@@ -2022,7 +2022,7 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
                   ?<div style={{marginTop:2,display:"flex",gap:7}}><Input value={nameInput} onChange={e=>setNameInput(e.target.value)} style={{width:180,padding:"6px 11px",fontSize:16,fontWeight:700}}/><Btn onClick={saveName} v="primary" sz="sm">บันทึก</Btn></div>
                   :<div style={{fontSize:19,fontWeight:800,color:T.text,display:"flex",alignItems:"center",gap:8}}><Nm uid={getUid()} name={displayName} own/>{!user.isGuest&&<span onClick={()=>{setEditName(true);setNameInput(displayName);}} style={{fontSize:13,cursor:"pointer",color:T.muted}}>✏️</span>}</div>
                 }
-                {user.isGuest&&<span style={{fontSize:11,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 8px",fontWeight:600}}>👋 Guest</span>}
+                {user.isGuest&&<span style={{fontSize:12,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 8px",fontWeight:600}}>👋 Guest</span>}
                 {!user.isGuest&&user.email&&<div style={{fontSize:12,color:T.muted,marginTop:3}}>🔗 เชื่อมกับ {user.email}</div>}
                 {editing?<div style={{marginTop:7,display:"flex",gap:7}}><Input value={bioInput} onChange={e=>setBioInput(e.target.value)} style={{width:220,padding:"6px 11px",fontSize:13}}/><Btn onClick={saveBio} v="primary" sz="sm">บันทึก</Btn></div>
                 :<div style={{fontSize:13,color:T.sub,marginTop:5,lineHeight:1.6}}><FxT uid={getUid()} area="bio">{bio}</FxT></div>}
@@ -2031,7 +2031,7 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
                 </div>
                 {showMP&&<div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:8}}>{MOODS.map(m=><Btn key={m} onClick={()=>saveMood(m)} v={mood===m?"outline":"ghost"} sz="sm">{m}</Btn>)}</div>}
               </div>
-              <div style={{display:"flex",gap:6}}>{onAppearance&&<Btn onClick={onAppearance} v="ghost" sz="sm">🎨</Btn>}<Btn onClick={()=>{setEditing(!editing);setBioInput(bio);}} v="ghost" sz="sm">✏️</Btn></div>
+              <div style={{display:"flex",gap:6}}>{onAppearance&&<Btn onClick={onAppearance} v="ghost" sz="sm">🎨 แต่งโปรไฟล์</Btn>}<Btn onClick={()=>{setEditing(!editing);setBioInput(bio);}} v="ghost" sz="sm">✏️ แก้ไข</Btn></div>
             </div>
             <div style={{display:"flex",gap:28,marginTop:16,paddingTop:14,borderTop:"1px solid "+T.border}}>
               {[[FRIENDS_ENABLED&&!user.isGuest?String(friendsCtx.friends.length):"48","เพื่อน"],[String(myPosts.length),"โพสต์"],[String((_allUsers[getUid()]&&_allUsers[getUid()].giftCount)||0),"ของขวัญ"]].map(([n,l])=>(
@@ -2053,7 +2053,7 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
             <div key={p.id} style={{borderBottom:"1px solid "+T.border,paddingBottom:12,marginBottom:12}}>
               {p.images?.length>0&&<div style={{display:"flex",gap:5,marginBottom:7,flexWrap:"wrap"}}>{p.images.map((src,i)=><img key={i} src={src} alt="" style={{width:56,height:56,borderRadius:10,objectFit:"cover",border:"1px solid "+T.border}}/>)}</div>}
               {p.content&&<div style={{fontSize:13,color:T.sub,lineHeight:1.65}}><FxMsg uid={p.authorUid||getUid()} fx={p.fx}>{p.content}</FxMsg></div>}
-              <div style={{fontSize:11,color:T.muted,marginTop:5,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+              <div style={{fontSize:12,color:T.muted,marginTop:5,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
                 <span>{p.createdAt?timeAgo(p.createdAt):"เมื่อกี้"}</span>
                 {p.mood&&<span style={{background:T.brandA22,borderRadius:20,padding:"0 7px",color:T.brand2,fontWeight:600}}>✦ {p.mood}</span>}
                 <span>❤️{p.likes||0}</span><span>💬{(p.comments||[]).length}</span>
@@ -3071,8 +3071,8 @@ function AnimFrame({frame,size,children}){
 // ── ป้ายพรีเมียม ──
 function BadgePill({b,style}){
   return(
-    <span style={{position:"relative",overflow:"hidden",display:"inline-flex",alignItems:"center",gap:3,marginLeft:4,padding:"1px 7px",borderRadius:20,background:b.bg,backgroundSize:b.anim?"200% 100%":undefined,animation:b.anim?"wmShimmer 3s linear infinite":undefined,boxShadow:b.glow,fontSize:10,fontWeight:800,letterSpacing:.5,color:"#fff",verticalAlign:"middle",lineHeight:1.5,textShadow:"0 1px 2px rgba(0,0,0,.45)",WebkitTextFillColor:"#fff",...style}}>
-      <span style={{fontSize:11}}>{b.emoji}</span>{b.label}
+    <span style={{position:"relative",overflow:"hidden",display:"inline-flex",alignItems:"center",gap:3,marginLeft:4,padding:"1px 7px",borderRadius:20,background:b.bg,backgroundSize:b.anim?"200% 100%":undefined,animation:b.anim?"wmShimmer 3s linear infinite":undefined,boxShadow:b.glow,fontSize:12,fontWeight:800,letterSpacing:.5,color:"#fff",verticalAlign:"middle",lineHeight:1.5,textShadow:"0 1px 2px rgba(0,0,0,.45)",WebkitTextFillColor:"#fff",...style}}>
+      <span style={{fontSize:12}}>{b.emoji}</span>{b.label}
       {b.shine&&<span style={{position:"absolute",top:0,bottom:0,width:"40%",background:"linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent)",animation:"wmShine 2.4s ease-in-out infinite"}}/>}
     </span>
   );
@@ -3122,9 +3122,9 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
               ? <div style={{display:"flex",justifyContent:"center"}}><Model3D model={sel.model} size={170}/></div>
               : <div style={{fontSize:64,padding:"12px 0"}}>{sel.emoji}</div>}
             <div style={{fontSize:14,fontWeight:700,color:T.text}}>{sel.name}</div>
-            <div style={{fontSize:11,color:TIER_META[giftTier(sel)].color,fontWeight:700,marginTop:2}}>ระดับ {TIER_META[giftTier(sel)].name}</div>
-            <div style={{fontSize:10,color:T.muted,marginTop:2}}>🔊 เสียง: {sfx.source("gift-"+sel.id)==="file"?"ไฟล์จริง":"สังเคราะห์ (ยังไม่มีไฟล์ gift-"+sel.id+".mp3)"}</div>
-            {sel.event&&<div style={{fontSize:11,color:ok?T.green:T.yellow,marginTop:3}}>{ok?"🎉 เทศกาล"+sel.event.label+" เปิดอยู่ถึง "+fmtD(sel.event.to):"🔒 เปิดช่วงเทศกาล"+sel.event.label+" ("+fmtD(sel.event.from)+" – "+fmtD(sel.event.to)+")"}</div>}
+            <div style={{fontSize:12,color:TIER_META[giftTier(sel)].color,fontWeight:700,marginTop:2}}>ระดับ {TIER_META[giftTier(sel)].name}</div>
+            <div style={{fontSize:12,color:T.muted,marginTop:2}}>🔊 เสียง: {sfx.source("gift-"+sel.id)==="file"?"ไฟล์จริง":"สังเคราะห์ (ยังไม่มีไฟล์ gift-"+sel.id+".mp3)"}</div>
+            {sel.event&&<div style={{fontSize:12,color:ok?T.green:T.yellow,marginTop:3}}>{ok?"🎉 เทศกาล"+sel.event.label+" เปิดอยู่ถึง "+fmtD(sel.event.to):"🔒 เปิดช่วงเทศกาล"+sel.event.label+" ("+fmtD(sel.event.from)+" – "+fmtD(sel.event.to)+")"}</div>}
             <div style={{marginTop:10,display:"flex",gap:8,justifyContent:"center",alignItems:"center",flexWrap:"wrap"}}>
               <Btn onClick={()=>triggerGiftFx(sel.id,setPv)} v="outline" sz="md">▶ ดูแอนิเมชัน</Btn>
               {ok
@@ -3138,11 +3138,11 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
             const av=giftAvailable(g);
             return(
               <button key={g.id} data-gift={g.id} onClick={()=>{setSel(g);setMsg("");}} style={{position:"relative",background:sel&&sel.id===g.id?T.brandA33:T.surface,border:"1px solid "+(sel&&sel.id===g.id?T.borderHi:(coins>=g.price?T.border:"rgba(244,63,94,.3)")),borderRadius:14,padding:"10px 2px",cursor:"pointer",opacity:av&&coins>=g.price?1:.55,fontFamily:"inherit"}}>
-                {g.model&&<span style={{position:"absolute",top:3,right:4,fontSize:9,fontWeight:800,color:T.brand2,background:T.brandA33,borderRadius:6,padding:"0 4px"}}>3D</span>}
+                {g.model&&<span style={{position:"absolute",top:3,right:4,fontSize:12,fontWeight:800,color:T.brand2,background:T.brandA33,borderRadius:6,padding:"0 4px"}}>3D</span>}
                 <span style={{position:"absolute",left:10,right:10,bottom:3,height:2,borderRadius:2,background:TIER_META[giftTier(g)].color}}/>
                 <div style={{fontSize:30}}>{g.emoji}</div>
-                <div style={{fontSize:11,color:T.text,marginTop:2}}>{g.name}</div>
-                <div style={{fontSize:11,color:av?T.yellow:T.muted,fontWeight:700}}>{av?"🪙 "+g.price:"🔒 "+g.event.label}</div>
+                <div style={{fontSize:12,color:T.text,marginTop:2}}>{g.name}</div>
+                <div style={{fontSize:12,color:av?T.yellow:T.muted,fontWeight:700}}>{av?"🪙 "+g.price:"🔒 "+g.event.label}</div>
               </button>
             );
           })}
@@ -3151,11 +3151,11 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
             const ok2=pcoins>=g.price,on=sel&&sel.id===g.id;
             return(
               <button key={g.id} data-gift={g.id} data-gift-cur="purple" onClick={()=>{setSel(g);setMsg("");}} style={{position:"relative",background:on?"rgba(168,85,247,.22)":T.surface,border:"1px solid "+(on?"#C084FC":(ok2?"rgba(168,85,247,.5)":"rgba(244,63,94,.3)")),boxShadow:ok2?"0 0 10px rgba(168,85,247,.25)":undefined,borderRadius:14,padding:"10px 2px",cursor:"pointer",opacity:ok2?1:.55,fontFamily:"inherit"}}>
-                {g.model&&<span style={{position:"absolute",top:3,right:4,fontSize:9,fontWeight:800,color:T.brand2,background:T.brandA33,borderRadius:6,padding:"0 4px"}}>3D</span>}
+                {g.model&&<span style={{position:"absolute",top:3,right:4,fontSize:12,fontWeight:800,color:T.brand2,background:T.brandA33,borderRadius:6,padding:"0 4px"}}>3D</span>}
                 <span style={{position:"absolute",left:10,right:10,bottom:3,height:2,borderRadius:2,background:TIER_META[giftTier(g)].color}}/>
                 <div style={{fontSize:30}}>{g.emoji}</div>
-                <div style={{fontSize:11,color:T.text,marginTop:2}}>{g.name}</div>
-                <div style={{fontSize:11,color:"#C084FC",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:3}}><PCoin size={11}/>{g.price}</div>
+                <div style={{fontSize:12,color:T.text,marginTop:2}}>{g.name}</div>
+                <div style={{fontSize:12,color:"#C084FC",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:3}}><PCoin size={11}/>{g.price}</div>
               </button>
             );
           })}
@@ -3231,8 +3231,8 @@ function PremiumTab({me,user}){
               <div key={i.id} style={{display:"flex",alignItems:"center",gap:10,padding:"16px 2px 10px",borderBottom:"1px solid "+T.border}}>
                 {preview(i)}
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:14,fontWeight:700,color:T.text}}>{i.name}<span style={{fontSize:10,marginLeft:6,background:tm.color+"22",color:tm.color,borderRadius:20,padding:"1px 7px",fontWeight:800}}>{tm.name}</span></div>
-                  <div style={{fontSize:11,color:"#C084FC",marginTop:2,display:"flex",alignItems:"center",gap:4}}><PCoin size={12}/> {i.price}</div>
+                  <div style={{fontSize:14,fontWeight:700,color:T.text}}>{i.name}<span style={{fontSize:12,marginLeft:6,background:tm.color+"22",color:tm.color,borderRadius:20,padding:"1px 7px",fontWeight:800}}>{tm.name}</span></div>
+                  <div style={{fontSize:12,color:"#C084FC",marginTop:2,display:"flex",alignItems:"center",gap:4}}><PCoin size={12}/> {i.price}</div>
                 </div>
                 {ty==="entrance"&&<Btn onClick={()=>playPreview(i)} v="ghost" sz="sm">▶ ดู</Btn>}
                 {owned
@@ -3263,14 +3263,14 @@ function WalletTab({me}){
   return(
     <div style={{padding:"12px 14px 16px"}}>
       <div style={{display:"flex",gap:8}}>
-        <div style={card}><div style={{fontSize:10,color:T.muted}}>เหรียญทอง</div><div style={{fontSize:18,fontWeight:800,color:T.yellow}}>🪙 {gold}</div></div>
-        <div style={card}><div style={{fontSize:10,color:T.muted}}>ม่วง (แลก/รางวัล)</div><div style={{fontSize:18,fontWeight:800,color:"#C084FC",display:"flex",justifyContent:"center",alignItems:"center",gap:5}}><PCoin size={16}/>{pe}</div></div>
-        <div style={card}><div style={{fontSize:10,color:T.muted}}>ม่วง (ซื้อเงินจริง)</div><div style={{fontSize:18,fontWeight:800,color:"#C084FC",display:"flex",justifyContent:"center",alignItems:"center",gap:5}}><PCoin size={16}/>{pb}</div></div>
+        <div style={card}><div style={{fontSize:12,color:T.muted}}>เหรียญทอง</div><div style={{fontSize:18,fontWeight:800,color:T.yellow}}>🪙 {gold}</div></div>
+        <div style={card}><div style={{fontSize:12,color:T.muted}}>ม่วง (แลก/รางวัล)</div><div style={{fontSize:18,fontWeight:800,color:"#C084FC",display:"flex",justifyContent:"center",alignItems:"center",gap:5}}><PCoin size={16}/>{pe}</div></div>
+        <div style={card}><div style={{fontSize:12,color:T.muted}}>ม่วง (ซื้อเงินจริง)</div><div style={{fontSize:18,fontWeight:800,color:"#C084FC",display:"flex",justifyContent:"center",alignItems:"center",gap:5}}><PCoin size={16}/>{pb}</div></div>
       </div>
 
       <div style={sec}>
         <div style={{fontSize:14,fontWeight:800,color:T.text}}>🔁 แลกเหรียญทองเป็นเหรียญม่วง</div>
-        <div style={{fontSize:11,color:T.muted,marginTop:3,lineHeight:1.6}}>อัตรา 🪙 {PURPLE_RATE} = <PCoin size={12}/> 1 • แลกได้วันละไม่เกิน {PURPLE_DAILY_LIMIT} เหรียญม่วง (วันนี้แลกแล้ว {used}) • สำหรับบัญชี Google</div>
+        <div style={{fontSize:12,color:T.muted,marginTop:3,lineHeight:1.6}}>อัตรา 🪙 {PURPLE_RATE} = <PCoin size={12}/> 1 • แลกได้วันละไม่เกิน {PURPLE_DAILY_LIMIT} เหรียญม่วง (วันนี้แลกแล้ว {used}) • สำหรับบัญชี Google</div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginTop:10,flexWrap:"wrap"}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <Btn onClick={()=>setN(Math.max(1,nn-1))} v="ghost" sz="sm">−</Btn>
@@ -3283,15 +3283,15 @@ function WalletTab({me}){
 
       <div style={sec}>
         <div style={{fontSize:14,fontWeight:800,color:T.text}}>🏆 รางวัลจากของขวัญที่ได้รับ</div>
-        <div style={{fontSize:11,color:T.muted,marginTop:3,lineHeight:1.6}}>มูลค่าของขวัญที่คุณได้รับรวม 🪙 {value} — ทุก {RECEIVE_REWARD_PER} เหรียญทอง ได้เหรียญม่วง 1</div>
+        <div style={{fontSize:12,color:T.muted,marginTop:3,lineHeight:1.6}}>มูลค่าของขวัญที่คุณได้รับรวม 🪙 {value} — ทุก {RECEIVE_REWARD_PER} เหรียญทอง ได้เหรียญม่วง 1</div>
         <div style={{marginTop:10}}>
           <Btn onClick={()=>run(claimReceiveReward,r=>"รับรางวัลแล้ว! ม่วง +"+r.purple)} v={claimable>=1?"primary":"ghost"} sz="sm">{claimable>=1?"รับรางวัล ม่วง +"+claimable:"ยังไม่ถึงเกณฑ์"}</Btn>
         </div>
       </div>
 
       <div style={{...sec,opacity:.85}}>
-        <div style={{fontSize:14,fontWeight:800,color:T.text}}>💳 ซื้อเหรียญม่วงด้วยเงินจริง <span style={{fontSize:10,background:T.yellowA22,color:T.yellow,borderRadius:20,padding:"1px 8px"}}>เร็วๆ นี้</span></div>
-        <div style={{fontSize:11,color:T.muted,marginTop:3,lineHeight:1.6}}>เหรียญม่วงที่ซื้อจะถูกเก็บแยกจากเหรียญม่วงที่ได้จากการแลก/รางวัล เพื่อให้กำหนดเงื่อนไขการใช้งานและการคืนเงินได้ชัดเจน</div>
+        <div style={{fontSize:14,fontWeight:800,color:T.text}}>💳 ซื้อเหรียญม่วงด้วยเงินจริง <span style={{fontSize:12,background:T.yellowA22,color:T.yellow,borderRadius:20,padding:"1px 8px"}}>เร็วๆ นี้</span></div>
+        <div style={{fontSize:12,color:T.muted,marginTop:3,lineHeight:1.6}}>เหรียญม่วงที่ซื้อจะถูกเก็บแยกจากเหรียญม่วงที่ได้จากการแลก/รางวัล เพื่อให้กำหนดเงื่อนไขการใช้งานและการคืนเงินได้ชัดเจน</div>
       </div>
 
       {msg&&<div style={{fontSize:12,color:msg.startsWith("⚠️")?T.red:T.green,marginTop:10,lineHeight:1.5}}>{msg}</div>}
@@ -3304,7 +3304,7 @@ function WalletTab({me}){
           <div style={{fontSize:20,width:28,textAlign:"center"}}>{LEDGER_ICON[r.kind]||"•"}</div>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:13,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label||r.kind}</div>
-            <div style={{fontSize:10,color:T.muted}}>{fmtT(r.t)}{r.after?" • คงเหลือ 🪙 "+r.after.gold+" / ม่วง "+(r.after.purple+r.after.purpleBought):""}</div>
+            <div style={{fontSize:12,color:T.muted}}>{fmtT(r.t)}{r.after?" • คงเหลือ 🪙 "+r.after.gold+" / ม่วง "+(r.after.purple+r.after.purpleBought):""}</div>
           </div>
           <div style={{textAlign:"right",fontSize:12,fontWeight:800,lineHeight:1.5}}>
             {!!r.gold&&<div style={{color:r.gold>0?T.green:T.red}}>🪙 {r.gold>0?"+":""}{r.gold}</div>}
@@ -3361,7 +3361,8 @@ function ShopModal({user,onClose}){
             </div>
             <Btn onClick={()=>run(claimDailyLogged,r=>"🎉 ได้ +"+r.bonus+" เหรียญ (ติดต่อกัน "+r.streak+" วัน)"+(r.unlocked?" ปลดล็อกไอเทมพิเศษ 🔥 กรอบและป้ายเปลวไฟ!":""))} v={claimed?"ghost":"primary"} sz="sm">{claimed?"รับแล้ววันนี้ ✓ (ติดต่อกัน "+(me.streak||1)+" วัน)":"🎁 รับเหรียญรายวัน +"+DAILY_COINS}</Btn>
           </div>
-          <div style={{fontSize:11,color:T.muted,marginTop:8}}>กลับมารับทุกวัน ครบ 7 วันติดกันได้โบนัส +50 และไอเทมสุดพิเศษ 🔥</div>
+          <div style={{fontSize:12,color:T.muted,marginTop:8,lineHeight:1.6}}>กลับมารับทุกวัน ครบ 7 วันติดกันได้โบนัส +50 และไอเทมสุดพิเศษ 🔥</div>
+          <div style={{fontSize:12,color:T.sub,marginTop:6,lineHeight:1.6}}>🪙 เหรียญทอง: รับฟรีทุกวัน ใช้ซื้อกรอบ สีชื่อ ป้าย<br/>💜 เหรียญม่วง: แลกจากเหรียญทองได้ (แท็บ "กระเป๋า") ใช้ซื้อไอเทมพรีเมียม</div>
           {msg&&<div style={{fontSize:12,color:msg.startsWith("⚠️")?T.red:T.green,marginTop:8,lineHeight:1.5}}>{msg}</div>}
         </div>
         <div style={{display:"flex",overflowX:"auto",borderTop:"1px solid "+T.border,borderBottom:"1px solid "+T.border}}>
@@ -3379,13 +3380,13 @@ function ShopModal({user,onClose}){
               <div key={i.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 4px",borderBottom:"1px solid "+T.border}}>
                 {preview(i)}
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:14,fontWeight:700,color:T.text}}>{i.name}{i.special&&<span style={{fontSize:10,marginLeft:6,background:T.yellowA22,color:T.yellow,borderRadius:20,padding:"1px 7px"}}>สุดพิเศษ</span>}</div>
-                  <div style={{fontSize:11,color:T.muted}}>{i.special?("ปลดล็อก: "+i.special):("🪙 "+i.price)}</div>
+                  <div style={{fontSize:14,fontWeight:700,color:T.text}}>{i.name}{i.special&&<span style={{fontSize:12,marginLeft:6,background:T.yellowA22,color:T.yellow,borderRadius:20,padding:"1px 7px"}}>สุดพิเศษ</span>}</div>
+                  <div style={{fontSize:12,color:T.muted}}>{i.special?("ปลดล็อก: "+i.special):("🪙 "+i.price)}</div>
                 </div>
                 {owned
                   ? <Btn onClick={()=>run(()=>equipItem(i,!on),on?"ถอดแล้ว":"ใส่แล้ว ✨")} v={on?"outline":"primary"} sz="sm">{on?"ถอด":"ใส่"}</Btn>
                   : i.special
-                    ? <span style={{fontSize:11,color:T.muted}}>🔒</span>
+                    ? <span style={{fontSize:12,color:T.muted}}>🔒</span>
                     : <Btn onClick={()=>run(()=>buyItemLogged(i),"ซื้อแล้ว! กด ใส่ ได้เลย")} v="ghost" sz="sm">ซื้อ</Btn>}
               </div>
             );
@@ -3461,7 +3462,7 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
           </div>
           <div style={{paddingTop:40}}>
             <div style={{fontSize:19,fontWeight:800,color:T.text}}><Nm uid={uid} name={u.name}/>
-              {u.isGuest&&<span style={{fontSize:11,marginLeft:8,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 8px",fontWeight:600}}>👋 Guest</span>}
+              {u.isGuest&&<span style={{fontSize:12,marginLeft:8,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 8px",fontWeight:600}}>👋 Guest</span>}
             </div>
             {PRESENCE_ENABLED&&<div style={{marginTop:3,color:T.muted}}><PresenceText uid={uid} green={T.green}/></div>}
             <div style={{fontSize:13,color:T.sub,marginTop:5,lineHeight:1.6}}><FxT uid={uid} area="bio">{u.bio||"ชอบคุยเล่น • ฟังเพื่อนใหม่ 💜"}</FxT></div>
@@ -3484,7 +3485,7 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
               <div key={pp.id} style={{borderBottom:"1px solid "+T.border,paddingBottom:10,marginBottom:10}}>
                 {pp.images?.length>0&&<div style={{display:"flex",gap:5,marginBottom:6,flexWrap:"wrap"}}>{pp.images.slice(0,4).map((src,i)=>(pp.mediaTypes&&pp.mediaTypes[i]==="video")?null:<img key={i} src={src} alt="" style={{width:56,height:56,borderRadius:10,objectFit:"cover",border:"1px solid "+T.border}}/>)}</div>}
                 {pp.content&&<div style={{fontSize:13,color:T.sub,lineHeight:1.6}}><FxMsg uid={pp.authorUid||uid} fx={pp.fx}>{pp.content}</FxMsg></div>}
-                <div style={{fontSize:11,color:T.muted,marginTop:4}}>{pp.createdAt?timeAgo(pp.createdAt):"เมื่อกี้"} • ❤️{pp.likes||0}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:4}}>{pp.createdAt?timeAgo(pp.createdAt):"เมื่อกี้"} • ❤️{pp.likes||0}</div>
               </div>
             ))}
           </div>
@@ -3512,7 +3513,7 @@ function PrivacyPage({onLogout}){
       }
     </div>
   );
-  const Sec=({title,children})=><Card style={{marginBottom:12}}><div style={{padding:"4px 18px"}}><div style={{fontSize:11,fontWeight:700,color:T.muted,padding:"12px 0 4px",textTransform:"uppercase",letterSpacing:1.2}}>{title}</div>{children}</div></Card>;
+  const Sec=({title,children})=><Card style={{marginBottom:12}}><div style={{padding:"4px 18px"}}><div style={{fontSize:12,fontWeight:700,color:T.muted,padding:"12px 0 4px",textTransform:"uppercase",letterSpacing:1.2}}>{title}</div>{children}</div></Card>;
   return(
     <div>
       <Card style={{marginBottom:14}}><div style={{padding:"18px 20px"}}><div style={{fontSize:17,fontWeight:800,color:T.text}}>ความเป็นส่วนตัว 🔒</div><div style={{fontSize:13,color:T.muted,marginTop:4}}>ปรับว่าใครเห็นอะไรได้บ้าง</div></div></Card>
@@ -3666,9 +3667,9 @@ export default function App(){
           <span style={{fontSize:18,fontWeight:800,background:T.brandGrad,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:-.5}}>Warmly</span>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:7}}>
-          {!user.isGuest&&<button onClick={()=>setShopOpen(true)} style={{border:"1px solid rgba(245,158,11,.4)",background:"rgba(245,158,11,.12)",color:T.yellow,borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🪙 {(users[getUid()]&&users[getUid()].coins)||0}<span style={{marginLeft:7,color:"#C084FC",display:"inline-flex",alignItems:"center",gap:3}}><PCoin size={11}/>{((users[getUid()]||{}).purple||0)+((users[getUid()]||{}).purpleBought||0)}</span></button>}
+          {!user.isGuest&&<button onClick={()=>setShopOpen(true)} style={{border:"1px solid rgba(245,158,11,.4)",background:"rgba(245,158,11,.12)",color:T.yellow,borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🛍️ ร้านค้า · 🪙 {(users[getUid()]&&users[getUid()].coins)||0}</button>}
           <Nm uid={getUid()} name={user.name} own style={{fontSize:13,color:T.sub,fontWeight:500}}/>
-          {user.isGuest&&<span style={{fontSize:10,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 7px",fontWeight:700}}>Guest</span>}
+          {user.isGuest&&<span style={{fontSize:12,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 7px",fontWeight:700}}>Guest</span>}
         </div>
       </div>
       <ThemeScope section={THEME_PAGE[page]||null}>
