@@ -5,13 +5,24 @@ import { useEffect, useRef, useState } from "react";
 const C = { card: "#221F33", surface: "#1A1825", borderHi: "#4F46A8", brand2: "#A78BFA", text: "#F0EEFF", muted: "#8A84B0", grad: "linear-gradient(135deg,#7C5CFC,#A78BFA)" };
 const MAX_ZOOM = 4;
 
+// ขนาดกรอบตามอุปกรณ์: มือถือเกือบเต็มจอ • แท็บเล็ตกลางๆ • คอมใหญ่ขึ้นแต่ไม่เกินความสูงจอ
+function frameWidth(aspect) {
+  const vw = typeof window !== "undefined" ? window.innerWidth : 390;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 780;
+  const wide = aspect > 1; // รูปปก (กว้างกว่าสูง) ให้กรอบกว้างกว่า
+  const cap = vw < 600 ? 480 : vw < 1024 ? (wide ? 540 : 480) : (wide ? 600 : 520); // เพดานตามชนิดอุปกรณ์
+  const byWidth = vw - 60;            // เผื่อขอบหน้าต่างและช่องว่างด้านข้าง
+  const byHeight = (vh - 280) * aspect; // เผื่อพื้นที่หัวข้อ แถบซูม และปุ่ม
+  return Math.round(Math.max(200, Math.min(cap, byWidth, byHeight)));
+}
+
 export default function PhotoCropper({ file, index = 1, total = 1, aspect = 1, circle = true, title = "จัดตำแหน่งรูป", hint = "วงกลม = ส่วนที่จะแสดงเป็นรูปโปรไฟล์เมื่อตั้งเป็นรูปหลัก", onDone, onCancel }) {
   const [url, setUrl] = useState("");
   const [dim, setDim] = useState(null); // { w, h }
   const [z, setZ] = useState(1);
   const [off, setOff] = useState({ x: 0, y: 0 });
   const drag = useRef(null);
-  const F = Math.max(200, Math.min(aspect > 1 ? 340 : 300, (typeof window !== "undefined" ? window.innerWidth : 360) - 80)); // ความกว้างกรอบ
+  const [F] = useState(() => frameWidth(aspect)); // ความกว้างกรอบ (คงที่ตลอดการจัดรูป)
   const FH = F / aspect; // ความสูงกรอบ
 
   useEffect(() => {
