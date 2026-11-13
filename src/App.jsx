@@ -1348,9 +1348,9 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
 
             {/* ปุ่มหลัก: เท่ากันทุกปุ่ม */}
             <div style={{display:"flex",gap:8,marginBottom:10}}>
-              <Btn onClick={onMicClick} v={micOn?"primary":"danger"} sz="md" style={{flex:1}}>{micOn?"🎙️ ไมค์เปิด":"🔇 ไมค์ปิด"}</Btn>
-              <Btn onClick={()=>setShowPL(!showPL)} v={showPL?"primary":"ghost"} sz="md" style={{flex:1}}>🎵 เพลง</Btn>
-              {ROOM_INVITE_ENABLED&&FRIENDS_ENABLED&&!user.isGuest&&<Btn onClick={()=>setInviteOpen(true)} v="ghost" sz="md" style={{flex:1}}>➕ เชิญ</Btn>}
+              <Btn onClick={onMicClick} v={micOn?"primary":"danger"} sz="sm" style={{flex:1,padding:"8px 4px",fontSize:13,whiteSpace:"nowrap"}}>{micOn?"🎙️ ไมค์":"🔇 ไมค์"}</Btn>
+              <Btn onClick={()=>setShowPL(!showPL)} v={showPL?"primary":"ghost"} sz="sm" style={{flex:1,padding:"8px 4px",fontSize:13,whiteSpace:"nowrap"}}>🎵 เพลง</Btn>
+              {ROOM_INVITE_ENABLED&&FRIENDS_ENABLED&&!user.isGuest&&<Btn onClick={()=>setInviteOpen(true)} v="ghost" sz="sm" style={{flex:1,padding:"8px 4px",fontSize:13,whiteSpace:"nowrap"}}>➕ เชิญ</Btn>}
             </div>
 
             {/* ปุ่มรอง: ไอคอน + ป้ายชื่อ เรียงเป็นตาราง */}
@@ -1361,15 +1361,15 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                 {k:"bg",on:false,ic:"🌙",l:"เสียงพื้นหลัง",fn:()=>setBgOpen(true),show:BACKGROUND_AUDIO_ENABLED,bg:true},
                 {k:"aura",on:false,ic:"✨",l:"ออร่าเสียง",fn:()=>setAuraOpen(true),show:VOICE_AURA_ENABLED&&!user.isGuest},
               ].filter(x=>x.show).map(x=>(
-                <button key={x.k} onClick={x.fn} {...(x.bg?{"data-bg-open":true}:{})} style={{flex:1,minWidth:0,padding:"7px 2px",borderRadius:12,border:"1px solid "+(x.on?T.brand:T.border),background:x.on?T.brandA33:"transparent",color:x.on?T.brand2:T.sub,cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                  <span style={{fontSize:18,lineHeight:1}}>{x.ic}</span>
+                <button key={x.k} onClick={x.fn} {...(x.bg?{"data-bg-open":true}:{})} style={{flex:1,minWidth:0,padding:"5px 2px",borderRadius:10,border:"1px solid "+(x.on?T.brand:T.border),background:x.on?T.brandA33:"transparent",color:x.on?T.brand2:T.sub,cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
+                  <span style={{fontSize:15,lineHeight:1.2}}>{x.ic}</span>
                   <span style={{fontSize:12,whiteSpace:"nowrap"}}>{x.l}</span>
                 </button>
               ))}
             </div>
 
             {(inRoom.members||[]).length>1&&<div style={{fontSize:12,color:T.muted,marginBottom:12,lineHeight:1.6}}>
-              👆 {user.isGuest?"แตะรูปสมาชิกเพื่อส่งของขวัญ":(socialOn?"แตะรูปสมาชิกเพื่อดูโปรไฟล์ ส่งของขวัญ เพิ่มเพื่อน":"แตะรูปสมาชิกเพื่อส่งของขวัญ")}{isHost?" • 🚫 ที่มุมรูป = เตะออก":""}
+              👆 {user.isGuest?"แตะรูปสมาชิกเพื่อส่งของขวัญ":"แตะรูปสมาชิกเพื่อดูเมนู"}{isHost?" • 🚫 = เตะออก":""}
             </div>}
 
             {/* Members */}
