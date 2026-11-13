@@ -1734,7 +1734,7 @@ function NewPostBox({user}){
         <div style={{display:"flex",gap:12}}>
           <Av uid={getUid()} init={user.init} grad isSelf size={42}/>
           <textarea value={text} onChange={e=>{setText(e.target.value);setErr("");}} placeholder="คุณรู้สึกยังไงวันนี้? 💜"
-            style={{flex:1,border:"1px solid "+T.border,borderRadius:14,padding:"10px 14px",fontSize:14,resize:"none",outline:"none",minHeight:72,lineHeight:1.6,background:T.surface,color:T.text,fontFamily:"inherit",transition:"border .15s"}}
+            style={{flex:1,border:"1px solid "+T.border,borderRadius:14,padding:"10px 14px",fontSize:14,resize:"none",outline:"none",minHeight:52,lineHeight:1.6,background:T.surface,color:T.text,fontFamily:"inherit",transition:"border .15s"}}
             onFocus={e=>e.target.style.borderColor=T.borderHi} onBlur={e=>e.target.style.borderColor=T.border}/>
         </div>
         {images.length>0&&(
@@ -1849,81 +1849,64 @@ function NotifCard({items,onRead,onOpenPost}){
   );
 }
 
-// ── ชวนเพื่อน (LINE / คัดลอกลิงก์) ──
-function InviteCard(){
-  const [copied,setCopied]=useState(false);
-  const url=(typeof window!=="undefined"&&window.location.origin)||"https://warmly-vite.vercel.app";
-  const text="มาคุยกันที่ Warmly 💜 พื้นที่อบอุ่น หาเพื่อน คุยเล่น ไม่เหงา\n"+url;
-  const toLine=()=>{ window.open("https://line.me/R/share?text="+encodeURIComponent(text),"_blank","noopener"); };
-  const copy=async()=>{ try{ await navigator.clipboard.writeText(text); setCopied(true); setTimeout(()=>setCopied(false),2000);}catch(e){ window.prompt("คัดลอกข้อความนี้ไปส่งให้เพื่อน",text); } };
-  return(
-    <Card style={{marginBottom:14}}>
-      <div style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-        <div style={{flex:1,minWidth:150}}>
-          <div style={{fontSize:14,fontWeight:700,color:T.text}}>ชวนเพื่อนมาคุยกัน 💜</div>
-          <div style={{fontSize:12,color:T.muted,marginTop:2}}>เพื่อนเยอะ ห้องคุยยิ่งสนุก</div>
-        </div>
-        <Btn onClick={toLine} v="primary" sz="sm">ส่งทาง LINE</Btn>
-        <Btn onClick={copy} v="ghost" sz="sm">{copied?"คัดลอกแล้ว ✓":"คัดลอกลิงก์"}</Btn>
-      </div>
-    </Card>
-  );
-}
-
-// ── แถบ "ตอนนี้" บนหน้าแรก: คนออนไลน์ + ห้องที่กำลังคุย ──
-function HomeLive({onJoinRoom}){
+// ── แถบ "ตอนนี้": คนออนไลน์ + ห้องที่กำลังคุย + ชวนเพื่อน (การ์ดเดียว กะทัดรัด) ──
+function HomeStrip({onJoinRoom,onGo}){
   const users=useContext(UsersCtx);
   const isOnline=useIsOnline();
   const [rooms,setRooms]=useState(null);
+  const [inv,setInv]=useState(false);
+  const [copied,setCopied]=useState(false);
   useEffect(()=>{
     const q=query(collection(db,"voiceRooms"),orderBy("createdAt","desc"));
     return onSnapshot(q,snap=>setRooms(snap.docs.map(d=>({id:d.id,...d.data()}))),()=>setRooms([]));
   },[]);
   const online=PRESENCE_ENABLED?Object.keys(users).filter(id=>isOnline(id)).length:0;
-  const live=(rooms||[]).map(r=>({...r,n:Array.isArray(r.members)?r.members.length:0})).filter(r=>r.n>0).sort((a,b)=>b.n-a.n).slice(0,3);
-  if(rooms===null)return null;
-  if(!live.length&&!online)return null;
+  const live=(rooms||[]).map(r=>({...r,n:Array.isArray(r.members)?r.members.length:0})).filter(r=>r.n>0).sort((a,b)=>b.n-a.n).slice(0,5);
+  const url=(typeof window!=="undefined"&&window.location.origin)||"https://warmly-vite.vercel.app";
+  const text="มาคุยกันที่ Warmly 💜 พื้นที่อบอุ่น หาเพื่อน คุยเล่น ไม่เหงา\n"+url;
+  const toLine=()=>{ window.open("https://line.me/R/share?text="+encodeURIComponent(text),"_blank","noopener"); };
+  const copy=async()=>{ try{ await navigator.clipboard.writeText(text); setCopied(true); setTimeout(()=>setCopied(false),2000);}catch(e){ window.prompt("คัดลอกข้อความนี้ไปส่งให้เพื่อน",text); } };
+  const chip={border:"1px solid "+T.border,background:T.surface,color:T.text,borderRadius:20,padding:"6px 12px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0};
   return(
-    <Card style={{marginBottom:14}}>
-      <div style={{padding:"12px 14px 6px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div style={{fontSize:15,fontWeight:800,color:T.text}}>🎙️ ตอนนี้ใน Warmly</div>
-        {online>0&&<div style={{fontSize:12,color:T.green,fontWeight:600}}>🟢 ออนไลน์ {online} คน</div>}
-      </div>
-      {live.length===0&&<div style={{padding:"4px 14px 12px",fontSize:12,color:T.muted}}>ยังไม่มีห้องที่เปิดอยู่ — ไปที่ "ห้องคุย" แล้วเปิดห้องแรกได้เลย</div>}
-      {live.map(r=>(
-        <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderTop:"1px solid "+T.border}}>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:14,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.vibe} {r.name}</div>
-            <div style={{fontSize:12,color:T.muted}}>กำลังคุย {r.n} คน</div>
-          </div>
-          <Btn onClick={()=>onJoinRoom&&onJoinRoom({roomId:r.id})} v="outline" sz="sm">เข้าร่วม</Btn>
+    <Card style={{marginBottom:12}}>
+      <div style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
+        <div style={{flex:1,minWidth:0,fontSize:13,color:T.sub,display:"flex",alignItems:"center",gap:6}}>
+          {online>0?<><span style={{width:8,height:8,borderRadius:"50%",background:T.green,flexShrink:0}}/><span style={{color:T.text,fontWeight:600}}>ออนไลน์ {online} คน</span></>:<span>🎙️ ห้องคุย</span>}
         </div>
-      ))}
+        <button onClick={()=>setInv(!inv)} style={{...chip,padding:"5px 12px",color:T.brand2,borderColor:T.borderHi}}>➕ ชวนเพื่อน</button>
+      </div>
+      {inv&&<div style={{padding:"0 14px 10px",display:"flex",gap:8}}>
+        <button onClick={toLine} style={{...chip,flex:1,background:T.brandGrad,border:"none",color:"#fff"}}>ส่งทาง LINE</button>
+        <button onClick={copy} style={{...chip,flex:1}}>{copied?"คัดลอกแล้ว ✓":"คัดลอกลิงก์"}</button>
+      </div>}
+      {rooms!==null&&<div style={{display:"flex",gap:8,overflowX:"auto",padding:"0 14px 12px"}}>
+        {live.map(r=><button key={r.id} onClick={()=>onJoinRoom&&onJoinRoom({roomId:r.id})} style={chip}>{r.vibe} {r.name} · {r.n} คน</button>)}
+        {live.length===0&&<button onClick={()=>onGo&&onGo("voice")} style={{...chip,color:T.muted,fontWeight:500}}>ยังไม่มีห้องที่เปิดอยู่ — เปิดห้องแรก ›</button>}
+      </div>}
     </Card>
   );
 }
 
+// ── เริ่มต้นใช้งาน: แถบเล็กบรรทัดเดียว ปิดได้ ──
 function StartGuide({onGo,isGuest}){
   const [hide,setHide]=useState(()=>{try{return localStorage.getItem("warmly_guide_off")==="1";}catch(e){return false;}});
   if(hide)return null;
   const close=()=>{try{localStorage.setItem("warmly_guide_off","1");}catch(e){}setHide(true);};
   const steps=isGuest
-    ?[["1","เข้าห้องคุยกับคนอื่น","voice","ดูห้องคุย"],["2","ทักทายในห้องแชทรวม","chat","เปิดแชท"],["3","อยากโพสต์และเพิ่มเพื่อน? เข้าด้วย Google","privacy","ไปตั้งค่า"]]
-    :[["1","ตั้งรูปและชื่อของคุณ","profile","ไปโปรไฟล์"],["2","เข้าห้องคุยกับคนอื่น","voice","ดูห้องคุย"],["3","ส่งข้อความหาเพื่อน","chat","เปิดแชท"]];
+    ?[["ห้องคุย","voice"],["แชทรวม","chat"],["เข้าด้วย Google","privacy"]]
+    :[["ตั้งโปรไฟล์","profile"],["เข้าห้องคุย","voice"],["ทักเพื่อน","chat"]];
   return(
-    <Card style={{marginBottom:14}}><div style={{padding:"16px 16px 12px"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <div style={{fontSize:16,fontWeight:800,color:T.text}}>เริ่มต้นง่ายๆ 3 ขั้นตอน 👋</div>
-        <button onClick={close} style={{border:"none",background:"transparent",color:T.muted,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:6}}>ปิด</button>
+    <div style={{marginBottom:12,padding:"10px 12px",borderRadius:16,background:T.brandA22,border:"1px solid "+T.borderHi}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+        <div style={{fontSize:14,fontWeight:700,color:T.text}}>👋 เริ่มต้นง่ายๆ 3 ขั้นตอน</div>
+        <button onClick={close} aria-label="ปิด" style={{border:"none",background:"transparent",color:T.muted,fontSize:16,cursor:"pointer",fontFamily:"inherit",padding:"0 4px",lineHeight:1}}>✕</button>
       </div>
-      {steps.map(([n,t,pg,b])=>(
-        <div key={n} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderTop:"1px solid "+T.border}}>
-          <div style={{width:26,height:26,borderRadius:13,background:T.brandGrad,color:"#fff",fontWeight:800,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{n}</div>
-          <div style={{flex:1,fontSize:14,color:T.text}}>{t}</div>
-          <Btn onClick={()=>onGo&&onGo(pg)} v="outline" sz="sm">{b}</Btn>
-        </div>
-      ))}
-    </div></Card>
+      <div style={{display:"flex",gap:8}}>
+        {steps.map(([t,pg],i)=>(
+          <button key={t} onClick={()=>onGo&&onGo(pg)} style={{flex:1,minWidth:0,border:"1px solid "+T.borderHi,background:"transparent",color:T.brand2,borderRadius:12,padding:"7px 4px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{i+1}. {t}</button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -1945,8 +1928,7 @@ function FeedPage({user,onGo,notifs,onReadNotif,onOpenPost,focusPostId,onFocusDo
     <div>
       <NotifCard items={notifs} onRead={onReadNotif||(()=>{})} onOpenPost={onOpenPost||(()=>{})}/>
       <StartGuide onGo={onGo} isGuest={!!user.isGuest}/>
-      <HomeLive onJoinRoom={onJoinRoom}/>
-      <InviteCard/>
+      <HomeStrip onJoinRoom={onJoinRoom} onGo={onGo}/>
       <NewPostBox user={user}/>
       {loading&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>⏳ กำลังโหลด...</div>}
       {!loading&&posts.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:T.muted,fontSize:14}}>ยังไม่มีโพสต์ — โพสต์แรกได้เลย! ✨</div>}
