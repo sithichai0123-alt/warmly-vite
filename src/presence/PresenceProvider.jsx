@@ -66,6 +66,11 @@ export function usePresenceLabel(uid) {
   return statusLabel(st, v.now);
 }
 export function usePresenceEnabled() { return !!useContext(Ctx); }
+// ฟังก์ชันเช็กออนไลน์ของใครก็ได้ (ใช้กับรายชื่อ: เพื่อน/เชิญเข้าห้อง) — ตามค่าที่เจ้าตัวตั้งซ่อนสถานะไว้ด้วย
+export function useIsOnline() {
+  const v = useContext(Ctx);
+  return (uid) => !!v && !!uid && computeStatus(v.docs[uid], v.now, STALE_MS).state === "online";
+}
 
 // จุดสถานะมุมขวาล่างของรูปโปรไฟล์ (วางใน wrapper ที่เป็น position:relative)
 export function PresenceDot({ uid, size = 40, bg = "#0F0E17", green = "#22C55E", gray = "#6B7280" }) {

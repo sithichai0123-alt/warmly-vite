@@ -4,4 +4,4 @@ export { computeStatus, formatLastSeen, statusLabel, buildPresenceWrite } from "
 export { makePresenceApi } from "./api.js";
 export { createPresenceController } from "./controller.js";
 export { getPresencePrefs, setPresencePrefs, usePresencePrefs } from "./store.js";
-export { PresenceProvider, PresenceDot, PresenceText, usePresence, usePresenceEnabled } from "./PresenceProvider.jsx";
+export { PresenceProvider, PresenceDot, PresenceText, usePresence, usePresenceEnabled, useIsOnline } from "./PresenceProvider.jsx";
