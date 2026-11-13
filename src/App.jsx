@@ -1678,7 +1678,29 @@ function NewPostBox({user}){
 }
 
 // ── Feed (Firebase realtime) ──────────────────────────────
-function FeedPage({user}){
+function StartGuide({onGo}){
+  const [hide,setHide]=useState(()=>{try{return localStorage.getItem("warmly_guide_off")==="1";}catch(e){return false;}});
+  if(hide)return null;
+  const close=()=>{try{localStorage.setItem("warmly_guide_off","1");}catch(e){}setHide(true);};
+  const steps=[["1","ตั้งรูปและชื่อของคุณ","profile","ไปโปรไฟล์"],["2","เข้าห้องคุยกับคนอื่น","voice","ดูห้องคุย"],["3","ส่งข้อความหาเพื่อน","chat","เปิดแชท"]];
+  return(
+    <Card style={{marginBottom:14}}><div style={{padding:"16px 16px 12px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div style={{fontSize:16,fontWeight:800,color:T.text}}>เริ่มต้นง่ายๆ 3 ขั้นตอน 👋</div>
+        <button onClick={close} style={{border:"none",background:"transparent",color:T.muted,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:6}}>ปิด</button>
+      </div>
+      {steps.map(([n,t,pg,b])=>(
+        <div key={n} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderTop:"1px solid "+T.border}}>
+          <div style={{width:26,height:26,borderRadius:13,background:T.brandGrad,color:"#fff",fontWeight:800,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{n}</div>
+          <div style={{flex:1,fontSize:14,color:T.text}}>{t}</div>
+          <Btn onClick={()=>onGo&&onGo(pg)} v="outline" sz="sm">{b}</Btn>
+        </div>
+      ))}
+    </div></Card>
+  );
+}
+
+function FeedPage({user,onGo}){
   const users=useContext(UsersCtx);
   const [posts,setPosts]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -1694,6 +1716,7 @@ function FeedPage({user}){
 
   return(
     <div>
+      <StartGuide onGo={onGo}/>
       <NewPostBox user={user}/>
       {loading&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>⏳ กำลังโหลด...</div>}
       {!loading&&posts.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:T.muted,fontSize:14}}>ยังไม่มีโพสต์ — โพสต์แรกได้เลย! ✨</div>}
@@ -1866,7 +1889,7 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
     <div style={{display:"flex",flexDirection:"column",height:"calc(100dvh - 112px)",overflow:"hidden"}}>
       <div style={{display:"flex",background:T.surface,borderBottom:"1px solid "+T.border,flexShrink:0}}>
         {tabBtn("group","💬 ห้องรวม")}
-        {tabBtn("dm",<span style={{display:"inline-flex",alignItems:"center",gap:6}}><span>🔒 ส่วนตัว</span><UnreadBadge n={dmu.count}/></span>)}
+        {tabBtn("dm",<span style={{display:"inline-flex",alignItems:"center",gap:6}}><span>✉️ ข้อความ</span><UnreadBadge n={dmu.count}/></span>)}
         {FRIENDS_ENABLED&&!user.isGuest&&tabBtn("friends","👥 เพื่อน"+(friendsCtx.incoming.length?" ("+friendsCtx.incoming.length+")":""))}
       </div>
 
@@ -3471,7 +3494,7 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
 }
 
 // ── Privacy ───────────────────────────────────────────────
-function PrivacyPage(){
+function PrivacyPage({onLogout}){
   const [s,setS]=useState({postDef:"public",whoSee:"public",whoCmt:"everyone",whoMsg:"everyone",showMood:true,showOnline:true,showLast:true,friendList:"friends"});
   const pp=usePresencePrefs(); // ตั้งค่าออนไลน์/ออนไลน์ล่าสุด เก็บจริง (ข้ามอุปกรณ์) — ตัวอื่นยังเป็นค่าตัวอย่างเหมือนเดิม
   const isPres=k=>PRESENCE_ENABLED&&(k==="showOnline"||k==="showLast");
@@ -3495,6 +3518,7 @@ function PrivacyPage(){
       <Sec title="โพสต์"><Row label="โพสต์เริ่มต้น" desc="ค่าเริ่มต้น" k="postDef" type="select" opts={pv}/><Row label="ใครเห็นโพสต์" k="whoSee" type="select" opts={pv}/><Row label="ใครเม้นได้" k="whoCmt" type="select" opts={ev}/></Sec>
       <Sec title="โปรไฟล์"><Row label="แสดง Mood" k="showMood" type="toggle"/><Row label="แสดงสถานะออนไลน์" desc={PRESENCE_ENABLED?(pp.showOnline?"คนอื่นเห็นจุดเขียวเมื่อคุณออนไลน์":"โหมดซ่อน — คุณจะแสดงเป็นออฟไลน์เสมอ"):undefined} k="showOnline" type="toggle"/><Row label="แสดงเวลาออนไลน์ล่าสุด" k="showLast" type="toggle"/><Row label="ใครเห็นรายชื่อเพื่อน" k="friendList" type="select" opts={pv}/></Sec>
       <Sec title="ข้อความ"><Row label="ใครส่งข้อความได้" k="whoMsg" type="select" opts={ev}/></Sec>
+      {onLogout&&<Card style={{marginBottom:12}}><div style={{padding:"18px 20px"}}><div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:6}}>ออกจากระบบ</div><div style={{fontSize:12,color:T.muted,marginBottom:10,lineHeight:1.5}}>ถ้าคุณเปิดห้องเสียงไว้ ห้องนั้นจะถูกปิดไปด้วย</div><Btn v="outline" sz="md" full onClick={()=>{if(window.confirm("ออกจากระบบใช่ไหม?\nห้องเสียงที่คุณเปิดไว้จะถูกปิด"))onLogout();}}>ออกจากระบบ</Btn></div></Card>}
       <Card><div style={{padding:"18px 20px"}}><div style={{fontSize:14,fontWeight:700,color:T.red,marginBottom:10}}>โซนอันตราย ⚠️</div><Btn v="danger" sz="md" full>ปิดบัญชีชั่วคราว</Btn></div></Card>
     </div>
   );
@@ -3513,7 +3537,7 @@ const presenceApi=makePresenceApi({db,doc,setDoc,collection,onSnapshot,serverTim
 const chatCleanup=makeChatCleanup({db,collection,query,orderBy,limit,where,getDocs,getCountFromServer,writeBatch}); // ลบได้เฉพาะ groupChat และ voiceRooms/*/chat เท่านั้น
 const textFxApi=makeTextFxApi({db,getUid,setDoc,doc,runTransaction,collection,serverTimestamp,serverMode:TEXTFX_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))}); // บันทึกสไตล์ตัวอักษร (users/{uid}.textFx)
 const themeApi=makeThemeApi({db,getUid,setDoc,doc,onSnapshot,runTransaction,collection,serverTimestamp,serverMode:THEME_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))});
-const TABS=[{key:"feed",icon:"🏠",label:"ฟีด"},{key:"chat",icon:"💬",label:"แชท"},{key:"voice",icon:"🎙️",label:"เสียง"},{key:"profile",icon:"👤",label:"โปรไฟล์"},{key:"privacy",icon:"🔒",label:"ส่วนตัว"}];
+const TABS=[{key:"feed",icon:"🏠",label:"หน้าแรก"},{key:"chat",icon:"💬",label:"แชท"},{key:"voice",icon:"🎙️",label:"ห้องคุย"},{key:"profile",icon:"👤",label:"โปรไฟล์"},{key:"privacy",icon:"⚙️",label:"ตั้งค่า"}];
 
 // ครอบเพื่อน/โทร + แถบแจ้งเตือน + ตัวฟังคำเชิญ (เฟส C) — ทุกโมดูลปิดได้ด้วยสวิตช์ของตัวเอง
 function NavBadge({tabKey}){const u=useDmUnread();if(tabKey!=="chat"||!u.count)return null;return <UnreadBadge n={u.count} style={{position:"absolute",top:4,left:"calc(50% + 6px)"}}/>;}
@@ -3644,17 +3668,16 @@ export default function App(){
           {!user.isGuest&&<button onClick={()=>setShopOpen(true)} style={{border:"1px solid rgba(245,158,11,.4)",background:"rgba(245,158,11,.12)",color:T.yellow,borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🪙 {(users[getUid()]&&users[getUid()].coins)||0}<span style={{marginLeft:7,color:"#C084FC",display:"inline-flex",alignItems:"center",gap:3}}><PCoin size={11}/>{((users[getUid()]||{}).purple||0)+((users[getUid()]||{}).purpleBought||0)}</span></button>}
           <Nm uid={getUid()} name={user.name} own style={{fontSize:13,color:T.sub,fontWeight:500}}/>
           {user.isGuest&&<span style={{fontSize:10,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 7px",fontWeight:700}}>Guest</span>}
-          <button onClick={handleLogout} style={{border:"1px solid "+T.border,borderRadius:9,background:"transparent",color:T.muted,cursor:"pointer",padding:"4px 9px",fontSize:11,fontFamily:"inherit"}}>ออก</button>
         </div>
       </div>
       <ThemeScope section={THEME_PAGE[page]||null}>
       <div style={{flex:1,overflowY:page==="chat"?"hidden":"auto",display:"flex",flexDirection:"column",background:T.pageBg}}>
         <div style={{flex:1,padding:page==="chat"?"0":"14px 12px 80px"}}>
-          {page==="feed"    &&<FeedPage user={user}/>}
+          {page==="feed"    &&<FeedPage user={user} onGo={setPage}/>}
           {page==="chat"    &&<ChatPage user={user} openPeer={dmTarget} onPeerOpened={()=>setDmTarget(null)} openTab={chatTabReq} onTabOpened={()=>setChatTabReq(null)}/>}
           <div style={{display:page==="voice"?"block":"none"}}><VoiceErrorBoundary><VoiceRoomsPage user={user} onAppearance={()=>openAppearance("voice")} joinReq={joinReq} onJoinReqHandled={()=>setJoinReq(null)}/></VoiceErrorBoundary></div>
           {page==="profile" &&<ProfilePage user={user} posts={posts} onAppearance={()=>openAppearance("profile")} onUpdateName={n=>{const u={...user,name:n,init:n.slice(0,2).toUpperCase()};ls.set("user",u);setUser(u);}}/>}
-          {page==="privacy" &&<PrivacyPage/>}
+          {page==="privacy" &&<PrivacyPage onLogout={handleLogout}/>}
         </div>
       </div>
       </ThemeScope>
@@ -3663,7 +3686,7 @@ export default function App(){
           <button key={t.key} onClick={()=>setPage(t.key)} style={{flex:1,padding:"10px 4px 8px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,fontFamily:"inherit",position:"relative"}}>
             <NavBadge tabKey={t.key}/>
             <span style={{fontSize:20,lineHeight:1}}>{t.icon}</span>
-            <span style={{fontSize:10,fontWeight:page===t.key?700:400,color:page===t.key?T.brand2:T.muted}}>{t.label}</span>
+            <span style={{fontSize:12,fontWeight:page===t.key?700:500,color:page===t.key?T.brand2:T.muted}}>{t.label}</span>
             {page===t.key&&<div style={{width:16,height:2,borderRadius:2,background:T.brandGrad,marginTop:2}}/>}
           </button>
         ))}
