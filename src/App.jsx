@@ -1718,15 +1718,18 @@ function NewPostBox({user}){
 
 // ── Feed (Firebase realtime) ──────────────────────────────
 // ── แจ้งเตือนความเห็น (คำนวณจากโพสต์ที่โหลดอยู่แล้ว ไม่ต้องมีคอลเลกชันใหม่) ──
-// • มีคนเม้นโพสต์ของเรา  • มีคนตอบกลับความเห็นของเรา — แสดงเมื่อเปิดแอปอยู่ ถ้าอ่านแล้วจะหายไป
+// • มีคนเม้นโพสต์ของเรา  • มีคนตอบกลับ/แท็ก @ชื่อเรา  • เจ้าของโพสต์ตอบในโพสต์ที่เราเคยเม้น — แสดงเมื่อเปิดแอปอยู่ ถ้าอ่านแล้วจะหายไป
+// ความเห็นที่เกิดก่อนเวลานี้ (ตอนเปิดระบบแจ้งเตือน) ถือว่าเป็นของเก่า ไม่แจ้ง
+const NOTIF_EPOCH=Date.UTC(2026,10,13,18,35,0);
 function usePostNotifs(posts,user){
   const me=user&&!user.isGuest?getUid():null;
+  const myName=(user&&user.name)||"";
   const key=me?"warmly_notif_seen_"+me:null;
-  const [seen,setSeen]=useState(null);       // ชุดคีย์ที่อ่านแล้ว (null = ยังไม่เคยบันทึก)
+  const [seen,setSeen]=useState(()=>new Set()); // ชุดคีย์ที่อ่านแล้ว
   const [loadedFor,setLoadedFor]=useState(null); // โหลดข้อมูลของผู้ใช้คนไหนแล้ว (ตอนเปิดแอปครั้งแรกยังไม่รู้ว่าใคร)
   useEffect(()=>{
-    if(!me){setSeen(null);setLoadedFor(null);return;}
-    let v=null;try{const r=localStorage.getItem(key);if(r)v=new Set(JSON.parse(r));}catch(e){}
+    if(!me){setSeen(new Set());setLoadedFor(null);return;}
+    let v=new Set();try{const r=localStorage.getItem(key);if(r)v=new Set(JSON.parse(r));}catch(e){}
     setSeen(v);setLoadedFor(me);
   },[me]); // eslint-disable-line
   const events=useMemo(()=>{
@@ -1734,21 +1737,25 @@ function usePostNotifs(posts,user){
     const out=[];
     for(const p of posts){
       const cs=Array.isArray(p.comments)?p.comments:[];
+      let myFirst=null; // เวลาที่เราเม้นในโพสต์นี้ครั้งแรก
+      for(const c of cs){ if(c&&c.uid===me){const t=cmtTs(c); if(myFirst===null||t<myFirst)myFirst=t;} }
       for(const c of cs){
         if(!c||!c.uid||c.uid===me)continue;
-        const isReply=!!(c.replyTo&&c.replyTo.uid===me);
-        if(!isReply&&p.authorUid!==me)continue;
-        out.push({key:p.id+":"+c.id,postId:p.id,type:isReply?"reply":"comment",uid:c.uid,name:c.author||"ผู้ใช้",text:c.text||"",ts:cmtTs(c)});
+        const ts=cmtTs(c);
+        if(ts<=NOTIF_EPOCH)continue;
+        const mention=!!(myName&&String(c.text||"").includes("@"+myName));
+        let type=null;
+        if((c.replyTo&&c.replyTo.uid===me)||mention)type="reply";                                   // ตอบกลับ/แท็กเรา
+        else if(p.authorUid===me)type="comment";                                                     // เม้นโพสต์ของเรา
+        else if(c.uid===p.authorUid&&myFirst!==null&&ts>myFirst)type="owner";                        // เจ้าของโพสต์ตอบในโพสต์ที่เราเม้นไว้
+        if(!type)continue;
+        out.push({key:p.id+":"+c.id,postId:p.id,type,uid:c.uid,name:c.author||"ผู้ใช้",text:c.text||"",ts});
       }
     }
     return out.sort((a,b)=>b.ts-a.ts);
-  },[posts,me]);
-  const persist=set=>{try{if(key)localStorage.setItem(key,JSON.stringify([...set].slice(-400)));}catch(e){}};
-  useEffect(()=>{ // เปิดครั้งแรก: ถือว่าความเห็นที่มีอยู่แล้วเป็นของเก่า ไม่ต้องแจ้งทีเดียวเป็นร้อย
-    if(me&&loadedFor===me&&seen===null&&posts.length>0){const s0=new Set(events.map(e=>e.key));persist(s0);setSeen(s0);}
-  },[me,loadedFor,seen,posts.length]); // eslint-disable-line
-  const unread=(seen&&loadedFor===me)?events.filter(e=>!seen.has(e.key)):[];
-  const markRead=keys=>{const n=new Set(seen||[]);keys.forEach(k=>n.add(k));persist(n);setSeen(n);};
+  },[posts,me,myName]);
+  const unread=loadedFor===me?events.filter(e=>!seen.has(e.key)):[];
+  const markRead=keys=>{const n=new Set(seen);keys.forEach(k=>n.add(k));try{if(key)localStorage.setItem(key,JSON.stringify([...n].slice(-400)));}catch(e){}setSeen(n);};
   return {unread,markRead};
 }
 
@@ -1768,7 +1775,7 @@ function NotifCard({items,onRead,onOpenPost}){
           <div key={n.key} onClick={()=>{onRead([n.key]);onOpenPost(n.postId);}} style={{display:"flex",gap:10,alignItems:"center",padding:"9px 14px",borderTop:"1px solid "+T.border,cursor:"pointer"}}>
             <Av uid={n.uid} init={(n.name||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={34}/>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13,color:T.text,lineHeight:1.4}}><b>{name}</b> {n.type==="reply"?"ตอบกลับความเห็นของคุณ":"แสดงความเห็นในโพสต์ของคุณ"}</div>
+              <div style={{fontSize:13,color:T.text,lineHeight:1.4}}><b>{name}</b> {n.type==="reply"?"ตอบกลับความเห็นของคุณ":n.type==="owner"?"เจ้าของโพสต์ตอบในโพสต์ที่คุณเม้นไว้":"แสดงความเห็นในโพสต์ของคุณ"}</div>
               <div style={{fontSize:12,color:T.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>“{n.text}” · {agoMs(n.ts)}</div>
             </div>
             <span style={{fontSize:12,color:T.brand2,fontWeight:600}}>ดู ›</span>
