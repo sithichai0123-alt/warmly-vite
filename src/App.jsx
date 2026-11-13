@@ -1483,7 +1483,11 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
 }
 
 // ── Post Card ─────────────────────────────────────────────
-function PostCard({p,user}){
+// เวลาของคอมเมนต์ (ใหม่เก็บ t เป็น ms ส่วนของเก่าอ่านจาก id รูปแบบ "c<ms>")
+function cmtTs(c){ return (c&&c.t)||parseInt(String((c&&c.id)||"").slice(1),10)||0; }
+function agoMs(ms){ if(!ms)return"เมื่อกี้";const s=Math.max(0,Math.floor((Date.now()-ms)/1000));if(s<60)return"เมื่อกี้";if(s<3600)return Math.floor(s/60)+" นาทีที่แล้ว";if(s<86400)return Math.floor(s/3600)+" ชม.";return Math.floor(s/86400)+" วันที่แล้ว"; }
+
+function PostCard({p,user,autoOpen,onAutoOpened}){
   const users=useContext(UsersCtx);
   const openProfile=useContext(ProfileCtx);
   const myUid=getUid();
@@ -1493,7 +1497,10 @@ function PostCard({p,user}){
   const [err,setErr]=useState("");
   const [liked,setLiked]=useState(false);
   const [likeCount,setLikeCount]=useState(p.likes||0);
-  const [comments,setComments]=useState(Array.isArray(p.comments)?p.comments:[]);
+  const comments=Array.isArray(p.comments)?p.comments:[]; // อ่านจากโพสต์สดๆ (เดิมคัดลอกครั้งเดียว ทำให้เจ้าของโพสต์ไม่เห็นความเห็นใหม่)
+  const [replyTo,setReplyTo]=useState(null); // { uid, name } ของคนที่กำลังตอบกลับ
+  const cardRef=useRef(null);const inputRef=useRef(null);
+  useEffect(()=>{ if(!autoOpen)return; setOpen(true); const t=setTimeout(()=>{ try{cardRef.current&&cardRef.current.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){} onAutoOpened&&onAutoOpened(); },150); return()=>clearTimeout(t); },[autoOpen]); // eslint-disable-line
   const isOwner=!user.isGuest&&(p.authorUid?p.authorUid===myUid:p.author===user.name);
 
   async function handleLike(){
@@ -1510,18 +1517,39 @@ function PostCard({p,user}){
   }
 
   async function submitComment(){
+    if(user.isGuest)return;
     if(!cmt.trim()){setErr("เม้นอะไรก่อนนะ");return;}
-    const newCmt={id:"c"+Date.now(),uid:myUid,author:user.name,init:user.init,text:cmt.trim(),time:"เมื่อกี้"};
+    const newCmt={id:"c"+Date.now(),uid:myUid,author:user.name,init:user.init,text:cmt.trim(),time:"เมื่อกี้",t:Date.now()};
+    if(replyTo&&replyTo.uid)newCmt.replyTo={uid:replyTo.uid,name:replyTo.name};
     const cFx=resolveMessageFx(users[myUid],cmtFx); // สไตล์ของคอมเมนต์ (ถ้าเลือกไว้และใช้ได้จริง)
     if(cFx)newCmt.fx=cFx;
-    const updated=[...comments,newCmt];
-    setComments(updated);
-    await updateDoc(doc(db,"posts",p.id),{comments:updated});
-    setCmt("");setErr("");
+    try{
+      await updateDoc(doc(db,"posts",p.id),{comments:arrayUnion(newCmt)}); // เพิ่มต่อท้าย ไม่เขียนทับความเห็นของคนอื่น
+      setCmt("");setErr("");setReplyTo(null);
+    }catch(e){ console.error(e); setErr("ส่งความเห็นไม่สำเร็จ ลองใหม่อีกครั้ง"); }
   }
+  function startReply(c){
+    const name=(c.uid&&users[c.uid]&&users[c.uid].name)||c.author||"ผู้ใช้";
+    setReplyTo({uid:c.uid,name});setCmt("@"+name+" ");setOpen(true);
+    setTimeout(()=>{try{inputRef.current&&inputRef.current.focus();}catch(e){}},50);
+  }
+  const shownComments=open?comments:comments.slice(-2); // ปิดอยู่ = โชว์ 2 ความเห็นล่าสุดเลย
+  const renderComment=c=>(
+    <div key={c.id} style={{display:"flex",gap:9,marginBottom:10}}>
+      <Av uid={c.uid} init={c.init||"??"} bg={T.card} tc={T.brand2} size={30}/>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{background:T.surface,borderRadius:14,padding:"8px 13px",border:"1px solid "+T.border}}>
+          <div style={{fontSize:12,fontWeight:700,color:T.text}}>{(c.uid&&users[c.uid]&&users[c.uid].name)||c.author} <span style={{fontWeight:400,color:T.muted,fontSize:12}}>{agoMs(cmtTs(c))}</span></div>
+          {c.replyTo&&c.replyTo.name&&<div style={{fontSize:12,color:T.brand2,marginTop:2}}>↪ ตอบ @{c.replyTo.name}</div>}
+          <div style={{fontSize:13,color:T.sub,marginTop:3,lineHeight:1.5,wordBreak:"break-word"}}><FxMsg uid={c.uid} fx={c.fx}>{c.text}</FxMsg></div>
+        </div>
+        {!user.isGuest&&c.uid&&c.uid!==myUid&&<div onClick={()=>startReply(c)} style={{fontSize:12,color:T.muted,cursor:"pointer",fontWeight:600,margin:"3px 0 0 10px"}}>ตอบกลับ</div>}
+      </div>
+    </div>
+  );
 
   return(
-    <Card style={{marginBottom:12}}>
+    <div ref={cardRef}><Card style={{marginBottom:12}}>
       <div style={{padding:"16px 16px 0"}}>
         <div style={{display:"flex",gap:12,marginBottom:12}}>
           <div onClick={()=>openProfile&&openProfile(p.authorUid)} style={{cursor:p.authorUid?"pointer":"default"}}><Av uid={p.authorUid} init={p.authorInit||p.author?.slice(0,2)||"??"} bg={T.card} tc={T.brand2} size={42}/></div>
@@ -1543,30 +1571,27 @@ function PostCard({p,user}){
           <Btn onClick={()=>setOpen(!open)} v={open?"outline":"ghost"} sz="sm">💬 {comments.length}</Btn>
           {isOwner&&<Btn onClick={handleDelete} v="danger" sz="sm">🗑️ ลบ</Btn>}
         </div>
-        {open&&(
-          <div style={{marginTop:12}}>
-            {comments.map(c=>(
-              <div key={c.id} style={{display:"flex",gap:9,marginBottom:10}}>
-                <Av uid={c.uid} init={c.init||"??"} bg={T.card} tc={T.brand2} size={30}/>
-                <div style={{background:T.surface,borderRadius:14,padding:"8px 13px",flex:1,border:"1px solid "+T.border}}>
-                  <div style={{fontSize:12,fontWeight:700,color:T.text}}>{(c.uid&&users[c.uid]&&users[c.uid].name)||c.author} <span style={{fontWeight:400,color:T.muted,fontSize:12}}>{c.time}</span></div>
-                  <div style={{fontSize:13,color:T.sub,marginTop:3,lineHeight:1.5}}><FxMsg uid={c.uid} fx={c.fx}>{c.text}</FxMsg></div>
-                </div>
-              </div>
-            ))}
-            <div style={{display:"flex",gap:9,alignItems:"center",marginTop:6,flexWrap:"wrap"}}>
+        {(comments.length>0||open)&&<div style={{marginTop:12}}>
+          {!open&&comments.length>2&&<div onClick={()=>setOpen(true)} style={{fontSize:12,color:T.brand2,cursor:"pointer",marginBottom:8,fontWeight:600}}>ดูความเห็นทั้งหมด ({comments.length})</div>}
+          {shownComments.map(renderComment)}
+        </div>}
+        {!open&&!user.isGuest&&<div onClick={()=>setOpen(true)} style={{marginTop:comments.length?2:12,fontSize:13,color:T.muted,cursor:"pointer",border:"1px solid "+T.border,borderRadius:20,padding:"8px 14px",background:T.surface}}>💬 เขียนความเห็น...</div>}
+        {open&&(user.isGuest
+          ?<div style={{fontSize:13,color:T.muted,marginTop:6}}>🔒 เข้าสู่ระบบด้วย Google เพื่อแสดงความเห็น</div>
+          :<div style={{marginTop:6}}>
+            {replyTo&&<div style={{fontSize:12,color:T.brand2,marginBottom:6,marginLeft:39}}>↪ กำลังตอบ @{replyTo.name} <span onClick={()=>{setReplyTo(null);setCmt("");}} style={{cursor:"pointer",color:T.muted,marginLeft:6}}>ยกเลิก ✕</span></div>}
+            <div style={{display:"flex",gap:9,alignItems:"center",flexWrap:"wrap"}}>
               <Av uid={myUid} init={user.init} grad size={30}/>
-              {TEXTFX_ENABLED&&!user.isGuest&&<MsgFxButton inline me={users[myUid]} value={cmtFx} onChange={setCmtFx}/>}
-              <input value={cmt} onChange={e=>{setCmt(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submitComment()} placeholder="เม้นอะไรสักอย่าง..."
-                style={{flex:1,border:"1px solid "+T.border,borderRadius:20,padding:"8px 14px",fontSize:13,outline:"none",background:T.surface,color:T.text,fontFamily:"inherit"}}
+              {TEXTFX_ENABLED&&<MsgFxButton inline me={users[myUid]} value={cmtFx} onChange={setCmtFx}/>}
+              <input ref={inputRef} value={cmt} onChange={e=>{setCmt(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submitComment()} placeholder={replyTo?"ตอบกลับ...":"เม้นอะไรสักอย่าง..."}
+                style={{flex:1,minWidth:120,border:"1px solid "+T.border,borderRadius:20,padding:"8px 14px",fontSize:16,outline:"none",background:T.surface,color:T.text,fontFamily:"inherit"}}
                 onFocus={e=>e.target.style.borderColor=T.borderHi} onBlur={e=>e.target.style.borderColor=T.border}/>
               <Btn onClick={submitComment} v="primary" sz="sm">ส่ง</Btn>
             </div>
             {err&&<div style={{fontSize:12,color:T.red,marginTop:6,marginLeft:39}}>{err}</div>}
-          </div>
-        )}
+          </div>)}
       </div>
-    </Card>
+    </Card></div>
   );
 }
 
@@ -1692,6 +1717,69 @@ function NewPostBox({user}){
 }
 
 // ── Feed (Firebase realtime) ──────────────────────────────
+// ── แจ้งเตือนความเห็น (คำนวณจากโพสต์ที่โหลดอยู่แล้ว ไม่ต้องมีคอลเลกชันใหม่) ──
+// • มีคนเม้นโพสต์ของเรา  • มีคนตอบกลับความเห็นของเรา — แสดงเมื่อเปิดแอปอยู่ ถ้าอ่านแล้วจะหายไป
+function usePostNotifs(posts,user){
+  const me=user&&!user.isGuest?getUid():null;
+  const key=me?"warmly_notif_seen_"+me:null;
+  const [seen,setSeen]=useState(null);       // ชุดคีย์ที่อ่านแล้ว (null = ยังไม่เคยบันทึก)
+  const [loadedFor,setLoadedFor]=useState(null); // โหลดข้อมูลของผู้ใช้คนไหนแล้ว (ตอนเปิดแอปครั้งแรกยังไม่รู้ว่าใคร)
+  useEffect(()=>{
+    if(!me){setSeen(null);setLoadedFor(null);return;}
+    let v=null;try{const r=localStorage.getItem(key);if(r)v=new Set(JSON.parse(r));}catch(e){}
+    setSeen(v);setLoadedFor(me);
+  },[me]); // eslint-disable-line
+  const events=useMemo(()=>{
+    if(!me)return[];
+    const out=[];
+    for(const p of posts){
+      const cs=Array.isArray(p.comments)?p.comments:[];
+      for(const c of cs){
+        if(!c||!c.uid||c.uid===me)continue;
+        const isReply=!!(c.replyTo&&c.replyTo.uid===me);
+        if(!isReply&&p.authorUid!==me)continue;
+        out.push({key:p.id+":"+c.id,postId:p.id,type:isReply?"reply":"comment",uid:c.uid,name:c.author||"ผู้ใช้",text:c.text||"",ts:cmtTs(c)});
+      }
+    }
+    return out.sort((a,b)=>b.ts-a.ts);
+  },[posts,me]);
+  const persist=set=>{try{if(key)localStorage.setItem(key,JSON.stringify([...set].slice(-400)));}catch(e){}};
+  useEffect(()=>{ // เปิดครั้งแรก: ถือว่าความเห็นที่มีอยู่แล้วเป็นของเก่า ไม่ต้องแจ้งทีเดียวเป็นร้อย
+    if(me&&loadedFor===me&&seen===null&&posts.length>0){const s0=new Set(events.map(e=>e.key));persist(s0);setSeen(s0);}
+  },[me,loadedFor,seen,posts.length]); // eslint-disable-line
+  const unread=(seen&&loadedFor===me)?events.filter(e=>!seen.has(e.key)):[];
+  const markRead=keys=>{const n=new Set(seen||[]);keys.forEach(k=>n.add(k));persist(n);setSeen(n);};
+  return {unread,markRead};
+}
+
+function NotifCard({items,onRead,onOpenPost}){
+  const users=useContext(UsersCtx);
+  if(!items||!items.length)return null;
+  const top=items.slice(0,4);
+  return(
+    <Card style={{marginBottom:14,border:"1px solid "+T.borderHi}}>
+      <div style={{padding:"12px 14px 6px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{fontSize:15,fontWeight:800,color:T.text}}>🔔 ใหม่สำหรับคุณ ({items.length})</div>
+        <button onClick={()=>onRead(items.map(i=>i.key))} style={{border:"none",background:"transparent",color:T.brand2,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",padding:6}}>อ่านทั้งหมดแล้ว</button>
+      </div>
+      {top.map(n=>{
+        const name=(users[n.uid]&&users[n.uid].name)||n.name;
+        return(
+          <div key={n.key} onClick={()=>{onRead([n.key]);onOpenPost(n.postId);}} style={{display:"flex",gap:10,alignItems:"center",padding:"9px 14px",borderTop:"1px solid "+T.border,cursor:"pointer"}}>
+            <Av uid={n.uid} init={(n.name||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={34}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,color:T.text,lineHeight:1.4}}><b>{name}</b> {n.type==="reply"?"ตอบกลับความเห็นของคุณ":"แสดงความเห็นในโพสต์ของคุณ"}</div>
+              <div style={{fontSize:12,color:T.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>“{n.text}” · {agoMs(n.ts)}</div>
+            </div>
+            <span style={{fontSize:12,color:T.brand2,fontWeight:600}}>ดู ›</span>
+          </div>
+        );
+      })}
+      {items.length>top.length&&<div style={{padding:"8px 14px 10px",fontSize:12,color:T.muted,borderTop:"1px solid "+T.border}}>และอีก {items.length-top.length} รายการ</div>}
+    </Card>
+  );
+}
+
 function StartGuide({onGo,isGuest}){
   const [hide,setHide]=useState(()=>{try{return localStorage.getItem("warmly_guide_off")==="1";}catch(e){return false;}});
   if(hide)return null;
@@ -1716,7 +1804,7 @@ function StartGuide({onGo,isGuest}){
   );
 }
 
-function FeedPage({user,onGo}){
+function FeedPage({user,onGo,notifs,onReadNotif,onOpenPost,focusPostId,onFocusDone}){
   const users=useContext(UsersCtx);
   const [posts,setPosts]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -1732,11 +1820,12 @@ function FeedPage({user,onGo}){
 
   return(
     <div>
+      <NotifCard items={notifs} onRead={onReadNotif||(()=>{})} onOpenPost={onOpenPost||(()=>{})}/>
       <StartGuide onGo={onGo} isGuest={!!user.isGuest}/>
       <NewPostBox user={user}/>
       {loading&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>⏳ กำลังโหลด...</div>}
       {!loading&&posts.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:T.muted,fontSize:14}}>ยังไม่มีโพสต์ — โพสต์แรกได้เลย! ✨</div>}
-      {posts.map(p=><OwnerScope key={p.id} ownerDoc={p.authorUid?users[p.authorUid]:null} section="feed"><PostCard p={p} user={user}/></OwnerScope>)} {/* โพสต์ใครโพสต์มัน: ใช้ธีม "ฟีด" ของคนโพสต์ */}
+      {posts.map(p=><OwnerScope key={p.id} ownerDoc={p.authorUid?users[p.authorUid]:null} section="feed"><PostCard p={p} user={user} autoOpen={focusPostId===p.id} onAutoOpened={onFocusDone}/></OwnerScope>)} {/* โพสต์ใครโพสต์มัน: ใช้ธีม "ฟีด" ของคนโพสต์ */}
     </div>
   );
 }
@@ -3561,7 +3650,7 @@ const themeApi=makeThemeApi({db,getUid,setDoc,doc,onSnapshot,runTransaction,coll
 const TABS=[{key:"feed",icon:"🏠",label:"หน้าแรก"},{key:"chat",icon:"💬",label:"แชท"},{key:"voice",icon:"🎙️",label:"ห้องคุย"},{key:"profile",icon:"👤",label:"โปรไฟล์"},{key:"privacy",icon:"⚙️",label:"ตั้งค่า"}];
 
 // ครอบเพื่อน/โทร + แถบแจ้งเตือน + ตัวฟังคำเชิญ (เฟส C) — ทุกโมดูลปิดได้ด้วยสวิตช์ของตัวเอง
-function NavBadge({tabKey}){const u=useDmUnread();if(tabKey!=="chat"||!u.count)return null;return <UnreadBadge n={u.count} style={{position:"absolute",top:4,left:"calc(50% + 6px)"}}/>;}
+function NavBadge({tabKey,feedCount}){const u=useDmUnread();const n=tabKey==="chat"?u.count:tabKey==="feed"?feedCount:0;if(!n)return null;return <UnreadBadge n={n} style={{position:"absolute",top:4,left:"calc(50% + 6px)"}}/>;}
 
 function SocialProviders({user,onOpenFriends,onJoinRoom,children}){
   const users=useContext(UsersCtx);
@@ -3587,6 +3676,7 @@ export default function App(){
   const [authReady,setAuthReady]=useState(false);
   const [page,setPage]=useState("feed");
   const [posts,setPosts]=useState([]);
+  const [focusPostId,setFocusPostId]=useState(null); // โพสต์ที่จะเปิดความเห็นให้ (มาจากการกดแจ้งเตือน)
   const [users,setUsers]=useState({});
   const [viewUid,setViewUid]=useState(null);
   const [dmTarget,setDmTarget]=useState(null);
@@ -3667,6 +3757,7 @@ export default function App(){
     setUser(null);setPage("feed");
   }
 
+  const notif=usePostNotifs(posts,user);
   if(!authReady)return<div style={{minHeight:"100dvh",background:T.bg,color:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif"}}>💜 กำลังโหลด...</div>;
   if(!user)return<AuthPage onLogin={setUser}/>;
   if(user.needName)return<NamePrompt user={user} onDone={u=>{ls.set("user",u);setUser(u);}}/>;
@@ -3694,7 +3785,7 @@ export default function App(){
       <ThemeScope section={THEME_PAGE[page]||null}>
       <div style={{flex:1,overflowY:page==="chat"?"hidden":"auto",display:"flex",flexDirection:"column",background:T.pageBg}}>
         <div style={{flex:1,padding:page==="chat"?"0":"14px 12px 80px"}}>
-          {page==="feed"    &&<FeedPage user={user} onGo={setPage}/>}
+          {page==="feed"    &&<FeedPage user={user} onGo={setPage} notifs={notif.unread} onReadNotif={notif.markRead} onOpenPost={id=>{setPage("feed");setFocusPostId(id);}} focusPostId={focusPostId} onFocusDone={()=>setFocusPostId(null)}/>}
           {page==="chat"    &&<ChatPage user={user} openPeer={dmTarget} onPeerOpened={()=>setDmTarget(null)} openTab={chatTabReq} onTabOpened={()=>setChatTabReq(null)}/>}
           <div style={{display:page==="voice"?"block":"none"}}><VoiceErrorBoundary><VoiceRoomsPage user={user} onAppearance={()=>openAppearance("voice")} joinReq={joinReq} onJoinReqHandled={()=>setJoinReq(null)}/></VoiceErrorBoundary></div>
           {page==="profile" &&<ProfilePage user={user} posts={posts} onAppearance={()=>openAppearance("profile")} onUpdateName={n=>{const u={...user,name:n,init:n.slice(0,2).toUpperCase()};ls.set("user",u);setUser(u);}}/>}
@@ -3705,7 +3796,7 @@ export default function App(){
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"var(--app-w)",background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid "+T.border,display:"flex",zIndex:30,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
         {TABS.map(t=>(
           <button key={t.key} onClick={()=>setPage(t.key)} style={{flex:1,padding:"10px 4px 8px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,fontFamily:"inherit",position:"relative"}}>
-            <NavBadge tabKey={t.key}/>
+            <NavBadge tabKey={t.key} feedCount={notif.unread.length}/>
             <span style={{fontSize:20,lineHeight:1}}>{t.icon}</span>
             <span style={{fontSize:12,fontWeight:page===t.key?700:500,color:page===t.key?T.brand2:T.muted}}>{t.label}</span>
             {page===t.key&&<div style={{width:16,height:2,borderRadius:2,background:T.brandGrad,marginTop:2}}/>}
