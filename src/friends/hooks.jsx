@@ -1,5 +1,5 @@
 // สถานะเพื่อนของเรา (ฟังเอกสาร friendships ที่มีเรา 1 ตัวฟังทั้งแอป) + แจ้งเตือนเมื่อมีคนขอเป็นเพื่อน
-import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { createContext, createElement, useContext, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { parseFriendships, relationOf, planRequest, withoutBlocked } from "./logic.js";
 import { showBanner, hideBanner } from "../social/bus.js";
 
@@ -7,9 +7,10 @@ const OFF = { enabled: false, ready: true, friends: [], friendSet: new Set(), in
 const Ctx = createContext(OFF);
 export const useFriends = () => useContext(Ctx);
 
-export function FriendsProvider({ api, uid, blocked, nameOf, onOpenFriends, children }) {
+export function FriendsProvider({ api, uid, blocked, nameOf, Name, onOpenFriends, children }) {
   const [docs, setDocs] = useState(null); // null = ยังไม่ได้ข้อมูลชุดแรก
   const seen = useRef(null);
+  const nameNodeRef = useRef(Name); nameNodeRef.current = Name; // ชื่อแบบมีสไตล์ (ไม่บังคับ) — ไม่มี = ข้อความธรรมดาเหมือนเดิม
   const nameRef = useRef(nameOf); nameRef.current = nameOf;
   const openRef = useRef(onOpenFriends); openRef.current = onOpenFriends;
 
@@ -31,7 +32,7 @@ export function FriendsProvider({ api, uid, blocked, nameOf, onOpenFriends, chil
         if (seen.current.has(p)) return;
         const nm = (nameRef.current && nameRef.current(p)) || "ผู้ใช้";
         showBanner({
-          key: "fr-" + p, title: "👋 " + nm + " ส่งคำขอเป็นเพื่อน", ttl: 15000,
+          key: "fr-" + p, title: nameNodeRef.current ? <>{"👋 "}{createElement(nameNodeRef.current, { uid: p })}{" ส่งคำขอเป็นเพื่อน"}</> : "👋 " + nm + " ส่งคำขอเป็นเพื่อน", ttl: 15000,
           actions: [
             { id: "accept", label: "ตอบรับ", primary: true, onClick: () => { api.accept(uid, p).catch(e => console.error(e)); } },
             { id: "view", label: "ดู", onClick: () => openRef.current && openRef.current() },

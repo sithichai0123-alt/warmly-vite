@@ -4,7 +4,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAut
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction, getCountFromServer, writeBatch } from "firebase/firestore";
 import { useNow, useRoomHeartbeat, useRoomJanitor, roomExpired, roomCloseInMs, fmtCountdown, ROOM_AUTOCLOSE_ENABLED } from "./roomLife/index.js"; // ปิดห้องเสียงอัตโนมัติเมื่อโฮสต์ไม่อยู่เกิน 5 นาที (ปิดได้ที่ roomLife/config.js)
-import { TextFx, FxGallery, FxSettings, MsgFxButton, makeTextFxApi, resolveTextFx, resolveMessageFx, TEXTFX_ENABLED, TEXTFX_SERVER_PURCHASE } from "./textFx/index.js"; // ฟอนต์พิเศษ/เอฟเฟกต์ตัวอักษร (ปิดได้ที่ textFx/config.js)
+import { TextFx, FxGallery, FxSettings, MsgFxButton, makeTextFxApi, resolveTextFx, resolveMessageFx, resolveTune, TEXTFX_ENABLED, TEXTFX_SERVER_PURCHASE } from "./textFx/index.js"; // ฟอนต์พิเศษ/เอฟเฟกต์ตัวอักษร (ปิดได้ที่ textFx/config.js)
 import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { makeChatCleanup } from "./chatCleanup/index.js"; // ลบข้อความเก่าเกิน 100 ในแชทรวม/แชทห้องเสียง (แยกไฟล์ — ปิดได้ที่ chatCleanup/config.js)
 import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, createMicGainController, applyYtVolume, applyYtVolumeWhenReady } from "./audioControls/index.js"; // ปรับเสียงไมค์/เพลงแยกกัน (แยกไฟล์ — ปิดได้ที่ audioControls/config.js)
@@ -476,15 +476,24 @@ function Nm({uid,name,own,style,area}){
   const badge=u&&u.badge&&BADGES[u.badge];
   const pbadge=u&&u.badge&&PREMIUM_BADGES[u.badge];
   const fx=resolveTextFx(u,area||"name"); // ฟอนต์/เอฟเฟกต์ที่เจ้าของชื่อเลือกไว้ (ไม่มี = แบบเดิมทุกอย่าง)
-  return <span style={style}>{fx?<TextFx fx={fx}>{nm||"ผู้ใช้"}</TextFx>:<span style={col||undefined}>{nm||"ผู้ใช้"}</span>}{badge&&<span style={{marginLeft:4}}>{badge}</span>}{pbadge&&<BadgePill b={pbadge}/>}</span>;
+  return <span style={style}>{fx?<TextFx fx={fx} tune={resolveTune(u,area||"name")}>{nm||"ผู้ใช้"}</TextFx>:<span style={col||undefined}>{nm||"ผู้ใช้"}</span>}{badge&&<span style={{marginLeft:4}}>{badge}</span>}{pbadge&&<BadgePill b={pbadge}/>}</span>;
 }
 
 // ครอบข้อความด้วยสไตล์ของเจ้าของ (uid) ตามจุดที่ระบุ — ไม่มีสไตล์ = แสดง children/fallback เหมือนเดิมทุกอย่าง
-function FxT({uid,area,fallback,children}){
+function FxT({uid,area,fallback,lite,children}){
   const users=useContext(UsersCtx);
   const fx=uid?resolveTextFx(users[uid],area):null;
-  if(fx)return <TextFx fx={fx}>{children}</TextFx>;
+  if(fx)return <TextFx fx={fx} lite={lite} tune={resolveTune(users[uid],area)}>{children}</TextFx>;
   return fallback!==undefined?fallback:children;
+}
+// ชื่อของ uid พร้อมสไตล์ "ชื่อ" ของเจ้าของ — ประกาศนอกคอมโพเนนต์ที่ใช้ เพื่อให้ส่งเป็น prop Name ให้โมดูลเพื่อน/เชิญ/โทรได้อย่างคงที่
+function UName({uid}){
+  const users=useContext(UsersCtx);
+  return <FxT uid={uid} area="name">{(users[uid]&&users[uid].name)||"ผู้ใช้"}</FxT>;
+}
+function UNameLite({uid}){
+  const users=useContext(UsersCtx);
+  return <FxT uid={uid} area="name" lite>{(users[uid]&&users[uid].name)||"ผู้ใช้"}</FxT>;
 }
 
 // ข้อความที่เจ้าของเลือกสไตล์ไว้เป็นรายชิ้น (โพสต์/คอมเมนต์) — fx เป็นรหัสที่เก็บในเอกสาร ตรวจกับคลังของ "เจ้าของ" อีกชั้น
@@ -492,7 +501,7 @@ function FxT({uid,area,fallback,children}){
 function FxMsg({uid,fx,children}){
   const users=useContext(UsersCtx);
   const mf=fx&&uid?resolveMessageFx(users[uid],fx):null;
-  return mf?<TextFx fx={mf} lite>{children}</TextFx>:children;
+  return mf?<TextFx fx={mf} lite tune={resolveTune(users[uid],"message")}>{children}</TextFx>:children;
 }
 
 function Btn({children,onClick,v="primary",sz="md",full,style={}}){
@@ -887,7 +896,7 @@ function RoomChat({roomId,user,onGift}){
             <Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={24}/>
             <div>
               <span style={{fontSize:11,fontWeight:700,color:T.brand2,marginRight:5}}><FxT uid={m.uid} area="voiceName">{m.author}</FxT></span>
-              <span style={{fontSize:13,color:T.text}}>{(()=>{const mf=resolveMessageFx(users[m.uid],m.fx);return mf?<TextFx fx={mf} lite={msgs.indexOf(m)<msgs.length-3}>{m.text}</TextFx>:m.text;})()}</span>
+              <span style={{fontSize:13,color:T.text}}>{(()=>{const mf=resolveMessageFx(users[m.uid],m.fx);return mf?<TextFx fx={mf} lite={msgs.indexOf(m)<msgs.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text;})()}</span>
             </div>
           </div>
         ))}
@@ -1298,7 +1307,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
           )}
           {giftTo&&<GiftPicker user={user} to={giftTo} ctx={{type:"room",roomId:inRoomId}} onClose={()=>setGiftTo(null)}/>}
           {bgOpen&&BACKGROUND_AUDIO_ENABLED&&<BackgroundAudioPanel onClose={()=>setBgOpen(false)}/>}
-          {inviteOpen&&ROOM_INVITE_ENABLED&&<InvitePanel roomId={inRoomId} roomName={inRoom.name} friends={friendsCtx.friends} memberUids={new Set(memberList.map(m=>m.uid).filter(Boolean))} Avatar={UAv} nameOf={id=>(_users[id]&&_users[id].name)||"ผู้ใช้"} isOnline={PRESENCE_ENABLED?onlineFn:undefined} onInvite={uid=>inviteApi.send(myUid,{fromName:user.name,to:uid,roomId:inRoomId,roomName:inRoom.name})} onClose={()=>setInviteOpen(false)}/>}
+          {inviteOpen&&ROOM_INVITE_ENABLED&&<InvitePanel roomId={inRoomId} roomName={inRoom.name} friends={friendsCtx.friends} memberUids={new Set(memberList.map(m=>m.uid).filter(Boolean))} Avatar={UAv} Name={TEXTFX_ENABLED?UNameLite:undefined} nameOf={id=>(_users[id]&&_users[id].name)||"ผู้ใช้"} isOnline={PRESENCE_ENABLED?onlineFn:undefined} onInvite={uid=>inviteApi.send(myUid,{fromName:user.name,to:uid,roomId:inRoomId,roomName:inRoom.name})} onClose={()=>setInviteOpen(false)}/>}
           {memberMenu&&<MemberMenu title={memberMenu.name||"สมาชิก"} subtitle="เลือกสิ่งที่จะทำกับผู้ใช้นี้" onClose={()=>setMemberMenu(null)} items={(()=>{const t=memberMenu.uid;const rel=friendsCtx.relation(t);const tg=!!(_users[t]&&_users[t].isGuest);return[
             {key:"profile",label:"👤 ดูโปรไฟล์",onClick:()=>openProfileFromRoom&&openProfileFromRoom(t)},
             {key:"gift",label:"🎁 ส่งของขวัญ",onClick:()=>setGiftTo({uid:t,name:memberMenu.name})},
@@ -1768,7 +1777,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
               <div style={{maxWidth:"74%",display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start"}}>
                 {head&&<div style={{fontSize:11,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px"}}><Nm uid={m.uid} name={m.author}/></div>}
                 {m.image&&<img src={m.image} alt="" onClick={viewer.enabled?()=>viewer.open([m.image],0):undefined} style={{maxWidth:"100%",cursor:viewer.enabled?"zoom-in":undefined,borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
-                {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?"#fff":T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={i<vis.length-3}>{m.text}</TextFx>:m.text}</div>}
+                {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?"#fff":T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={i<vis.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text}</div>}
                 <div style={{fontSize:10,color:T.muted,margin:"2px 4px 0",display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:me?"flex-end":"flex-start",gap:4}}><span>{fmtTime(ms)}</span>{onDeleteMessage&&me&&!String(m.id).startsWith("tmp-")&&<MessageDeleteControl onDelete={async()=>{await onDeleteMessage(m.id);setMsgs(prev=>prev.filter(x=>x.id!==m.id));}}/>}</div>
               </div>
             </div>
@@ -1847,7 +1856,7 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
         {FRIENDS_ENABLED&&!user.isGuest&&tabBtn("friends","👥 เพื่อน"+(friendsCtx.incoming.length?" ("+friendsCtx.incoming.length+")":""))}
       </div>
 
-      {tab==="friends"&&FRIENDS_ENABLED&&!user.isGuest&&<FriendsPanel Avatar={UAv} nameOf={id=>(users[id]&&users[id].name)||"ผู้ใช้"} isOnline={PRESENCE_ENABLED?onlineFn:undefined} onProfile={id=>openProfileFromChat&&openProfileFromChat(id)} onChat={id=>{setTab("dm");setPeer(id);}} onCall={PRIVATE_CALL_ENABLED?(id=>callCtx.requestCall(id,{isFriend:true})):undefined}/>}
+      {tab==="friends"&&FRIENDS_ENABLED&&!user.isGuest&&<FriendsPanel Avatar={UAv} Name={TEXTFX_ENABLED?UNameLite:undefined} nameOf={id=>(users[id]&&users[id].name)||"ผู้ใช้"} isOnline={PRESENCE_ENABLED?onlineFn:undefined} onProfile={id=>openProfileFromChat&&openProfileFromChat(id)} onChat={id=>{setTab("dm");setPeer(id);}} onCall={PRIVATE_CALL_ENABLED?(id=>callCtx.requestCall(id,{isFriend:true})):undefined}/>}
 
       {tab==="group"&&(
         <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
@@ -1872,7 +1881,7 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
               <div key={c.id} onClick={()=>setPeer(other)} style={{display:"flex",gap:11,alignItems:"center",padding:"10px 6px",borderBottom:"1px solid "+T.border,cursor:"pointer"}}>
                 <Av uid={other} init={ou.init||"??"} bg={T.card} tc={T.brand2} size={42}/>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:14,fontWeight:700,color:T.text}}>{ou.name||"ผู้ใช้"}</div>
+                  <div style={{fontSize:14,fontWeight:700,color:T.text}}><FxT uid={other} area="name" lite>{ou.name||"ผู้ใช้"}</FxT></div>
                   <div style={{fontSize:12,color:dmu.isUnread(c.id)?T.text:T.muted,fontWeight:dmu.isUnread(c.id)?700:400,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{DM_TOOLS_ENABLED&&blocks.isBlocked(other)?"🚫 บล็อกอยู่":<>{c.lastFrom===myUid?"คุณ: ":""}{c.last||""}</>}</div>
                 </div>
                 {dmu.isUnread(c.id)&&<UnreadDot/>}
@@ -1885,7 +1894,7 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
           {people.map(u=>(
             <div key={u.id} onClick={()=>setPeer(u.id)} style={{display:"flex",gap:11,alignItems:"center",padding:"9px 6px",borderBottom:"1px solid "+T.border,cursor:"pointer"}}>
               <Av uid={u.id} init={u.init||"??"} bg={T.card} tc={T.brand2} size={38}/>
-              <div style={{flex:1,fontSize:14,fontWeight:600,color:T.text}}>{u.name||"ผู้ใช้"}{u.isGuest&&<span style={{fontSize:10,marginLeft:6,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"1px 7px",fontWeight:700}}>Guest</span>}</div>
+              <div style={{flex:1,fontSize:14,fontWeight:600,color:T.text}}><FxT uid={u.id} area="name" lite>{u.name||"ผู้ใช้"}</FxT>{u.isGuest&&<span style={{fontSize:10,marginLeft:6,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"1px 7px",fontWeight:700}}>Guest</span>}</div>
               <span style={{fontSize:12,color:T.brand2}}>💬</span>
             </div>
           ))}
@@ -1897,7 +1906,7 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
           <div style={{padding:"8px 12px",display:"flex",alignItems:"center",gap:10,background:T.surface,borderBottom:"1px solid "+T.border,flexShrink:0}}>
             <button onClick={()=>setPeer(null)} style={{border:"none",background:"transparent",color:T.sub,fontSize:20,cursor:"pointer",padding:"0 6px",fontFamily:"inherit"}}>‹</button>
             <Av uid={peer} init={pu.init||"??"} bg={T.card} tc={T.brand2} size={34}/>
-            <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:700,color:T.text}}>{pu.name||"ผู้ใช้"}</div>{PRESENCE_ENABLED&&<div style={{color:T.muted,lineHeight:1.2}}><PresenceText uid={peer} green={T.green}/></div>}</div>
+            <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:700,color:T.text}}><FxT uid={peer} area="name">{pu.name||"ผู้ใช้"}</FxT></div>{PRESENCE_ENABLED&&<div style={{color:T.muted,lineHeight:1.2}}><PresenceText uid={peer} green={T.green}/></div>}</div>
             {FRIENDS_ENABLED&&!user.isGuest&&!pu.isGuest&&<div data-dm-header-friend style={{flexShrink:0}}><FriendButton uid={peer} name={pu.name} Btn={Btn} compact/></div>}
             {DM_TOOLS_ENABLED&&<DmMenu peerName={pu.name||"ผู้ใช้นี้"} muted={!!dmPrefs.mutedPeers[peer]} blocked={blocks.isBlocked(peer)} onToggleMute={()=>setPeerMuted(peer,!dmPrefs.mutedPeers[peer])} onClear={()=>dmApi.clearHistory(myUid,peer)} onDeleteAll={CHAT_DELETE_ENABLED&&!user.isGuest?()=>chatDeleteApi.deleteAll(peer):undefined} onToggleBlock={()=>blocks.isBlocked(peer)?blocks.unblock(peer):blocks.block(peer)}/>}
           </div>
@@ -3487,13 +3496,13 @@ function SocialProviders({user,onOpenFriends,onJoinRoom,children}){
   const nameOf=useCallback(id=>(users[id]&&users[id].name)||"ผู้ใช้",[users]);
   const isUserGuest=useCallback(id=>!!(users[id]&&users[id].isGuest),[users]);
   let tree=children;
-  if(PRIVATE_CALL_ENABLED)tree=<CallProvider api={callApi} uid={guest?null:myUid} myName={user.name} guest={guest} nameOf={nameOf} isUserGuest={isUserGuest} Avatar={UAv} blocked={blocks.set} lk={{Room,RoomEvent,Track}}>{tree}</CallProvider>;
+  if(PRIVATE_CALL_ENABLED)tree=<CallProvider api={callApi} uid={guest?null:myUid} myName={user.name} guest={guest} nameOf={nameOf} Name={TEXTFX_ENABLED?UName:undefined} isUserGuest={isUserGuest} Avatar={UAv} blocked={blocks.set} lk={{Room,RoomEvent,Track}}>{tree}</CallProvider>;
   if(DM_UNREAD_ENABLED)tree=<DmUnreadProvider api={dmApi} uid={guest?null:myUid} blocked={blocks.set}>{tree}</DmUnreadProvider>;
-  if(FRIENDS_ENABLED)tree=<FriendsProvider api={friendsApi} uid={guest?null:myUid} blocked={blocks.set} nameOf={nameOf} onOpenFriends={onOpenFriends}>{tree}</FriendsProvider>;
+  if(FRIENDS_ENABLED)tree=<FriendsProvider api={friendsApi} uid={guest?null:myUid} blocked={blocks.set} nameOf={nameOf} Name={TEXTFX_ENABLED?UName:undefined} onOpenFriends={onOpenFriends}>{tree}</FriendsProvider>;
   return(<>{tree}
     {(FRIENDS_ENABLED||ROOM_INVITE_ENABLED||PRIVATE_CALL_ENABLED||BACKGROUND_AUDIO_ENABLED)&&<BannerStack/>}
     {BACKGROUND_AUDIO_ENABLED&&<BackgroundAudioKeeper callActive={callActiveNow}/>}
-    {ROOM_INVITE_ENABLED&&FRIENDS_ENABLED&&!guest&&<InviteNotifier api={inviteApi} uid={myUid} blocked={blocks.set} nameOf={nameOf} onAccept={onJoinRoom}/>}
+    {ROOM_INVITE_ENABLED&&FRIENDS_ENABLED&&!guest&&<InviteNotifier api={inviteApi} uid={myUid} blocked={blocks.set} nameOf={nameOf} Name={TEXTFX_ENABLED?UName:undefined} onAccept={onJoinRoom}/>}
   </>);
 }
 

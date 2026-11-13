@@ -3,6 +3,7 @@
 //   users/{uid}.inventory มี "font:<id>" = เป็นเจ้าของไอเทมนั้น
 import { TEXTFX_ENABLED } from "./config.js";
 import { FX_BY_ID, FX_DEFAULT, fontItemId } from "./catalog.js";
+import { normalizeTune, isDefaultTune } from "./tune.js";
 
 export const TEXTFX_AREAS = ["name", "voiceName", "roomName", "bio", "message"];
 export const AREA_LABEL = { name: "ชื่อโปรไฟล์", voiceName: "ชื่อในห้องเสียง", roomName: "ชื่อห้องเสียง", bio: "ข้อความแนะนำตัว", message: "ข้อความแชท" };
@@ -29,4 +30,13 @@ export function resolveTextFx(userDoc, area) {
 export function resolveMessageFx(senderDoc, id) {
   if (!TEXTFX_ENABLED || !id || typeof id !== "string" || id === FX_DEFAULT || !FX_BY_ID[id]) return null;
   return canUseFx(senderDoc, id) ? id : null;
+}
+
+// ค่าปรับแต่งที่เจ้าของตั้งไว้สำหรับจุดนั้น (เฟส 4) หรือ null = ไม่ปรับอะไร — ค่าแปลก ๆ ถูกบีบกลับเข้าขอบเขตเสมอ
+export function resolveTune(userDoc, area) {
+  if (!TEXTFX_ENABLED || !userDoc || !userDoc.textFx || typeof userDoc.textFx !== "object") return null;
+  const t = userDoc.textFx.tune;
+  if (!t || typeof t !== "object" || !t[area]) return null;
+  const n = normalizeTune(t[area]);
+  return isDefaultTune(n) ? null : n;
 }

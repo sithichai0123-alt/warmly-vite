@@ -1,11 +1,11 @@
 // ฟังกล่องคำเชิญของเรา → ขึ้นแถบ "ชวนเข้าห้อง" พร้อมปุ่มเข้าร่วม/ปฏิเสธ (ไม่ render อะไรเอง)
-import { useEffect, useRef } from "react";
+import { createElement, useEffect, useRef } from "react";
 import { showBanner, hideBanner } from "../social/bus.js";
 import { activeInvites, expiredInvites } from "./logic.js";
 
-export default function InviteNotifier({ api, uid, blocked, nameOf, onAccept }) {
+export default function InviteNotifier({ api, uid, blocked, nameOf, Name, onAccept }) {
   const shown = useRef(new Map()); // from → `${roomId}:${t}` ที่แสดงไปแล้ว
-  const ref = useRef({}); ref.current = { blocked, nameOf, onAccept };
+  const ref = useRef({}); ref.current = { blocked, nameOf, onAccept, Name };
   useEffect(() => {
     if (!api || !uid) return undefined;
     const map = shown.current; map.clear();
@@ -21,7 +21,7 @@ export default function InviteNotifier({ api, uid, blocked, nameOf, onAccept }) 
         map.set(i.from, sig);
         const nm = (ref.current.nameOf && ref.current.nameOf(i.from)) || i.fromName || "เพื่อน";
         showBanner({
-          key: "inv-" + i.from, title: "🎙️ " + nm + " ชวนเข้าห้อง “" + (i.roomName || "ห้องเสียง") + "”", ttl: 120000, tone: "invite",
+          key: "inv-" + i.from, title: ref.current.Name ? <>{"🎙️ "}{createElement(ref.current.Name, { uid: i.from })}{" ชวนเข้าห้อง “" + (i.roomName || "ห้องเสียง") + "”"}</> : "🎙️ " + nm + " ชวนเข้าห้อง “" + (i.roomName || "ห้องเสียง") + "”", ttl: 120000, tone: "invite",
           actions: [
             { id: "join", label: "เข้าร่วม", primary: true, onClick: () => { api.dismiss(uid, i.from).catch(() => {}); ref.current.onAccept && ref.current.onAccept({ roomId: i.roomId, roomName: i.roomName, from: i.from }); } },
             { id: "decline", label: "ปฏิเสธ", onClick: () => { api.dismiss(uid, i.from).catch(() => {}); } },

@@ -7,7 +7,7 @@ const C = { card: "#221F33", border: "#2E2A45", text: "#F0EEFF", sub: "#9B94C4",
 const pill = (p) => ({ border: p ? "none" : "1px solid " + C.border, background: p ? C.brand : "transparent", color: p ? "#fff" : C.sub, borderRadius: 14, padding: "5px 11px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
 const head = { fontSize: 13, fontWeight: 700, color: C.sub, margin: "14px 0 8px" };
 
-export default function FriendsPanel({ Avatar, nameOf, isOnline, onProfile, onChat, onCall }) {
+export default function FriendsPanel({ Avatar, nameOf, Name, isOnline, onProfile, onChat, onCall }) {
   const f = useFriends();
   const [err, setErr] = useState("");
   async function run(fn) { setErr(""); try { await fn(); } catch (e) { setErr("ทำไม่สำเร็จ (" + ((e && (e.code || e.message)) || "เน็ตมีปัญหา") + ")"); } }
@@ -17,7 +17,7 @@ export default function FriendsPanel({ Avatar, nameOf, isOnline, onProfile, onCh
     <div key={p.uid} data-fr-row={p.uid} style={{ display: "flex", gap: 11, alignItems: "center", padding: "9px 4px", borderBottom: "1px solid " + C.border }}>
       <div onClick={() => onProfile && onProfile(p.uid)} style={{ cursor: "pointer" }}><Avatar uid={p.uid} size={40}/></div>
       <div onClick={() => onProfile && onProfile(p.uid)} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nameOf(p.uid)}</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{Name ? <Name uid={p.uid} /> : nameOf(p.uid)}</div>
         {isOnline && <div style={{ fontSize: 11, color: isOnline(p.uid) ? "#10B981" : C.muted }}>{isOnline(p.uid) ? "ออนไลน์" : "ออฟไลน์"}</div>}
       </div>
       <div style={{ display: "flex", gap: 6 }}>{right}</div>

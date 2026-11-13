@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { FX, FX_BY_ID, FX_DEFAULT, TIER_LABEL, KIND_LABEL, RARITY, fontItemId } from "./catalog.js";
 import { TEXTFX_AREAS, AREA_LABEL, canUseFx, resolveTextFx } from "./resolve.js";
+import { normalizeTune, isDefaultTune, sameTune, tuneCaps, TUNE_DEFAULT, SPEED_LABEL, GLOW_LABEL, HUE_LABEL, HUE_STEPS } from "./tune.js";
 import { TEXTFX_SHOP_ENABLED } from "./config.js";
 import { planBuyFx } from "./wallet.js";
 import { TEXTFX_MODES, useTextFxMode, setTextFxMode } from "./store.js";
@@ -29,6 +30,8 @@ export default function FxSettings({ me, user, api }) {
   const [area, setArea] = useState("name");
   const [pv, setPv] = useState(null);
   const [light, setLight] = useState(false);
+  const [localTune, setLocalTune] = useState({}); // การปรับแต่งที่เพิ่งบันทึก (เฟส 4)
+  const [draft, setDraft] = useState(null); // การปรับแต่งที่กำลังลองอยู่ (ยังไม่บันทึก) ของจุดที่เลือก
   const [local, setLocal] = useState({}); // ค่าที่เพิ่งบันทึก (แสดงทันทีก่อนข้อมูลบัญชีอัปเดต)
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -43,8 +46,8 @@ export default function FxSettings({ me, user, api }) {
   const meX = useMemo(() => ({
     ...(me || {}),
     inventory: [...(me && Array.isArray(me.inventory) ? me.inventory : []), ...bought.map(fontItemId)],
-    textFx: { ...((me && me.textFx) || {}), ...local },
-  }), [me, local, bought]);
+    textFx: { ...((me && me.textFx) || {}), ...local, tune: { ...(((me && me.textFx) || {}).tune || {}), ...localTune } },
+  }), [me, local, bought, localTune]);
   useEffect(() => { setAfter(null); }, [me && me.coins, me && me.purple, me && me.purpleBought]);
   const bal = after ? { gold: after.gold, purple: after.purple + after.purpleBought } : { gold: (me && me.coins) || 0, purple: ((me && me.purple) || 0) + ((me && me.purpleBought) || 0) };
   // ซื้อได้ไหม: คืนเหตุผล (ข้อความไทย) ถ้าซื้อไม่ได้ — ใช้ตรรกะชุดเดียวกับตอนซื้อจริง
@@ -54,6 +57,9 @@ export default function FxSettings({ me, user, api }) {
   const shown = pv || current;
   const item = FX_BY_ID[shown];
   const usable = canUseFx(meX, shown);
+  const savedTune = normalizeTune(meX.textFx.tune && meX.textFx.tune[area]);
+  const tune = draft || savedTune;
+  const caps = tuneCaps(item);
 
   const SAMPLE = {
     name: { text: myName, size: 20, weight: 800 },
@@ -71,6 +77,19 @@ export default function FxSettings({ me, user, api }) {
       if (id && !canUseFx(meX, id)) throw new Error("ยังไม่ได้เป็นเจ้าของฟอนต์นี้");
       await api.save(meX, a, id); // บันทึกก่อน สำเร็จแล้วค่อยเปลี่ยนจริง
       setLocal(l => ({ ...l, [a]: id || null }));
+      setMsg(ok);
+    } catch (e) { setMsg("⚠️ " + (e.message || e.code || "ผิดพลาด")); }
+    setBusy(false);
+  }
+  async function saveTune(t, ok) {
+    if (busy) return;
+    setBusy(true); setMsg("");
+    try {
+      if (guest) throw new Error("ล็อกอินด้วย Google ก่อนจึงจะบันทึกได้");
+      if (!api.saveTune) throw new Error("ระบบปรับแต่งยังไม่พร้อม");
+      const n = normalizeTune(t);
+      await api.saveTune(meX, area, n);
+      setLocalTune(l => ({ ...l, [area]: n })); setDraft(null);
       setMsg(ok);
     } catch (e) { setMsg("⚠️ " + (e.message || e.code || "ผิดพลาด")); }
     setBusy(false);
@@ -113,7 +132,7 @@ export default function FxSettings({ me, user, api }) {
       </div>
       <div style={{ display: "flex", gap: 6, padding: "10px 14px 0", flexWrap: "wrap" }}>
         {TEXTFX_AREAS.map(a => (
-          <button key={a} data-fx-area={a} onClick={() => { setArea(a); setPv(null); setMsg(""); setConfirm(null); }} style={{ ...btn(area === a), flex: "1 0 auto", padding: "6px 10px", textAlign: "center", lineHeight: 1.3 }}>
+          <button key={a} data-fx-area={a} onClick={() => { setArea(a); setPv(null); setMsg(""); setConfirm(null); setDraft(null); }} style={{ ...btn(area === a), flex: "1 0 auto", padding: "6px 10px", textAlign: "center", lineHeight: 1.3 }}>
             <div>{AREA_LABEL[a]}</div>
             <div style={{ fontSize: 9, fontWeight: 600, opacity: 0.85 }}>{FX_BY_ID[cur(a)].name}</div>
           </button>
@@ -123,7 +142,7 @@ export default function FxSettings({ me, user, api }) {
       <div style={{ padding: "12px 14px 0" }}>
         <div style={{ fontSize: 11, color: C.sub, marginBottom: 6, fontWeight: 700 }}>ตัวอย่าง: {item.name}{pv && pv !== current ? " (ยังไม่ได้ใช้)" : ""}</div>
         <div data-fx-preview style={{ ...pvBg, borderRadius: 14, padding: "14px 14px", border: "1px solid " + C.border, minHeight: 46 }}>
-          <div style={{ fontSize: SAMPLE.size, fontWeight: SAMPLE.weight, lineHeight: 1.4 }}><TextFx fx={shown}>{SAMPLE.text}</TextFx></div>
+          <div style={{ fontSize: SAMPLE.size, fontWeight: SAMPLE.weight, lineHeight: 1.4 }}><TextFx fx={shown} tune={usable ? tune : undefined}>{SAMPLE.text}</TextFx></div>
         </div>
         <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 10, color: C.muted }}>{AREA_HINT[area]}</span>
@@ -166,6 +185,28 @@ export default function FxSettings({ me, user, api }) {
         })()}
         {msg && <div role="status" style={{ fontSize: 12, color: msg.startsWith("⚠️") ? C.red : C.green, marginTop: 8, lineHeight: 1.5 }}>{msg}</div>}
       </div>
+
+      {usable && !guest && shown !== FX_DEFAULT && (caps.speed || caps.glow || caps.hue) && (
+        <div data-fx-tune style={{ padding: "12px 14px 0" }}>
+          <div style={{ fontSize: 11, color: C.sub, marginBottom: 6, fontWeight: 700 }}>ปรับแต่ง · {AREA_LABEL[area]} <span style={{ fontWeight: 500, color: C.muted }}>(คนอื่นเห็นตามที่คุณบันทึก)</span></div>
+          {[["s", "ความเร็ว", SPEED_LABEL, caps.speed], ["g", "เรืองแสง", GLOW_LABEL, caps.glow], ["h", "โทนสี", HUE_LABEL, caps.hue]].filter(r => r[3]).map(([k, label, opts]) => (
+            <div key={k} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, color: C.sub, width: 58 }}>{label}</span>
+              {opts.map((o, i) => (
+                <button key={i} type="button" data-fx-tune-opt={k + i} onClick={() => setDraft({ ...tune, [k]: i })} style={pill(tune[k] === i)}>
+                  {k === "h" && <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 4, background: "#FF6FB5", marginRight: 4, filter: "hue-rotate(" + HUE_STEPS[i] + "deg)", verticalAlign: "middle" }} />}{o}
+                </button>
+              ))}
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+            {!sameTune(tune, savedTune) && <button disabled={busy} data-fx-tune-save onClick={() => saveTune(tune, "บันทึกการปรับแต่งของ" + AREA_LABEL[area] + " แล้ว")} style={btn(true)}>บันทึกการปรับแต่ง</button>}
+            {draft && <button disabled={busy} data-fx-tune-cancel onClick={() => setDraft(null)} style={btn(false)}>ยกเลิก</button>}
+            {!isDefaultTune(savedTune) && !draft && <button disabled={busy} data-fx-tune-reset onClick={() => saveTune(TUNE_DEFAULT, "กลับเป็นค่าเดิมของเอฟเฟกต์แล้ว")} style={btn(false)}>↺ ค่าเดิมของเอฟเฟกต์</button>}
+          </div>
+          <div style={{ fontSize: 10, color: C.muted, marginTop: 6 }}>การปรับแต่งใช้กับทุกเอฟเฟกต์ของ "{AREA_LABEL[area]}" ที่คุณใช้ ความเร็วไม่ถี่เกินรอบละ 1.5 วินาที และโทนสีอ่านออกบนทุกธีม</div>
+        </div>
+      )}
 
       <div style={{ padding: "12px 14px 0" }}>
         <div style={{ fontSize: 11, color: C.sub, marginBottom: 5, fontWeight: 700 }}>การเคลื่อนไหว (เฉพาะเครื่องนี้ — มีผลกับสิ่งที่คุณเห็น)</div>

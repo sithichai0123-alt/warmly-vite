@@ -3,6 +3,7 @@
 import { FX_BY_ID } from "./catalog.js";
 import { TEXTFX_AREAS, canUseFx } from "./resolve.js";
 import { makeFxWallet } from "./wallet.js";
+import { normalizeTune } from "./tune.js";
 
 export function makeTextFxApi(deps) {
   const { db, getUid, setDoc, doc, runTransaction } = deps;
@@ -40,6 +41,13 @@ export function makeTextFxApi(deps) {
       const patch = {};
       TEXTFX_AREAS.forEach(a => { patch[a] = id || null; });
       await write(userDoc, patch, id && FX_BY_ID[id].price ? [id] : []);
+    },
+    // บันทึกการปรับแต่ง (ความเร็ว/เรืองแสง/โทนสี) ของจุดหนึ่ง — เขียนเฉพาะ textFx.tune.<จุด> ค่าถูกบีบเข้าขอบเขตก่อนเสมอ
+    async saveTune(userDoc, area, tune) {
+      if (!TEXTFX_AREAS.includes(area)) throw new Error("ไม่รู้จักจุดนี้");
+      const uid = getUid();
+      if (!uid) throw new Error("ต้องล็อกอินก่อน");
+      await setDoc(doc(db, "users", uid), { textFx: { tune: { [area]: normalizeTune(tune) } } }, { merge: true });
     },
     // ซื้อฟอนต์ (คืน entry ของสมุดบัญชี รวมยอดคงเหลือใน entry.after)
     async buy(id) {

@@ -5,7 +5,7 @@ import { inviteStates } from "./logic.js";
 const C = { card: "#221F33", border: "#2E2A45", borderHi: "#4F46A8", text: "#F0EEFF", sub: "#9B94C4", muted: "#6B648F", brand: "#7C6BF0", green: "#10B981" };
 export const sentRegistry = new Map(); // `${roomId}:${uid}` → เวลาที่เชิญล่าสุด (อยู่ข้ามการปิด/เปิดหน้าต่าง)
 
-export default function InvitePanel({ roomId, roomName, friends, memberUids, Avatar, nameOf, isOnline, onInvite, onClose }) {
+export default function InvitePanel({ roomId, roomName, friends, memberUids, Avatar, nameOf, Name, isOnline, onInvite, onClose }) {
   const [, tick] = useState(0);
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
@@ -41,7 +41,7 @@ export default function InvitePanel({ roomId, roomName, friends, memberUids, Ava
               <div key={f.uid} data-invite-row={f.uid} style={{ display: "flex", gap: 11, alignItems: "center", padding: "9px 0", borderBottom: "1px solid " + C.border }}>
                 <Avatar uid={f.uid} size={38}/>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nameOf(f.uid)}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{Name ? <Name uid={f.uid} /> : nameOf(f.uid)}</div>
                   {isOnline && <div style={{ fontSize: 11, color: on(f.uid) ? C.green : C.muted }}>{on(f.uid) ? "ออนไลน์" : "ออฟไลน์"}</div>}
                 </div>
                 <button type="button" data-invite-btn={s.state} disabled={dis} onClick={() => go(f.uid)} style={{ background: dis ? "transparent" : C.brand, color: dis ? C.sub : "#fff", borderRadius: 14, padding: "6px 13px", fontSize: 12, fontWeight: 700, cursor: dis ? "default" : "pointer", fontFamily: "inherit", border: dis ? "1px solid " + C.border : "none" }}>{label}</button>

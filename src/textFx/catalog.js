@@ -13,6 +13,9 @@
 //   sweep:{base,hi,secs}        แสงวิ่งผ่านตัวอักษร
 //   blink:secs                  กะพริบเบา ๆ (ความทึบ 1 → .7)
 //   pulse:secs                  เรืองแสงหายใจเข้า-ออก
+//   flicker:secs                นีออนสะดุดเป็นช่วง ๆ (ความทึบต่ำสุด .72, รอบละไม่เกิน 2 จังหวะ — เฟส 4)
+//   glitch:secs                 เงาแดง-ฟ้าสั่นสะท้านสั้น ๆ ปีละครั้งต่อรอบ (เฟส 4) ไม่ใช่การกะพริบของความสว่าง
+//   dropGlow ใช้ร่วมกับ sweep ได้ (เฟส 4)
 export const TIER_LABEL = { free: "ฟรี", gold: "เหรียญทอง", purple: "เหรียญม่วง" };
 export const KIND_LABEL = { font: "ฟอนต์พิเศษ", neon: "นีออน", gradient: "ไล่สี", animated: "เคลื่อนไหว", premium: "พรีเมียม" };
 export const RARITY = { free: "ธรรมดา", common: "ทั่วไป", rare: "หายาก", epic: "ยอดเยี่ยม", legendary: "ตำนาน" };
@@ -61,6 +64,12 @@ export const FX = [
   F("color-shift", "Color Shift", "สีไหลเปลี่ยนต่อเนื่อง", "animated", "gold", 1000, "epic", { key: "prompt", w: 600 },
     { grad: { stops: [["#FF8FB8", "#B0124F"], ["#FFC27C", "#8A4B00"], ["#9CFF9C", "#1F6B1F"], ["#7CE1FF", "#00607A"], ["#C09CFF", "#5B2FB5"]], flow: 8 } }),
 
+  // ── ทอง: เคลื่อนไหว (เฟส 4) ──
+  F("broken-neon", "Broken Neon", "ป้ายไฟนีออนที่สะดุดเป็นช่วง ๆ", "animated", "gold", 850, "epic", { key: "kanit", w: 600 },
+    { color: ["#FF9AD5", "#A00E55"], glow: [[3, "#FF2E93", 0.85], [10, "#FF2E93", 0.5]], flicker: 5 }),
+  F("sakura", "Sakura", "ไล่สีซากุระ ชมพู-ขาว ไหลช้า ๆ", "animated", "gold", 800, "epic", { key: "prompt", w: 600 },
+    { grad: { stops: [["#FFC1DC", "#A3154F"], ["#FFE3EF", "#8A2A55"], ["#FF8FBF", "#A3154F"], ["#FFD6E8", "#8A2A55"]], flow: 9 } }),
+
   // ── ม่วง: พรีเมียม (หลายชั้น / หลายสี / เคลื่อนไหวซับซ้อน / ฟอนต์เฉพาะ) ──
   F("galaxy", "Galaxy", "กาแล็กซีม่วง-ชมพู ไหลช้า ๆ พร้อมแสงเรือง", "premium", "purple", 5, "legendary", { key: "kanit", w: 600 },
     { grad: { stops: [["#9D85FF", "#4B2FC9"], ["#C58CFF", "#7A1FB5"], ["#FF8FDA", "#B0124F"], ["#7CB6FF", "#0A4DB5"]], flow: 9 }, dropGlow: [6, "#A47CFF", 0.55] }),
@@ -74,6 +83,15 @@ export const FX = [
     { grad: { stops: [["#FFE08A", "#7A5200"], ["#F2B632", "#9A6B00"], ["#FFF2C0", "#7A5200"], ["#D99A1A", "#8A5C00"]], flow: 7 }, dropGlow: [5, "#FFC83D", 0.5] }),
   F("holo", "Holographic", "โฮโลแกรมเงาไข่มุก สีเลื่อมเปลี่ยนตามแสง", "premium", "purple", 15, "legendary", { key: "prompt", w: 700 },
     { grad: { stops: [["#FFB3E6", "#B0124F"], ["#B3E0FF", "#0A5FA8"], ["#C4FFD9", "#0B7A3E"], ["#FFF0B3", "#8A6A00"], ["#E0B3FF", "#6A2FB5"]], flow: 5 }, dropGlow: [5, "#FFFFFF", 0.4] }),
+  // ── ม่วง: พรีเมียมชุดใหม่ (เฟส 4) ──
+  F("inferno", "Inferno", "เปลวไฟ เหลือง-ส้ม-แดง ไหลวนพร้อมแสงสะดุดเบา ๆ", "premium", "purple", 9, "legendary", { key: "mitr", w: 500 },
+    { grad: { stops: [["#FFE066", "#7A5200"], ["#FF9A3C", "#A33C00"], ["#FF5A3C", "#B01212"], ["#FF9A3C", "#A33C00"]], flow: 5 }, dropGlow: [6, "#FF6A1F", 0.55], flicker: 3.4 }),
+  F("frost", "Frost", "น้ำแข็ง ขาว-ฟ้าใส ไหลช้า พร้อมแสงเย็น", "premium", "purple", 7, "legendary", { key: "prompt", w: 600 },
+    { grad: { stops: [["#FFFFFF", "#1B4F72"], ["#BDEBFF", "#0A5A8A"], ["#7CC8FF", "#0A4DB5"], ["#E6F7FF", "#1B4F72"]], flow: 10 }, dropGlow: [5, "#7CD7FF", 0.5] }),
+  F("glitch", "Glitch", "สัญญาณขัดข้อง เงาแดง-ฟ้าสั่นสะท้านสั้น ๆ (ฟอนต์ Orbitron)", "premium", "purple", 8, "legendary", { key: "orbitron", w: 700 },
+    { color: ["#E8F7FF", "#10223A"], glow: [[2, "#FF2E93", 0.7], [4, "#00C8FF", 0.7]], glitch: 4.5 }),
+  F("diamond", "Diamond", "เพชรประกายวิ่งผ่านตัวอักษร พร้อมแสงเรือง", "premium", "purple", 11, "legendary", { key: "prompt", w: 700 },
+    { sweep: { base: ["#BFE9FF", "#0A4F7A"], hi: ["#FFFFFF", "#073B5C"], secs: 3.2 }, dropGlow: [5, "#9FE3FF", 0.5] }),
 ];
 
 export const FX_BY_ID = Object.fromEntries(FX.map(t => [t.id, t]));
