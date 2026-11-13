@@ -1499,6 +1499,7 @@ function PostCard({p,user,autoOpen,onAutoOpened}){
   const likers=Array.isArray(p.likers)?p.likers:[];
   const [fbLiked,setFbLiked]=useState(null); // ใช้เฉพาะเมื่อฐานข้อมูลไม่รับรายชื่อ (ถอยไปนับยอดอย่างเดียวแบบเดิม)
   const [showLikers,setShowLikers]=useState(false);
+  const [menuOpen,setMenuOpen]=useState(false); // เมนู ⋯ ของเจ้าของโพสต์ (ลบโพสต์)
   const likeBusy=useRef(false);
   const liked=fbLiked!==null?fbLiked:likers.some(l=>l&&l.uid===myUid);
   const likeCount=Math.max(p.likes||0,likers.length);
@@ -1548,15 +1549,18 @@ function PostCard({p,user,autoOpen,onAutoOpened}){
   }
   const shownComments=open?comments:comments.slice(-2); // ปิดอยู่ = โชว์ 2 ความเห็นล่าสุดเลย
   const renderComment=c=>(
-    <div key={c.id} style={{display:"flex",gap:9,marginBottom:10}}>
-      <Av uid={c.uid} init={c.init||"??"} bg={T.card} tc={T.brand2} size={30}/>
+    <div key={c.id} style={{display:"flex",gap:8,marginBottom:8}}>
+      <Av uid={c.uid} init={c.init||"??"} bg={T.card} tc={T.brand2} size={28}/>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{background:T.surface,borderRadius:14,padding:"8px 13px",border:"1px solid "+T.border}}>
-          <div style={{fontSize:12,fontWeight:700,color:T.text}}>{(c.uid&&users[c.uid]&&users[c.uid].name)||c.author} <span style={{fontWeight:400,color:T.muted,fontSize:12}}>{agoMs(cmtTs(c))}</span></div>
-          {c.replyTo&&c.replyTo.name&&<div style={{fontSize:12,color:T.brand2,marginTop:2}}>↪ ตอบ @{c.replyTo.name}</div>}
-          <div style={{fontSize:13,color:T.sub,marginTop:3,lineHeight:1.5,wordBreak:"break-word"}}><FxMsg uid={c.uid} fx={c.fx}>{c.text}</FxMsg></div>
+        <div style={{display:"inline-block",maxWidth:"100%",background:T.surface,borderRadius:16,padding:"6px 12px"}}>
+          <span style={{fontSize:13,fontWeight:700,color:T.text}}>{(c.uid&&users[c.uid]&&users[c.uid].name)||c.author}</span>
+          {c.replyTo&&c.replyTo.name&&<span style={{fontSize:12,color:T.brand2,marginLeft:6}}>↪ @{c.replyTo.name}</span>}
+          <div style={{fontSize:14,color:T.sub,marginTop:1,lineHeight:1.5,wordBreak:"break-word"}}><FxMsg uid={c.uid} fx={c.fx}>{c.text}</FxMsg></div>
         </div>
-        {!user.isGuest&&c.uid&&c.uid!==myUid&&<div onClick={()=>startReply(c)} style={{fontSize:12,color:T.muted,cursor:"pointer",fontWeight:600,margin:"3px 0 0 10px"}}>ตอบกลับ</div>}
+        <div style={{display:"flex",gap:14,fontSize:12,color:T.muted,margin:"2px 0 0 12px"}}>
+          <span>{agoMs(cmtTs(c))}</span>
+          {!user.isGuest&&c.uid&&c.uid!==myUid&&<span onClick={()=>startReply(c)} style={{cursor:"pointer",fontWeight:600}}>ตอบกลับ</span>}
+        </div>
       </div>
     </div>
   );
@@ -1579,23 +1583,37 @@ function PostCard({p,user,autoOpen,onAutoOpened}){
       </div>
       <ImgGrid images={p.images} mediaTypes={p.mediaTypes}/>
       <div style={{padding:"0 16px 14px"}}>
-        <div style={{borderTop:"1px solid "+T.border,paddingTop:10,display:"flex",gap:7}}>
-          <Btn onClick={handleLike} v={liked?"primary":"ghost"} sz="sm">{liked?"❤️":"🤍"} {likeCount}</Btn>
-          <Btn onClick={()=>setOpen(!open)} v={open?"outline":"ghost"} sz="sm">💬 {comments.length}</Btn>
-          {isOwner&&<Btn onClick={handleDelete} v="danger" sz="sm">🗑️ ลบ</Btn>}
+        {/* แถวปุ่ม: ไอคอน + ตัวเลข แบบเรียบ (ลบอยู่ในเมนู ⋯) */}
+        <div style={{borderTop:"1px solid "+T.border,marginTop:2,paddingTop:6,display:"flex",alignItems:"center",gap:6}}>
+          <button onClick={handleLike} aria-label="ถูกใจ" style={{display:"flex",alignItems:"center",gap:6,border:"none",background:"transparent",cursor:"pointer",padding:"6px 10px 6px 4px",fontFamily:"inherit"}}>
+            <span style={{fontSize:21,lineHeight:1,display:"inline-block",transform:liked?"scale(1.12)":"scale(1)",transition:"transform .15s"}}>{liked?"❤️":"🤍"}</span>
+            <span style={{fontSize:14,fontWeight:600,color:liked?"#F43F5E":T.sub}}>{likeCount}</span>
+          </button>
+          <button onClick={()=>setOpen(!open)} aria-label="ความเห็น" style={{display:"flex",alignItems:"center",gap:6,border:"none",background:"transparent",cursor:"pointer",padding:"6px 10px",fontFamily:"inherit"}}>
+            <span style={{fontSize:20,lineHeight:1}}>💬</span>
+            <span style={{fontSize:14,fontWeight:600,color:open?T.brand2:T.sub}}>{comments.length}</span>
+          </button>
+          <div style={{flex:1}}/>
+          {isOwner&&<button onClick={()=>setMenuOpen(!menuOpen)} aria-label="เมนูโพสต์" style={{border:"none",background:"transparent",color:T.muted,fontSize:20,cursor:"pointer",padding:"2px 8px",fontFamily:"inherit",lineHeight:1}}>⋯</button>}
         </div>
+        {isOwner&&menuOpen&&<div style={{display:"flex",justifyContent:"flex-end",gap:8,margin:"4px 0 6px"}}>
+          <Btn onClick={handleDelete} v="danger" sz="sm">🗑️ ลบโพสต์</Btn>
+          <Btn onClick={()=>setMenuOpen(false)} v="ghost" sz="sm">ยกเลิก</Btn>
+        </div>}
+        {/* เจ้าของโพสต์: ใครถูกใจ (บรรทัดเดียว กดดูทั้งหมดได้) */}
         {isOwner&&likeCount>0&&(()=>{
           const names=likers.map(l=>(l.uid&&users[l.uid]&&users[l.uid].name)||l.name||"ผู้ใช้");
           const extra=Math.max(0,likeCount-likers.length); // ยอดเก่าที่ไม่มีรายชื่อ
-          const sum=names.length?names.slice(0,2).join(", ")+(likeCount>Math.min(2,names.length)?" และอีก "+(likeCount-Math.min(2,names.length))+" คน":""):likeCount+" คน";
+          const shown=Math.min(2,names.length);
+          const sum=names.length?names.slice(0,2).join(", ")+(likeCount>shown?" และอีก "+(likeCount-shown)+" คน":""):likeCount+" คน";
           return(
-            <div style={{marginTop:8}}>
-              <div onClick={()=>setShowLikers(!showLikers)} style={{fontSize:12,color:T.brand2,cursor:"pointer",fontWeight:600}}>❤️ {sum} ถูกใจโพสต์นี้ {showLikers?"▴":"▾ ดูทั้งหมด"}</div>
-              {showLikers&&<div style={{marginTop:6,border:"1px solid "+T.border,borderRadius:12,overflow:"hidden",background:T.surface}}>
+            <div style={{margin:"2px 0 8px"}}>
+              <div onClick={()=>setShowLikers(!showLikers)} style={{fontSize:13,color:T.sub,cursor:"pointer"}}>ถูกใจโดย <b style={{color:T.text}}>{sum}</b> <span style={{color:T.brand2}}>{showLikers?"ซ่อน":"ดูทั้งหมด"}</span></div>
+              {showLikers&&<div style={{marginTop:6,borderRadius:12,overflow:"hidden",background:T.surface}}>
                 {likers.slice().reverse().map((l,i)=>(
                   <div key={(l.uid||"")+i} onClick={()=>openProfile&&l.uid&&openProfile(l.uid)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderTop:i?"1px solid "+T.border:"none",cursor:l.uid?"pointer":"default"}}>
-                    <Av uid={l.uid} init={(l.name||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={30}/>
-                    <div style={{flex:1,minWidth:0,fontSize:13,color:T.text,fontWeight:600}}>{(l.uid&&users[l.uid]&&users[l.uid].name)||l.name||"ผู้ใช้"}</div>
+                    <Av uid={l.uid} init={(l.name||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={28}/>
+                    <div style={{flex:1,minWidth:0,fontSize:14,color:T.text,fontWeight:600}}>{(l.uid&&users[l.uid]&&users[l.uid].name)||l.name||"ผู้ใช้"}</div>
                     <div style={{fontSize:12,color:T.muted}}>{agoMs(l.t)}</div>
                   </div>
                 ))}
@@ -1604,24 +1622,28 @@ function PostCard({p,user,autoOpen,onAutoOpened}){
             </div>
           );
         })()}
-        {(comments.length>0||open)&&<div style={{marginTop:12}}>
-          {!open&&comments.length>2&&<div onClick={()=>setOpen(true)} style={{fontSize:12,color:T.brand2,cursor:"pointer",marginBottom:8,fontWeight:600}}>ดูความเห็นทั้งหมด ({comments.length})</div>}
+        {/* ความเห็น: ดูตัวอย่าง 2 อันล่าสุด */}
+        {(comments.length>0||open)&&<div style={{marginTop:6}}>
+          {!open&&comments.length>2&&<div onClick={()=>setOpen(true)} style={{fontSize:13,color:T.muted,cursor:"pointer",marginBottom:8}}>ดูความเห็นทั้งหมด {comments.length} รายการ</div>}
           {shownComments.map(renderComment)}
         </div>}
-        {!open&&!user.isGuest&&<div onClick={()=>setOpen(true)} style={{marginTop:comments.length?2:12,fontSize:13,color:T.muted,cursor:"pointer",border:"1px solid "+T.border,borderRadius:20,padding:"8px 14px",background:T.surface}}>💬 เขียนความเห็น...</div>}
+        {!open&&!user.isGuest&&<div onClick={()=>setOpen(true)} style={{marginTop:comments.length?4:8,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+          <Av uid={myUid} init={user.init} grad size={28}/>
+          <div style={{flex:1,fontSize:14,color:T.muted,background:T.surface,borderRadius:20,padding:"8px 14px"}}>เขียนความเห็น...</div>
+        </div>}
         {open&&(user.isGuest
           ?<div style={{fontSize:13,color:T.muted,marginTop:6}}>🔒 เข้าสู่ระบบด้วย Google เพื่อแสดงความเห็น</div>
           :<div style={{marginTop:6}}>
-            {replyTo&&<div style={{fontSize:12,color:T.brand2,marginBottom:6,marginLeft:39}}>↪ กำลังตอบ @{replyTo.name} <span onClick={()=>{setReplyTo(null);setCmt("");}} style={{cursor:"pointer",color:T.muted,marginLeft:6}}>ยกเลิก ✕</span></div>}
-            <div style={{display:"flex",gap:9,alignItems:"center",flexWrap:"wrap"}}>
-              <Av uid={myUid} init={user.init} grad size={30}/>
+            {replyTo&&<div style={{fontSize:12,color:T.brand2,marginBottom:6,marginLeft:36}}>↪ กำลังตอบ @{replyTo.name} <span onClick={()=>{setReplyTo(null);setCmt("");}} style={{cursor:"pointer",color:T.muted,marginLeft:6}}>ยกเลิก ✕</span></div>}
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <Av uid={myUid} init={user.init} grad size={28}/>
+              <input ref={inputRef} value={cmt} onChange={e=>{setCmt(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submitComment()} placeholder={replyTo?"ตอบกลับ...":"เขียนความเห็น..."}
+                style={{flex:1,minWidth:0,border:"1px solid transparent",borderRadius:20,padding:"8px 14px",fontSize:16,outline:"none",background:T.surface,color:T.text,fontFamily:"inherit"}}
+                onFocus={e=>e.target.style.borderColor=T.borderHi} onBlur={e=>e.target.style.borderColor="transparent"}/>
               {TEXTFX_ENABLED&&<MsgFxButton inline me={users[myUid]} value={cmtFx} onChange={setCmtFx}/>}
-              <input ref={inputRef} value={cmt} onChange={e=>{setCmt(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submitComment()} placeholder={replyTo?"ตอบกลับ...":"เม้นอะไรสักอย่าง..."}
-                style={{flex:1,minWidth:120,border:"1px solid "+T.border,borderRadius:20,padding:"8px 14px",fontSize:16,outline:"none",background:T.surface,color:T.text,fontFamily:"inherit"}}
-                onFocus={e=>e.target.style.borderColor=T.borderHi} onBlur={e=>e.target.style.borderColor=T.border}/>
-              <Btn onClick={submitComment} v="primary" sz="sm">ส่ง</Btn>
+              <button onClick={submitComment} style={{border:"none",background:"transparent",color:cmt.trim()?T.brand2:T.muted,fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit",padding:"6px 4px"}}>ส่ง</button>
             </div>
-            {err&&<div style={{fontSize:12,color:T.red,marginTop:6,marginLeft:39}}>{err}</div>}
+            {err&&<div style={{fontSize:12,color:T.red,marginTop:6,marginLeft:36}}>{err}</div>}
           </div>)}
       </div>
     </Card></div>
