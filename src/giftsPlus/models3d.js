@@ -5,106 +5,11 @@
 // ทองที่ราคา > 120: dragon, yacht, jet, island   ม่วง: crystal, butterfly, comet, genie, meteor
 // งบประมาณ: ทุกโมเดลรวมไม่เกิน ~25,000 สามเหลี่ยมและ ≤ 400 จุดอนุภาค เพื่อให้ลื่นบนมือถือ (มีเทสต์ตรวจ)
 
-const mat = (T, c, o = {}) => new T.MeshStandardMaterial({ color: c, roughness: .45, metalness: .1, ...o });
-const glow = (T, c, o = {}) => new T.MeshBasicMaterial({ color: c, transparent: true, depthWrite: false, blending: T.AdditiveBlending, ...o });
-const sph = (T, r, m, w = 16, h = 12) => new T.Mesh(new T.SphereGeometry(r, w, h), m);
-const clamp01 = x => Math.max(0, Math.min(1, x));
-const fract = x => x - Math.floor(x);
-// สุ่มแบบกำหนดผลได้ (โมเดลหน้าตาเหมือนกันทุกครั้ง และเทสต์ซ้ำได้)
-function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
-
-function dotTexture(T) {
-  if (typeof document === "undefined") return null;
-  const cv = document.createElement("canvas"); cv.width = cv.height = 32;
-  const cx = cv.getContext("2d"); if (!cx) return null;
-  const gr = cx.createRadialGradient(16, 16, 0, 16, 16, 16);
-  gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(.45, "rgba(255,255,255,.55)"); gr.addColorStop(1, "rgba(255,255,255,0)");
-  cx.fillStyle = gr; cx.fillRect(0, 0, 32, 32);
-  return new T.CanvasTexture(cv);
-}
-// กลุ่มอนุภาคแสง (Points) — ตำแหน่ง/สีเขียนทับได้ทุกเฟรม
-function cloud(T, n, size, color, opts = {}) {
-  const pos = new Float32Array(n * 3), col = opts.vertexColors ? new Float32Array(n * 3).fill(1) : null;
-  const geo = new T.BufferGeometry();
-  geo.setAttribute("position", new T.BufferAttribute(pos, 3));
-  if (col) geo.setAttribute("color", new T.BufferAttribute(col, 3));
-  const m = new T.PointsMaterial({ size, color, transparent: true, depthWrite: false, blending: T.AdditiveBlending, vertexColors: !!col, map: dotTexture(T), opacity: opts.opacity == null ? 1 : opts.opacity });
-  const pts = new T.Points(geo, m); pts.frustumCulled = false;
-  return { pts, pos, col, geo, m, n };
-}
-// แสงเรืองแบบนุ่ม (บิลบอร์ดไล่สีรัศมี) — ใช้แทนจานวงกลมทึบ
-function halo(T, color, size, op) {
-  const s = new T.Sprite(new T.SpriteMaterial({ map: dotTexture(T), color, transparent: true, depthWrite: false, blending: T.AdditiveBlending, opacity: op }));
-  s.scale.set(size, size, 1); return s;
-}
-function ringMesh(T, r0, r1, color, op) {
-  const m = new T.Mesh(new T.RingGeometry(r0, r1, 48), glow(T, color, { opacity: op, side: T.DoubleSide }));
-  m.rotation.x = -Math.PI / 2; return m;
-}
+import { mat, glow, sph, clamp01, fract, rng, cloud, halo, ringMesh } from "./kit.js";
+import { dragon } from "./dragon.js";
 
 // ───────────────────────── ทอง > 120 ─────────────────────────
 
-// 🐉 มังกรไฟ: ตัวมังกรขดเป็นเกลียวชูหัวพ่นไฟขึ้นด้านบน
-function dragon(T) {
-  const g = new T.Group(); g.userData.cam = [0, .45, 7.0]; g.userData.look = [-.25, .1, 0]; g.userData.noSpin = true; g.userData.noBob = true;
-  const N = 20, segs = [];
-  const body = mat(T, 0xdc2626, { emissive: 0x7f1d1d, emissiveIntensity: .55, roughness: .4 });
-  const belly = mat(T, 0xfcd34d, { emissive: 0x92400e, emissiveIntensity: .35, roughness: .5 });
-  const spineM = mat(T, 0xfde68a, { emissive: 0xf59e0b, emissiveIntensity: .6 });
-  for (let i = 0; i < N; i++) {
-    const u = i / (N - 1), r = .36 * (1 - Math.pow(u, 1.4) * .82) + .05;
-    const s = new T.Group(); s.add(sph(T, r, body, 14, 10));
-    // สันหลังสีทองอยู่ด้านนอกของขดตัว (ตำแหน่ง/ทิศคำนวณใหม่ทุกเฟรม) · ท้องสีทองอยู่ด้านใน
-    const sp = new T.Mesh(new T.ConeGeometry(r * .42, r * 1.05, 6), spineM); s.add(sp);
-    const bl = sph(T, r * .62, belly, 10, 8); s.add(bl);
-    g.add(s); segs.push({ s, r, sp, bl });
-  }
-  const head = new T.Group(); head.scale.setScalar(1.25);
-  const skull = sph(T, .36, body, 18, 14); skull.scale.set(1.2, .92, .95); head.add(skull);
-  const snout = sph(T, .23, body, 14, 10); snout.scale.set(1.35, .68, .85); snout.position.set(.4, -.06, 0); head.add(snout);
-  const jaw = sph(T, .2, belly, 12, 8); jaw.scale.set(1.5, .4, .8); jaw.position.set(.36, -.2, 0); head.add(jaw);
-  const eyeM = mat(T, 0xfef08a, { emissive: 0xfacc15, emissiveIntensity: 1.2 });
-  [1, -1].forEach(z => {
-    const e = sph(T, .065, eyeM, 10, 8); e.position.set(.14, .13, z * .22); head.add(e);
-    const pu = sph(T, .03, mat(T, 0x111827), 8, 6); pu.position.set(.19, .13, z * .255); head.add(pu);
-    const horn = new T.Mesh(new T.ConeGeometry(.08, .55, 8), spineM); horn.position.set(-.18, .3, z * .17); horn.rotation.z = 1.05; horn.rotation.x = -z * .25; head.add(horn);
-    const wh = new T.Mesh(new T.CylinderGeometry(.012, .012, .62, 5), spineM); wh.position.set(.5, -.1, z * .23); wh.rotation.set(z * .5, 0, 1.2); head.add(wh);
-    const nos = sph(T, .03, mat(T, 0x450a0a), 6, 5); nos.position.set(.62, -.02, z * .09); head.add(nos);
-  });
-  // ไฟ: กรวยเรืองแสง 2 ชั้น + ประกายไฟ
-  const flame = new T.Group(); flame.position.set(.62, -.02, 0);
-  const f1 = new T.Mesh(new T.ConeGeometry(.3, 1.0, 14, 1, true), glow(T, 0xf97316, { opacity: .55, side: T.DoubleSide })); f1.rotation.z = -Math.PI / 2; f1.position.x = .5; flame.add(f1);
-  const f2 = new T.Mesh(new T.ConeGeometry(.16, .7, 12, 1, true), glow(T, 0xfde047, { opacity: .8, side: T.DoubleSide })); f2.rotation.z = -Math.PI / 2; f2.position.x = .35; flame.add(f2);
-  head.add(flame);
-  const R = rng(11), SP = cloud(T, 56, .13, 0xffb347), seed = Array.from({ length: SP.n }, () => [R(), R() - .5, R() - .5]);
-  head.add(SP.pts); g.add(head);
-  const p = segs.map(() => new T.Vector3()), q = new T.Quaternion(), qi = new T.Quaternion(), X = new T.Vector3(1, 0, 0), Y = new T.Vector3(0, 1, 0), d = new T.Vector3(), o = new T.Vector3(), aim = new T.Vector3();
-  g.userData.update = t => {
-    for (let i = 0; i < N; i++) {
-      const u = i / (N - 1), a = u * 5.4 + t * .85, rad = .3 + .55 * Math.pow(Math.sin(Math.min(1, u * 1.15) * Math.PI * .92 + .15), .8);
-      p[i].set(Math.cos(a) * rad - .3, .95 - u * 2.3 + Math.sin(t * 2.1 - u * 7) * .07, Math.sin(a) * rad);
-      segs[i].s.position.copy(p[i]);
-      if (i > 0) { d.subVectors(p[i - 1], p[i]); if (d.lengthSq() > 1e-8) segs[i].s.quaternion.setFromUnitVectors(Y, d.normalize()); }
-      // ทิศ "ด้านนอก" ของขด แปลงเป็นพิกัดของปล้องนั้น เพื่อวางสันหลัง (นอก) และท้อง (ใน)
-      o.set(Math.cos(a), .25, Math.sin(a)).normalize(); qi.copy(segs[i].s.quaternion).invert(); o.applyQuaternion(qi);
-      segs[i].sp.position.copy(o).multiplyScalar(segs[i].r * .95); segs[i].sp.quaternion.setFromUnitVectors(Y, o);
-      segs[i].bl.position.copy(o).multiplyScalar(-segs[i].r * .5);
-    }
-    head.position.copy(p[0]); d.subVectors(p[0], p[1]);
-    // หัวหันข้าง (เห็นโปรไฟล์ชัดเสมอ) ไปทางขวา-บน ผสมทิศของลำตัวเล็กน้อย → ไฟพุ่งออกด้านข้างให้เห็นเต็มตา
-    if (d.lengthSq() > 1e-8) d.normalize(); aim.set(1, .38, .12).addScaledVector(d, .35).normalize(); q.setFromUnitVectors(X, aim); head.quaternion.copy(q);
-    const fl = 1 + .22 * Math.sin(t * 17) + .12 * Math.sin(t * 29 + 1);
-    f1.scale.set(fl, 1 + .1 * Math.sin(t * 23), 1); f2.scale.set(1 + .18 * Math.sin(t * 21 + 2), 1 + .15 * Math.sin(t * 19), 1);
-    for (let i = 0; i < SP.n; i++) {
-      const life = fract(t * .8 + seed[i][0]);
-      SP.pos[i * 3] = .6 + life * 1.05; SP.pos[i * 3 + 1] = seed[i][1] * life * .7; SP.pos[i * 3 + 2] = seed[i][2] * life * .7;
-    }
-    SP.m.opacity = .85; SP.geo.attributes.position.needsUpdate = true;
-  };
-  return g;
-}
-
-// 🛥️ เรือยอร์ช: ลำเรือสีขาว แถบน้ำเงิน ห้องโดยสารสองชั้น เรดาร์ และผืนน้ำที่มีระลอกคลื่น
 function yacht(T) {
   const g = new T.Group(); g.userData.cam = [0, 2.0, 8.9]; g.userData.look = [0, .15, 0]; g.userData.spin = .55; g.userData.noBob = true;
   const white = mat(T, 0xf8fafc, { roughness: .3, metalness: .15 }), blue = mat(T, 0x1d4ed8, { roughness: .35, emissive: 0x1e3a8a, emissiveIntensity: .25 });

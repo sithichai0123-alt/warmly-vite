@@ -2854,7 +2854,7 @@ const sfx=(()=>{
       arp([24,28,31,36,40],3.6,.1,{dur:.5,vol:.2});
     },
   };
-  if(GIFTS_PLUS_ENABLED)Object.assign(GIFT,makeGiftSounds({tone,noise,arp,bell,pluck,thump,brass,nt})); // เสียงของขวัญชุดใหม่
+  if(GIFTS_PLUS_ENABLED)Object.assign(GIFT,makeGiftSounds({tone,noise,arp,bell,pluck,thump,brass,nt,ac:()=>ctx,out:()=>master})); // เสียงของขวัญชุดใหม่
   const tierFallback=tier=>{
     if(tier<=1){tone(nt(12),0,.12,{vol:.3});tone(nt(19),.07,.14,{vol:.3});}
     else if(tier===2){arp([12,16,19,24],0,.07,{dur:.22,vol:.35});}
