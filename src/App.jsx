@@ -1679,11 +1679,13 @@ function NewPostBox({user}){
 }
 
 // ── Feed (Firebase realtime) ──────────────────────────────
-function StartGuide({onGo}){
+function StartGuide({onGo,isGuest}){
   const [hide,setHide]=useState(()=>{try{return localStorage.getItem("warmly_guide_off")==="1";}catch(e){return false;}});
   if(hide)return null;
   const close=()=>{try{localStorage.setItem("warmly_guide_off","1");}catch(e){}setHide(true);};
-  const steps=[["1","ตั้งรูปและชื่อของคุณ","profile","ไปโปรไฟล์"],["2","เข้าห้องคุยกับคนอื่น","voice","ดูห้องคุย"],["3","ส่งข้อความหาเพื่อน","chat","เปิดแชท"]];
+  const steps=isGuest
+    ?[["1","เข้าห้องคุยกับคนอื่น","voice","ดูห้องคุย"],["2","ทักทายในห้องแชทรวม","chat","เปิดแชท"],["3","อยากโพสต์และเพิ่มเพื่อน? เข้าด้วย Google","privacy","ไปตั้งค่า"]]
+    :[["1","ตั้งรูปและชื่อของคุณ","profile","ไปโปรไฟล์"],["2","เข้าห้องคุยกับคนอื่น","voice","ดูห้องคุย"],["3","ส่งข้อความหาเพื่อน","chat","เปิดแชท"]];
   return(
     <Card style={{marginBottom:14}}><div style={{padding:"16px 16px 12px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -1717,7 +1719,7 @@ function FeedPage({user,onGo}){
 
   return(
     <div>
-      <StartGuide onGo={onGo}/>
+      <StartGuide onGo={onGo} isGuest={!!user.isGuest}/>
       <NewPostBox user={user}/>
       {loading&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>⏳ กำลังโหลด...</div>}
       {!loading&&posts.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:T.muted,fontSize:14}}>ยังไม่มีโพสต์ — โพสต์แรกได้เลย! ✨</div>}
