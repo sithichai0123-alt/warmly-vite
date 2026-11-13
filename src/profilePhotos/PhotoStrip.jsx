@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { emptyState, ordered } from "./photos.js";
 
-export default function PhotoStrip({ uid, api, onOpen }) {
+export default function PhotoStrip({ uid, api, onOpen, size = 56, wrap = false, label = "" }) {
   const [state, setState] = useState(emptyState());
   useEffect(() => {
     setState(emptyState());
@@ -13,10 +13,13 @@ export default function PhotoStrip({ uid, api, onOpen }) {
   if (list.length < 2) return null; // มี 0-1 รูป = ไม่ต้องแสดงแถบ (รูปหลักเห็นอยู่แล้วที่ avatar)
   const srcs = list.map(p => p.src);
   return (
-    <div data-photo-strip style={{ display: "flex", gap: 6, marginTop: 10, overflowX: "auto" }}>
+    <div data-photo-strip style={{ marginTop: 10 }}>
+      {label && <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, opacity: 0.85 }}>{label} ({list.length})</div>}
+      <div style={{ display: "flex", gap: 8, flexWrap: wrap ? "wrap" : "nowrap", overflowX: wrap ? "visible" : "auto" }}>
       {list.map((p, i) => (
-        <img key={p.id} data-strip-img src={p.src} alt="" onClick={() => onOpen && onOpen(srcs, i)} style={{ width: 56, height: 56, borderRadius: 10, objectFit: "cover", flexShrink: 0, cursor: onOpen ? "zoom-in" : "default", border: "2px solid " + (i === 0 ? "#A78BFA" : "#2E2A45") }} />
+        <img key={p.id} data-strip-img src={p.src} alt="" onClick={() => onOpen && onOpen(srcs, i)} style={{ width: size, height: size, borderRadius: 12, objectFit: "cover", flexShrink: 0, cursor: onOpen ? "zoom-in" : "default", border: "2px solid " + (i === 0 ? "#A78BFA" : "#2E2A45") }} />
       ))}
+      </div>
     </div>
   );
 }
