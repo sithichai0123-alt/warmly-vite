@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo, Component, createCon
 import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, runTransaction, getCountFromServer, writeBatch } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, arrayRemove, runTransaction, getCountFromServer, writeBatch } from "firebase/firestore";
 import { useNow, useRoomHeartbeat, useRoomJanitor, roomExpired, roomCloseInMs, fmtCountdown, ROOM_AUTOCLOSE_ENABLED } from "./roomLife/index.js"; // ปิดห้องเสียงอัตโนมัติเมื่อโฮสต์ไม่อยู่เกิน 5 นาที (ปิดได้ที่ roomLife/config.js)
 import { TextFx, FxGallery, FxSettings, MsgFxButton, makeTextFxApi, resolveTextFx, resolveMessageFx, resolveTune, TEXTFX_ENABLED, TEXTFX_SERVER_PURCHASE } from "./textFx/index.js"; // ฟอนต์พิเศษ/เอฟเฟกต์ตัวอักษร (ปิดได้ที่ textFx/config.js)
 import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
@@ -1495,8 +1495,13 @@ function PostCard({p,user,autoOpen,onAutoOpened}){
   const [cmt,setCmt]=useState("");
   const [cmtFx,setCmtFx]=useState(null); // สไตล์ของคอมเมนต์ที่จะส่ง (null = ปกติ)
   const [err,setErr]=useState("");
-  const [liked,setLiked]=useState(false);
-  const [likeCount,setLikeCount]=useState(p.likes||0);
+  // ถูกใจ: เก็บรายชื่อคนกดไว้ที่ p.likers = [{uid,name,t}] (อ่านสดจากโพสต์ เจ้าของจึงเห็นยอดและรายชื่อเปลี่ยนทันที)
+  const likers=Array.isArray(p.likers)?p.likers:[];
+  const [fbLiked,setFbLiked]=useState(null); // ใช้เฉพาะเมื่อฐานข้อมูลไม่รับรายชื่อ (ถอยไปนับยอดอย่างเดียวแบบเดิม)
+  const [showLikers,setShowLikers]=useState(false);
+  const likeBusy=useRef(false);
+  const liked=fbLiked!==null?fbLiked:likers.some(l=>l&&l.uid===myUid);
+  const likeCount=Math.max(p.likes||0,likers.length);
   const comments=Array.isArray(p.comments)?p.comments:[]; // อ่านจากโพสต์สดๆ (เดิมคัดลอกครั้งเดียว ทำให้เจ้าของโพสต์ไม่เห็นความเห็นใหม่)
   const [replyTo,setReplyTo]=useState(null); // { uid, name } ของคนที่กำลังตอบกลับ
   const cardRef=useRef(null);const inputRef=useRef(null);
@@ -1504,11 +1509,19 @@ function PostCard({p,user,autoOpen,onAutoOpened}){
   const isOwner=!user.isGuest&&(p.authorUid?p.authorUid===myUid:p.author===user.name);
 
   async function handleLike(){
-    if(user.isGuest)return;
+    if(user.isGuest||likeBusy.current)return;
+    likeBusy.current=true;
+    const ref=doc(db,"posts",p.id);
     const next=!liked;
-    setLiked(next);
-    setLikeCount(c=>next?c+1:c-1);
-    await updateDoc(doc(db,"posts",p.id),{likes:increment(next?1:-1)});
+    try{
+      if(next)await updateDoc(ref,{likers:arrayUnion({uid:myUid,name:user.name,t:Date.now()}),likes:increment(1)});
+      else await updateDoc(ref,{likers:arrayRemove(...likers.filter(l=>l&&l.uid===myUid)),likes:increment(-1)});
+      setFbLiked(null);
+    }catch(e){
+      console.error("like",e);
+      try{ await updateDoc(ref,{likes:increment(next?1:-1)}); setFbLiked(next); } // ถอยไปแบบเดิม (นับยอดอย่างเดียว)
+      catch(e2){ console.error("like fallback",e2); }
+    }finally{ likeBusy.current=false; }
   }
 
   async function handleDelete(){
@@ -1571,6 +1584,26 @@ function PostCard({p,user,autoOpen,onAutoOpened}){
           <Btn onClick={()=>setOpen(!open)} v={open?"outline":"ghost"} sz="sm">💬 {comments.length}</Btn>
           {isOwner&&<Btn onClick={handleDelete} v="danger" sz="sm">🗑️ ลบ</Btn>}
         </div>
+        {isOwner&&likeCount>0&&(()=>{
+          const names=likers.map(l=>(l.uid&&users[l.uid]&&users[l.uid].name)||l.name||"ผู้ใช้");
+          const extra=Math.max(0,likeCount-likers.length); // ยอดเก่าที่ไม่มีรายชื่อ
+          const sum=names.length?names.slice(0,2).join(", ")+(likeCount>Math.min(2,names.length)?" และอีก "+(likeCount-Math.min(2,names.length))+" คน":""):likeCount+" คน";
+          return(
+            <div style={{marginTop:8}}>
+              <div onClick={()=>setShowLikers(!showLikers)} style={{fontSize:12,color:T.brand2,cursor:"pointer",fontWeight:600}}>❤️ {sum} ถูกใจโพสต์นี้ {showLikers?"▴":"▾ ดูทั้งหมด"}</div>
+              {showLikers&&<div style={{marginTop:6,border:"1px solid "+T.border,borderRadius:12,overflow:"hidden",background:T.surface}}>
+                {likers.slice().reverse().map((l,i)=>(
+                  <div key={(l.uid||"")+i} onClick={()=>openProfile&&l.uid&&openProfile(l.uid)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderTop:i?"1px solid "+T.border:"none",cursor:l.uid?"pointer":"default"}}>
+                    <Av uid={l.uid} init={(l.name||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={30}/>
+                    <div style={{flex:1,minWidth:0,fontSize:13,color:T.text,fontWeight:600}}>{(l.uid&&users[l.uid]&&users[l.uid].name)||l.name||"ผู้ใช้"}</div>
+                    <div style={{fontSize:12,color:T.muted}}>{agoMs(l.t)}</div>
+                  </div>
+                ))}
+                {extra>0&&<div style={{padding:"8px 12px",fontSize:12,color:T.muted,borderTop:likers.length?"1px solid "+T.border:"none"}}>และอีก {extra} คนก่อนหน้านี้ (ไม่มีรายชื่อ เพราะกดก่อนเปิดระบบนี้)</div>}
+              </div>}
+            </div>
+          );
+        })()}
         {(comments.length>0||open)&&<div style={{marginTop:12}}>
           {!open&&comments.length>2&&<div onClick={()=>setOpen(true)} style={{fontSize:12,color:T.brand2,cursor:"pointer",marginBottom:8,fontWeight:600}}>ดูความเห็นทั้งหมด ({comments.length})</div>}
           {shownComments.map(renderComment)}
@@ -1718,7 +1751,7 @@ function NewPostBox({user}){
 
 // ── Feed (Firebase realtime) ──────────────────────────────
 // ── แจ้งเตือนความเห็น (คำนวณจากโพสต์ที่โหลดอยู่แล้ว ไม่ต้องมีคอลเลกชันใหม่) ──
-// • มีคนเม้นโพสต์ของเรา  • มีคนตอบกลับ/แท็ก @ชื่อเรา  • เจ้าของโพสต์ตอบในโพสต์ที่เราเคยเม้น — แสดงเมื่อเปิดแอปอยู่ ถ้าอ่านแล้วจะหายไป
+// • มีคนกดถูกใจ/เม้นโพสต์ของเรา  • มีคนตอบกลับ/แท็ก @ชื่อเรา  • เจ้าของโพสต์ตอบในโพสต์ที่เราเคยเม้น — แสดงเมื่อเปิดแอปอยู่ ถ้าอ่านแล้วจะหายไป
 // ความเห็นที่เกิดก่อนเวลานี้ (ตอนเปิดระบบแจ้งเตือน) ถือว่าเป็นของเก่า ไม่แจ้ง
 const NOTIF_EPOCH=Date.UTC(2026,10,13,18,35,0);
 function usePostNotifs(posts,user){
@@ -1737,6 +1770,13 @@ function usePostNotifs(posts,user){
     const out=[];
     for(const p of posts){
       const cs=Array.isArray(p.comments)?p.comments:[];
+      if(p.authorUid===me){ // มีคนกดถูกใจโพสต์ของเรา
+        for(const l of (Array.isArray(p.likers)?p.likers:[])){
+          if(!l||!l.uid||l.uid===me)continue;
+          const lt=l.t||0; if(lt<=NOTIF_EPOCH)continue;
+          out.push({key:"like:"+p.id+":"+l.uid,postId:p.id,type:"like",uid:l.uid,name:l.name||"ผู้ใช้",text:(p.content||"").slice(0,40)||"โพสต์ของคุณ",ts:lt});
+        }
+      }
       let myFirst=null; // เวลาที่เราเม้นในโพสต์นี้ครั้งแรก
       for(const c of cs){ if(c&&c.uid===me){const t=cmtTs(c); if(myFirst===null||t<myFirst)myFirst=t;} }
       for(const c of cs){
@@ -1775,7 +1815,7 @@ function NotifCard({items,onRead,onOpenPost}){
           <div key={n.key} onClick={()=>{onRead([n.key]);onOpenPost(n.postId);}} style={{display:"flex",gap:10,alignItems:"center",padding:"9px 14px",borderTop:"1px solid "+T.border,cursor:"pointer"}}>
             <Av uid={n.uid} init={(n.name||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={34}/>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13,color:T.text,lineHeight:1.4}}><b>{name}</b> {n.type==="reply"?"ตอบกลับความเห็นของคุณ":n.type==="owner"?"เจ้าของโพสต์ตอบในโพสต์ที่คุณเม้นไว้":"แสดงความเห็นในโพสต์ของคุณ"}</div>
+              <div style={{fontSize:13,color:T.text,lineHeight:1.4}}><b>{name}</b> {n.type==="like"?"กดถูกใจโพสต์ของคุณ ❤️":n.type==="reply"?"ตอบกลับความเห็นของคุณ":n.type==="owner"?"เจ้าของโพสต์ตอบในโพสต์ที่คุณเม้นไว้":"แสดงความเห็นในโพสต์ของคุณ"}</div>
               <div style={{fontSize:12,color:T.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>“{n.text}” · {agoMs(n.ts)}</div>
             </div>
             <span style={{fontSize:12,color:T.brand2,fontWeight:600}}>ดู ›</span>
