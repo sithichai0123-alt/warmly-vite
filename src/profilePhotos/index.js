@@ -6,3 +6,4 @@ export { emptyState, normalize, planAdd, planRemove, planSetMain, mainOf, ordere
 export { processFile, makeThumb } from "./image.js";
 export { default as ProfilePhotosManager } from "./ProfilePhotosManager.jsx";
 export { default as PhotoStrip } from "./PhotoStrip.jsx";
+export { default as PhotoCropper } from "./PhotoCropper.jsx";

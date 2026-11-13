@@ -19,14 +19,14 @@ function readFile(file) {
   });
 }
 function draw(img, max, q, crop) {
-  // crop = { sx, sy, size } (พิกเซลของรูปต้นฉบับ) → ผลลัพธ์เป็นสี่เหลี่ยมจัตุรัส
-  const sw = crop ? crop.size : img.width, sh = crop ? crop.size : img.height;
+  // crop = { sx, sy, sw, sh } (พิกเซลของรูปต้นฉบับ) → ผลลัพธ์ตามสัดส่วนของ crop
+  const sw = crop ? crop.sw : img.width, sh = crop ? crop.sh : img.height;
   const sc = Math.min(1, max / Math.max(sw, sh));
   const w = Math.max(1, Math.round(sw * sc)), h = Math.max(1, Math.round(sh * sc));
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   const g = c.getContext("2d");
   g.fillStyle = "#fff"; g.fillRect(0, 0, w, h); // PNG โปร่งใสไม่กลายเป็นดำเมื่อเป็น JPEG
-  if (crop) g.drawImage(img, crop.sx, crop.sy, crop.size, crop.size, 0, 0, w, h);
+  if (crop) g.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
   else g.drawImage(img, 0, 0, w, h);
   return c.toDataURL("image/jpeg", q);
 }
