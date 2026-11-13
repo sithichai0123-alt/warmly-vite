@@ -1787,6 +1787,60 @@ function NotifCard({items,onRead,onOpenPost}){
   );
 }
 
+// ── ชวนเพื่อน (LINE / คัดลอกลิงก์) ──
+function InviteCard(){
+  const [copied,setCopied]=useState(false);
+  const url=(typeof window!=="undefined"&&window.location.origin)||"https://warmly-vite.vercel.app";
+  const text="มาคุยกันที่ Warmly 💜 พื้นที่อบอุ่น หาเพื่อน คุยเล่น ไม่เหงา\n"+url;
+  const toLine=()=>{ window.open("https://line.me/R/share?text="+encodeURIComponent(text),"_blank","noopener"); };
+  const copy=async()=>{ try{ await navigator.clipboard.writeText(text); setCopied(true); setTimeout(()=>setCopied(false),2000);}catch(e){ window.prompt("คัดลอกข้อความนี้ไปส่งให้เพื่อน",text); } };
+  return(
+    <Card style={{marginBottom:14}}>
+      <div style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <div style={{flex:1,minWidth:150}}>
+          <div style={{fontSize:14,fontWeight:700,color:T.text}}>ชวนเพื่อนมาคุยกัน 💜</div>
+          <div style={{fontSize:12,color:T.muted,marginTop:2}}>เพื่อนเยอะ ห้องคุยยิ่งสนุก</div>
+        </div>
+        <Btn onClick={toLine} v="primary" sz="sm">ส่งทาง LINE</Btn>
+        <Btn onClick={copy} v="ghost" sz="sm">{copied?"คัดลอกแล้ว ✓":"คัดลอกลิงก์"}</Btn>
+      </div>
+    </Card>
+  );
+}
+
+// ── แถบ "ตอนนี้" บนหน้าแรก: คนออนไลน์ + ห้องที่กำลังคุย ──
+function HomeLive({onJoinRoom}){
+  const users=useContext(UsersCtx);
+  const isOnline=useIsOnline();
+  const [rooms,setRooms]=useState(null);
+  useEffect(()=>{
+    const q=query(collection(db,"voiceRooms"),orderBy("createdAt","desc"));
+    return onSnapshot(q,snap=>setRooms(snap.docs.map(d=>({id:d.id,...d.data()}))),()=>setRooms([]));
+  },[]);
+  const online=PRESENCE_ENABLED?Object.keys(users).filter(id=>isOnline(id)).length:0;
+  const live=(rooms||[]).map(r=>({...r,n:Array.isArray(r.members)?r.members.length:0})).filter(r=>r.n>0).sort((a,b)=>b.n-a.n).slice(0,3);
+  if(rooms===null)return null;
+  if(!live.length&&!online)return null;
+  return(
+    <Card style={{marginBottom:14}}>
+      <div style={{padding:"12px 14px 6px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{fontSize:15,fontWeight:800,color:T.text}}>🎙️ ตอนนี้ใน Warmly</div>
+        {online>0&&<div style={{fontSize:12,color:T.green,fontWeight:600}}>🟢 ออนไลน์ {online} คน</div>}
+      </div>
+      {live.length===0&&<div style={{padding:"4px 14px 12px",fontSize:12,color:T.muted}}>ยังไม่มีห้องที่เปิดอยู่ — ไปที่ "ห้องคุย" แล้วเปิดห้องแรกได้เลย</div>}
+      {live.map(r=>(
+        <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderTop:"1px solid "+T.border}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:14,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.vibe} {r.name}</div>
+            <div style={{fontSize:12,color:T.muted}}>กำลังคุย {r.n} คน</div>
+          </div>
+          <Btn onClick={()=>onJoinRoom&&onJoinRoom({roomId:r.id})} v="outline" sz="sm">เข้าร่วม</Btn>
+        </div>
+      ))}
+    </Card>
+  );
+}
+
 function StartGuide({onGo,isGuest}){
   const [hide,setHide]=useState(()=>{try{return localStorage.getItem("warmly_guide_off")==="1";}catch(e){return false;}});
   if(hide)return null;
@@ -1811,7 +1865,7 @@ function StartGuide({onGo,isGuest}){
   );
 }
 
-function FeedPage({user,onGo,notifs,onReadNotif,onOpenPost,focusPostId,onFocusDone}){
+function FeedPage({user,onGo,notifs,onReadNotif,onOpenPost,focusPostId,onFocusDone,onJoinRoom}){
   const users=useContext(UsersCtx);
   const [posts,setPosts]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -1829,6 +1883,8 @@ function FeedPage({user,onGo,notifs,onReadNotif,onOpenPost,focusPostId,onFocusDo
     <div>
       <NotifCard items={notifs} onRead={onReadNotif||(()=>{})} onOpenPost={onOpenPost||(()=>{})}/>
       <StartGuide onGo={onGo} isGuest={!!user.isGuest}/>
+      <HomeLive onJoinRoom={onJoinRoom}/>
+      <InviteCard/>
       <NewPostBox user={user}/>
       {loading&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>⏳ กำลังโหลด...</div>}
       {!loading&&posts.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:T.muted,fontSize:14}}>ยังไม่มีโพสต์ — โพสต์แรกได้เลย! ✨</div>}
@@ -3792,7 +3848,7 @@ export default function App(){
       <ThemeScope section={THEME_PAGE[page]||null}>
       <div style={{flex:1,overflowY:page==="chat"?"hidden":"auto",display:"flex",flexDirection:"column",background:T.pageBg}}>
         <div style={{flex:1,padding:page==="chat"?"0":"14px 12px 80px"}}>
-          {page==="feed"    &&<FeedPage user={user} onGo={setPage} notifs={notif.unread} onReadNotif={notif.markRead} onOpenPost={id=>{setPage("feed");setFocusPostId(id);}} focusPostId={focusPostId} onFocusDone={()=>setFocusPostId(null)}/>}
+          {page==="feed"    &&<FeedPage user={user} onGo={setPage} notifs={notif.unread} onReadNotif={notif.markRead} onOpenPost={id=>{setPage("feed");setFocusPostId(id);}} focusPostId={focusPostId} onFocusDone={()=>setFocusPostId(null)} onJoinRoom={r=>{setJoinReq(r);setPage("voice");}}/>}
           {page==="chat"    &&<ChatPage user={user} openPeer={dmTarget} onPeerOpened={()=>setDmTarget(null)} openTab={chatTabReq} onTabOpened={()=>setChatTabReq(null)}/>}
           <div style={{display:page==="voice"?"block":"none"}}><VoiceErrorBoundary><VoiceRoomsPage user={user} onAppearance={()=>openAppearance("voice")} joinReq={joinReq} onJoinReqHandled={()=>setJoinReq(null)}/></VoiceErrorBoundary></div>
           {page==="profile" &&<ProfilePage user={user} posts={posts} onAppearance={()=>openAppearance("profile")} onUpdateName={n=>{const u={...user,name:n,init:n.slice(0,2).toUpperCase()};ls.set("user",u);setUser(u);}}/>}
