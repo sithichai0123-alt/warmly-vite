@@ -11,6 +11,7 @@ import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, cr
 import { ImageViewerProvider, useImageViewer } from "./imageViewer/index.js"; // ดูรูปเต็มจอ (แยกไฟล์ — ปิดได้ที่ imageViewer/config.js)
 import { PRESENCE_ENABLED, DOT_MIN_SIZE, PresenceProvider, PresenceDot, PresenceText, makePresenceApi, usePresencePrefs, setPresencePrefs, useIsOnline } from "./presence/index.js"; // สถานะออนไลน์ จุดเขียว/เทา (แยกไฟล์ — ปิดได้ที่ presence/config.js)
 import { CHAT_DELETE_ENABLED, makeChatDeleteApi, makeClientFallback, MessageDeleteControl } from "./chatDelete/index.js"; // ลบข้อความแชทส่วนตัว (ทีละข้อความ/ทั้งหมด) ผ่าน Backend — ปิดได้ที่ chatDelete/config.js
+import { DM_UNREAD_ENABLED, DmUnreadProvider, useDmUnread, UnreadBadge, UnreadDot } from "./dmUnread/index.js"; // จุด/ตัวเลขข้อความใหม่ในแชทส่วนตัว — ปิดได้ที่ dmUnread/config.js
 import { FRIENDS_ENABLED, makeFriendsApi, FriendsProvider, useFriends, FriendButton, FriendsPanel } from "./friends/index.js"; // ระบบเพื่อน — ปิดได้ที่ friends/config.js
 import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from "./roomInvite/index.js"; // เชิญเพื่อนเข้าห้องเสียง — ปิดได้ที่ roomInvite/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
@@ -1772,7 +1773,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
 
 // ── Chat: ห้องรวม + แชทส่วนตัว ────────────────────────────
 function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
-  const friendsCtx=useFriends();const callCtx=useCall();const onlineFn=useIsOnline();const openProfileFromChat=useContext(ProfileCtx);
+  const dmu=useDmUnread();const friendsCtx=useFriends();const callCtx=useCall();const onlineFn=useIsOnline();const openProfileFromChat=useContext(ProfileCtx);
   const users=useContext(UsersCtx);
   const myUid=getUid();
   const [tab,setTab]=useState("group");
@@ -1794,6 +1795,8 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
   useEffect(()=>{ if(!DM_TOOLS_ENABLED)return; setActiveDm(tab==="dm"&&peer?[myUid,peer].sort().join("_"):null); return ()=>setActiveDm(null); },[tab,peer,myUid]); // เปิดแชทนี้อยู่ = ไม่ต้องมีเสียงแจ้งเตือนซ้ำ
 
   const pairId=uid=>[myUid,uid].sort().join("_");
+  const openPairUnread=!!(peer&&dmu.isUnread(pairId(peer)));
+  useEffect(()=>{ if(tab==="dm"&&peer)dmu.markRead(pairId(peer)); },[tab,peer,openPairUnread]); // eslint-disable-line -- เปิดห้องนี้อยู่ = อ่านแล้ว (รวมข้อความที่เข้ามาระหว่างเปิดอยู่)
   const people=Object.entries(users).filter(([id])=>id!==myUid).map(([id,u])=>({id,...u}))
     .filter(u=>!search.trim()||String(u.name||"").toLowerCase().includes(search.trim().toLowerCase()));
   const sortedConvs=[...convs].sort((a,b)=>((b.lastT&&b.lastT.toMillis?b.lastT.toMillis():0)-(a.lastT&&a.lastT.toMillis?a.lastT.toMillis():0)));
@@ -1814,7 +1817,7 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
     <div style={{display:"flex",flexDirection:"column",height:"calc(100dvh - 112px)",overflow:"hidden"}}>
       <div style={{display:"flex",background:T.surface,borderBottom:"1px solid "+T.border,flexShrink:0}}>
         {tabBtn("group","💬 ห้องรวม")}
-        {tabBtn("dm","🔒 ส่วนตัว")}
+        {tabBtn("dm",<span style={{display:"inline-flex",alignItems:"center",gap:6}}><span>🔒 ส่วนตัว</span><UnreadBadge n={dmu.count}/></span>)}
         {FRIENDS_ENABLED&&!user.isGuest&&tabBtn("friends","👥 เพื่อน"+(friendsCtx.incoming.length?" ("+friendsCtx.incoming.length+")":""))}
       </div>
 
@@ -1844,8 +1847,9 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
                 <Av uid={other} init={ou.init||"??"} bg={T.card} tc={T.brand2} size={42}/>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:14,fontWeight:700,color:T.text}}>{ou.name||"ผู้ใช้"}</div>
-                  <div style={{fontSize:12,color:T.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{DM_TOOLS_ENABLED&&blocks.isBlocked(other)?"🚫 บล็อกอยู่":<>{c.lastFrom===myUid?"คุณ: ":""}{c.last||""}</>}</div>
+                  <div style={{fontSize:12,color:dmu.isUnread(c.id)?T.text:T.muted,fontWeight:dmu.isUnread(c.id)?700:400,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{DM_TOOLS_ENABLED&&blocks.isBlocked(other)?"🚫 บล็อกอยู่":<>{c.lastFrom===myUid?"คุณ: ":""}{c.last||""}</>}</div>
                 </div>
+                {dmu.isUnread(c.id)&&<UnreadDot/>}
               </div>
             );
           })}
@@ -1868,6 +1872,7 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
             <button onClick={()=>setPeer(null)} style={{border:"none",background:"transparent",color:T.sub,fontSize:20,cursor:"pointer",padding:"0 6px",fontFamily:"inherit"}}>‹</button>
             <Av uid={peer} init={pu.init||"??"} bg={T.card} tc={T.brand2} size={34}/>
             <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:700,color:T.text}}>{pu.name||"ผู้ใช้"}</div>{PRESENCE_ENABLED&&<div style={{color:T.muted,lineHeight:1.2}}><PresenceText uid={peer} green={T.green}/></div>}</div>
+            {FRIENDS_ENABLED&&!user.isGuest&&!pu.isGuest&&<div data-dm-header-friend style={{flexShrink:0}}><FriendButton uid={peer} name={pu.name} Btn={Btn} compact/></div>}
             {DM_TOOLS_ENABLED&&<DmMenu peerName={pu.name||"ผู้ใช้นี้"} muted={!!dmPrefs.mutedPeers[peer]} blocked={blocks.isBlocked(peer)} onToggleMute={()=>setPeerMuted(peer,!dmPrefs.mutedPeers[peer])} onClear={()=>dmApi.clearHistory(myUid,peer)} onDeleteAll={CHAT_DELETE_ENABLED&&!user.isGuest?()=>chatDeleteApi.deleteAll(peer):undefined} onToggleBlock={()=>blocks.isBlocked(peer)?blocks.unblock(peer):blocks.block(peer)}/>}
           </div>
           <BubbleChat path={["dms",pairId(peer),"messages"]} user={user} giftTo={{uid:peer,name:pu.name||"เพื่อน"}} placeholder={"ข้อความถึง "+(pu.name||"เพื่อน")+"..."} onSent={onDmSent}
@@ -3445,6 +3450,8 @@ const themeApi=makeThemeApi({db,getUid,setDoc,doc,onSnapshot,runTransaction,coll
 const TABS=[{key:"feed",icon:"🏠",label:"ฟีด"},{key:"chat",icon:"💬",label:"แชท"},{key:"voice",icon:"🎙️",label:"เสียง"},{key:"profile",icon:"👤",label:"โปรไฟล์"},{key:"privacy",icon:"🔒",label:"ส่วนตัว"}];
 
 // ครอบเพื่อน/โทร + แถบแจ้งเตือน + ตัวฟังคำเชิญ (เฟส C) — ทุกโมดูลปิดได้ด้วยสวิตช์ของตัวเอง
+function NavBadge({tabKey}){const u=useDmUnread();if(tabKey!=="chat"||!u.count)return null;return <UnreadBadge n={u.count} style={{position:"absolute",top:4,left:"calc(50% + 6px)"}}/>;}
+
 function SocialProviders({user,onOpenFriends,onJoinRoom,children}){
   const users=useContext(UsersCtx);
   const myUid=getUid();
@@ -3454,6 +3461,7 @@ function SocialProviders({user,onOpenFriends,onJoinRoom,children}){
   const isUserGuest=useCallback(id=>!!(users[id]&&users[id].isGuest),[users]);
   let tree=children;
   if(PRIVATE_CALL_ENABLED)tree=<CallProvider api={callApi} uid={guest?null:myUid} myName={user.name} guest={guest} nameOf={nameOf} isUserGuest={isUserGuest} Avatar={UAv} blocked={blocks.set} lk={{Room,RoomEvent,Track}}>{tree}</CallProvider>;
+  if(DM_UNREAD_ENABLED)tree=<DmUnreadProvider api={dmApi} uid={guest?null:myUid} blocked={blocks.set}>{tree}</DmUnreadProvider>;
   if(FRIENDS_ENABLED)tree=<FriendsProvider api={friendsApi} uid={guest?null:myUid} blocked={blocks.set} nameOf={nameOf} onOpenFriends={onOpenFriends}>{tree}</FriendsProvider>;
   return(<>{tree}
     {(FRIENDS_ENABLED||ROOM_INVITE_ENABLED||PRIVATE_CALL_ENABLED)&&<BannerStack/>}
@@ -3584,7 +3592,8 @@ export default function App(){
       </ThemeScope>
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid "+T.border,display:"flex",zIndex:30,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
         {TABS.map(t=>(
-          <button key={t.key} onClick={()=>setPage(t.key)} style={{flex:1,padding:"10px 4px 8px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,fontFamily:"inherit"}}>
+          <button key={t.key} onClick={()=>setPage(t.key)} style={{flex:1,padding:"10px 4px 8px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,fontFamily:"inherit",position:"relative"}}>
+            <NavBadge tabKey={t.key}/>
             <span style={{fontSize:20,lineHeight:1}}>{t.icon}</span>
             <span style={{fontSize:10,fontWeight:page===t.key?700:400,color:page===t.key?T.brand2:T.muted}}>{t.label}</span>
             {page===t.key&&<div style={{width:16,height:2,borderRadius:2,background:T.brandGrad,marginTop:2}}/>}
