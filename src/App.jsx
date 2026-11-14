@@ -1972,6 +1972,7 @@ function fmtTime(ms){
 // ── แชทแบบฟองข้อความ (ใช้ทั้งห้องรวมและแชทส่วนตัว) ────────
 function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo,avatarGift,sinceMs,blockedUids,lock,onDeleteMessage}){
   const users=useContext(UsersCtx);
+  const openProfileFromBubble=useContext(ProfileCtx); // กดรูป/ชื่อในฟองข้อความ → เปิดโปรไฟล์
   const viewer=useImageViewer();
   const myUid=getUid();
   const pathKey=path.join("/");
@@ -2063,9 +2064,12 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
           const mfx=resolveMessageFx(users[m.uid],m.fx); // สไตล์ที่ผู้ส่งเลือก (ตรวจกับคลังของผู้ส่ง)
           return(
             <div key={m.id} data-mid={m.id} style={{display:"flex",gap:8,alignItems:"flex-end",flexDirection:me?"row-reverse":"row",borderRadius:14,background:flashId===m.id?"rgba(124,92,252,.22)":"transparent",transition:"background .4s"}}>
-              {!me&&<div onClick={()=>{if(avatarGift&&!user.isGuest&&m.uid)setPickTarget({uid:m.uid,name:nm});}} style={{cursor:avatarGift&&!user.isGuest?"pointer":"default"}}><Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={28}/></div>}
+              {!me&&<div data-bubble-av onClick={()=>{
+                if(avatarGift&&!user.isGuest&&m.uid){setPickTarget({uid:m.uid,name:nm});return;} // ห้องรวม: รูป = ส่งของขวัญ (เหมือนเดิม)
+                if(m.uid&&openProfileFromBubble)openProfileFromBubble(m.uid);                    // แชทส่วนตัว: รูป = เปิดโปรไฟล์
+              }} style={{cursor:(avatarGift&&!user.isGuest)||m.uid?"pointer":"default"}}><Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={28}/></div>}
               <div style={{maxWidth:"74%",display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start"}}>
-                {head&&<div style={{fontSize:12,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px"}}><Nm uid={m.uid} name={m.author}/></div>}
+                {head&&<div data-bubble-name onClick={()=>{if(m.uid&&openProfileFromBubble)openProfileFromBubble(m.uid);}} style={{fontSize:12,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px",cursor:m.uid?"pointer":"default"}}><Nm uid={m.uid} name={m.author}/></div>}
                 {m.replyTo&&m.replyTo.id&&<div data-reply-quote onClick={()=>jumpTo(m.replyTo.id)} style={{maxWidth:"100%",marginBottom:3,padding:"5px 10px",borderRadius:10,background:"rgba(255,255,255,.07)",borderLeft:"3px solid "+T.brand2,cursor:"pointer",textAlign:"left",boxSizing:"border-box"}}>
                   <div style={{fontSize:12,fontWeight:700,color:T.brand2}}>{(m.replyTo.uid&&users[m.replyTo.uid]&&users[m.replyTo.uid].name)||m.replyTo.name||"ผู้ใช้"}</div>
                   <div style={{fontSize:12,color:T.sub,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:220}}>{m.replyTo.text||(m.replyTo.img?"📷 รูปภาพ":"")}</div>
@@ -2185,13 +2189,17 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
             if(DM_TOOLS_ENABLED&&!visibleConversation(c,myUid))return null; // ลบประวัติแล้วและยังไม่มีข้อความใหม่ = ซ่อนจากรายการ
             const ou=users[other]||{};
             return(
-              <div key={c.id} onClick={()=>setPeer(other)} style={{display:"flex",gap:11,alignItems:"center",padding:"10px 6px",borderBottom:"1px solid "+T.border,cursor:"pointer"}}>
-                <Av uid={other} init={ou.init||"??"} bg={T.card} tc={T.brand2} size={42}/>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:14,fontWeight:700,color:T.text}}><FxT uid={other} area="name" lite>{ou.name||"ผู้ใช้"}</FxT></div>
-                  <div style={{fontSize:12,color:dmu.isUnread(c.id)?T.text:T.muted,fontWeight:dmu.isUnread(c.id)?700:400,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{DM_TOOLS_ENABLED&&blocks.isBlocked(other)?"🚫 บล็อกอยู่":<>{c.lastFrom===myUid?"คุณ: ":""}{c.last||""}</>}</div>
+              <div key={c.id} style={{display:"flex",gap:4,alignItems:"center",borderBottom:"1px solid "+T.border}}>
+                {/* รูป + ชื่อ → เปิดโปรไฟล์ · ไอคอน 💬 ด้านขวา → เข้าแชท (แบบเดียวกับรายการ "เริ่มแชทกับ...") */}
+                <div data-conv-profile onClick={()=>openProfileFromChat&&openProfileFromChat(other)} style={{display:"flex",gap:11,alignItems:"center",flex:1,minWidth:0,padding:"10px 6px",cursor:"pointer"}}>
+                  <Av uid={other} init={ou.init||"??"} bg={T.card} tc={T.brand2} size={42}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:14,fontWeight:700,color:T.text}}><FxT uid={other} area="name" lite>{ou.name||"ผู้ใช้"}</FxT></div>
+                    <div style={{fontSize:12,color:dmu.isUnread(c.id)?T.text:T.muted,fontWeight:dmu.isUnread(c.id)?700:400,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{DM_TOOLS_ENABLED&&blocks.isBlocked(other)?"🚫 บล็อกอยู่":<>{c.lastFrom===myUid?"คุณ: ":""}{c.last||""}</>}</div>
+                  </div>
+                  {dmu.isUnread(c.id)&&<UnreadDot/>}
                 </div>
-                {dmu.isUnread(c.id)&&<UnreadDot/>}
+                <button data-conv-chat onClick={()=>setPeer(other)} aria-label={"แชทกับ "+(ou.name||"ผู้ใช้")} style={{width:46,height:46,flexShrink:0,border:"none",background:"transparent",color:T.brand2,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>💬</button>
               </div>
             );
           })}
@@ -2215,8 +2223,10 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
         <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
           <div style={{padding:"8px 12px",display:"flex",alignItems:"center",gap:10,background:T.surface,borderBottom:"1px solid "+T.border,flexShrink:0}}>
             <button onClick={()=>setPeer(null)} style={{border:"none",background:"transparent",color:T.sub,fontSize:20,cursor:"pointer",padding:"0 6px",fontFamily:"inherit"}}>‹</button>
-            <Av uid={peer} init={pu.init||"??"} bg={T.card} tc={T.brand2} size={34}/>
-            <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:700,color:T.text}}><FxT uid={peer} area="name">{pu.name||"ผู้ใช้"}</FxT></div>{PRESENCE_ENABLED&&<div style={{color:T.muted,lineHeight:1.2}}><PresenceText uid={peer} green={T.green}/></div>}</div>
+            <div data-dm-header-profile onClick={()=>openProfileFromChat&&openProfileFromChat(peer)} style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0,cursor:"pointer"}}>
+              <Av uid={peer} init={pu.init||"??"} bg={T.card} tc={T.brand2} size={34}/>
+              <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:700,color:T.text}}><FxT uid={peer} area="name">{pu.name||"ผู้ใช้"}</FxT></div>{PRESENCE_ENABLED&&<div style={{color:T.muted,lineHeight:1.2}}><PresenceText uid={peer} green={T.green}/></div>}</div>
+            </div>
             {FRIENDS_ENABLED&&!user.isGuest&&!pu.isGuest&&<div data-dm-header-friend style={{flexShrink:0}}><FriendButton uid={peer} name={pu.name} Btn={Btn} compact/></div>}
             {DM_TOOLS_ENABLED&&<DmMenu peerName={pu.name||"ผู้ใช้นี้"} muted={!!dmPrefs.mutedPeers[peer]} blocked={blocks.isBlocked(peer)} onToggleMute={()=>setPeerMuted(peer,!dmPrefs.mutedPeers[peer])} onClear={()=>dmApi.clearHistory(myUid,peer)} onDeleteAll={CHAT_DELETE_ENABLED&&!user.isGuest?()=>chatDeleteApi.deleteAll(peer):undefined} onToggleBlock={()=>blocks.isBlocked(peer)?blocks.unblock(peer):blocks.block(peer)}/>}
           </div>
