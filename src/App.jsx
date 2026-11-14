@@ -18,6 +18,7 @@ import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortG
 import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
 import { BannerStack, MemberMenu } from "./social/index.js"; // แถบแจ้งเตือน + เมนูแตะรูปสมาชิก (ชุดกลางของเฟส C)
+import { GIFT_SHOW_ENABLED, GIFT_DEMO_ENABLED, ENTRANCE_DRAGON_FROM_GIFT, GIFT_SOUND_FILE, SHOW_IDS, showFor, sampleShow, makeShowSounds, entranceDragonScene, GiftShowDemo } from "./giftShow/index.js"; // จังหวะการเคลื่อนไหวของของขวัญใหญ่ให้ตรงกับเสียง (ปิดได้ที่ giftShow/config.js)
 import { PROFILE_PHOTOS_ENABLED, ProfilePhotosManager, PhotoStrip, PhotoCropper, processFile as processPhotoFile, makePhotosApi } from "./profilePhotos/index.js"; // รูปโปรไฟล์หลายรูป สูงสุด 5 + รูปหลัก (แยกไฟล์ — ปิดได้ที่ profilePhotos/config.js)
 import { DM_TOOLS_ENABLED, makeDmApi, DmNotifier, DmSettings, DmMenu, useBlocks, usePeerBlocksMe, useDmPrefs, setPeerMuted, setActiveDm, clearedAtMs, visibleConversation } from "./dmTools/index.js"; // แชทส่วนตัว: ลบประวัติ/บล็อก/เสียงแจ้งเตือน (แยกไฟล์ — ปิดได้ที่ dmTools/config.js)
 import { FEED_VIDEO_ENABLED, TRIM_ON_UPLOAD, MAX_VIDEO_SECONDS, FeedVideoPlayer, trimVideoUrl, needsTrim } from "./feedVideo/index.js"; // วิดีโอฟีด: ขนาดพอดี/เสียง/ตัด 30 วิ/เล่น-หยุดอัตโนมัติ/เล่นทีละคลิป (แยกไฟล์ — ปิดได้ที่ feedVideo/config.js)
@@ -1104,7 +1105,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
   const [giftTo,setGiftTo]=useState(null);
   const [roomFx,pushRoomGift]=useGiftStage();
   const [soundOn,setSoundOn]=useState(sfx.isOn());
-  useEffect(()=>{if(inRoomId)sfx.preload();},[inRoomId]); // eslint-disable-line
+  useEffect(()=>{if(inRoomId){sfx.preload();preload3D();}},[inRoomId]); // eslint-disable-line
   const [loading,setLoading]=useState(true);
 
   const myUid=getUid();
@@ -1159,7 +1160,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
       if(isMeM(m)&&!(e&&e.tier))return; // เอฟเฟกต์พรีเมียมให้เจ้าตัวเห็นด้วย (ของฟรีเดิมยังข้ามตัวเองเหมือนเดิม)
       if(e){
         const id=Date.now()+Math.random();
-        setEntryFx({id,name:m.name,e});
+        setEntryFx({id,name:m.name,e,t0:performance.now()});
         if(e.tier)sfx.entrance(e.fx,(e.dur||4000)/1000);
         setTimeout(()=>setEntryFx(f=>(f&&f.id===id?null:f)),e.dur||3300);
       }
@@ -2611,6 +2612,10 @@ function mkPoints(THREE,n,size,tex){
 }
 // ฉาก 3 มิติเต็มห้องสำหรับเอฟเฟกต์เข้าห้องพรีเมียม: คืน {group,update(t),cam:[x,y,z,lookY],light}
 function build3DEntrance(THREE,kind,durSec){
+  // มังกร: ใช้ตัวมังกรของของขวัญแทนตัวเดิม (ปิดที่ giftShow/config.js แล้วกลับไปใช้ของเดิมทันที — โค้ดมังกรตัวเดิมยังอยู่ครบด้านล่าง)
+  if(ENTRANCE_DRAGON_FROM_GIFT&&kind==="dragon"&&PLUS_MODELS&&PLUS_MODELS.dragon){
+    try{return entranceDragonScene(THREE,durSec,PLUS_MODELS.dragon);}catch(e){console.error("entrance dragon",e);} // พลาดเมื่อไร ใช้ของเดิมต่อ
+  }
   const g=new THREE.Group(),tex=glowTexture(THREE),fades=[];
   let F=1,upd=()=>{},cam=[0,0,8,0],light=0xa78bfa;
   const reg=(m,o)=>{m.transparent=true;m.depthWrite=false;m.blending=THREE.AdditiveBlending;m.opacity=o;fades.push([m,o]);return m;};
@@ -2810,14 +2815,18 @@ function build3DEntrance(THREE,kind,durSec){
 
 // </3D-MODELS>
 
-function Model3D({model,size=200}){
+let three3D=null;
+const preload3D=()=>(three3D||(three3D=import("three").catch(e=>{console.error("3d",e);return null;})));
+
+function Model3D({model,size=200,show=null,startAt=null}){
   const ref=useRef();
   const [failed,setFailed]=useState(false);
   useEffect(()=>{
     let stop=false,cleanup=()=>{};
     setFailed(false);
-    import("three").then(THREE=>{
-      if(stop||!ref.current)return;
+    const began=startAt==null?performance.now():startAt;
+    preload3D().then(THREE=>{
+      if(stop||!ref.current||!THREE)return;
       let renderer;
       try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});}
       catch(e){setFailed(true);return;}
@@ -2830,16 +2839,33 @@ function Model3D({model,size=200}){
       const dl=new THREE.DirectionalLight(0xffffff,1.1);dl.position.set(3,5,4);scene.add(dl);
       const pl=new THREE.PointLight(0xa78bfa,.8,20);pl.position.set(-3,2,3);scene.add(pl);
       const obj=build3DModel(THREE,model);
-      scene.add(obj);
+      // มีบทการเคลื่อนไหว = ห่อโมเดลไว้ในกลุ่มชั้นนอก แล้วขยับกลุ่มนั้น (โค้ดโมเดลเดิมไม่ถูกแตะ แอนิเมชันเดิมยังทำงานครบ)
+      const holder=show?new THREE.Group():null;
+      if(holder){holder.add(obj);scene.add(holder);}else scene.add(obj);
       const c=obj.userData.cam||[0,1.1,5.4],l=obj.userData.look||[0,0,0];
       cam.position.set(c[0],c[1],c[2]);cam.lookAt(l[0],l[1],l[2]);
       const baseY=obj.position.y;
-      let raf;const t0=performance.now();
+      const look=new THREE.Vector3(l[0],l[1],l[2]);
+      const sph0=new THREE.Spherical().setFromVector3(new THREE.Vector3(c[0]-l[0],c[1]-l[1],c[2]-l[2])); // กล้องฐาน (หมุนรอบจุดที่มอง)
+      const U=Math.max(1,sph0.radius)/6;                                                                  // หน่วยเลื่อนของบท: ปรับตามขนาดโมเดลให้เอง
+      const vt=new THREE.Vector3(),sp=new THREE.Spherical();
+      let raf;
       const loop=()=>{
-        const t=(performance.now()-t0)/1000;
+        const t=(performance.now()-began)/1000;
         if(!obj.userData.noSpin)obj.rotation.y=t*(obj.userData.spin||1.1);
         if(!obj.userData.noBob)obj.position.y=baseY+Math.sin(t*2)*.1;
         if(obj.userData.update)obj.userData.update(t);
+        if(holder){
+          const k=sampleShow(show,t);
+          holder.position.set(k.obj.x*U,k.obj.y*U,k.obj.z*U);
+          holder.rotation.set(k.obj.rx,k.obj.ry,k.obj.rz);
+          holder.scale.setScalar(k.obj.s);
+          renderer.domElement.style.opacity=k.obj.o;
+          sp.set(sph0.radius*k.cam.dolly,Math.min(Math.PI-.08,Math.max(.08,sph0.phi-k.cam.tilt)),sph0.theta+k.cam.pan);
+          vt.setFromSpherical(sp).add(look);
+          if(k.cam.shake>0){const a=k.cam.shake*U*.17;vt.x+=Math.sin(t*61)*Math.sin(t*27)*a;vt.y+=Math.sin(t*53+1.7)*Math.sin(t*31)*a;}
+          cam.position.copy(vt);cam.lookAt(look);
+        }
         renderer.render(scene,cam);
         raf=requestAnimationFrame(loop);
       };
@@ -2856,7 +2882,7 @@ function Model3D({model,size=200}){
       };
     }).catch(e=>{console.error("3d",e);setFailed(true);});
     return()=>{stop=true;cleanup();};
-  },[model,size]);
+  },[model,size,show,startAt]);
   if(failed){
     const g=GIFTS.find(x=>x.model===model);
     return<div style={{width:size,height:size,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.5}}>{g?g.emoji:"🎁"}</div>;
@@ -2865,13 +2891,14 @@ function Model3D({model,size=200}){
 }
 
 // ฉาก 3 มิติเต็มห้องของเอฟเฟกต์เข้าห้อง (วาดบนแคนวาสโปร่งใสเต็มพื้นที่ ถ้า WebGL ใช้ไม่ได้จะแสดง fallback)
-function EntranceScene3D({kind,dur,fallback}){
+function EntranceScene3D({kind,dur,fallback,startAt=null}){
   const ref=useRef();
   const [failed,setFailed]=useState(false);
   useEffect(()=>{
     let stop=false,cleanup=()=>{};
-    import("three").then(THREE=>{
-      if(stop||!ref.current)return;
+    const began=startAt==null?performance.now():startAt;
+    preload3D().then(THREE=>{
+      if(stop||!ref.current||!THREE)return;
       let renderer;
       try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});}
       catch(e){setFailed(true);return;}
@@ -2888,8 +2915,8 @@ function EntranceScene3D({kind,dur,fallback}){
       scene.add(S.group);
       const fit=Math.max(1,.95/(w/h));
       cam.position.set(S.cam[0],S.cam[1],S.cam[2]*fit);cam.lookAt(0,S.cam[3]||0,0);
-      let raf;const t0=performance.now();
-      const loop=()=>{S.update((performance.now()-t0)/1000);renderer.render(scene,cam);raf=requestAnimationFrame(loop);};
+      let raf;
+      const loop=()=>{S.update((performance.now()-began)/1000);renderer.render(scene,cam);raf=requestAnimationFrame(loop);};
       loop();
       cleanup=()=>{
         cancelAnimationFrame(raf);
@@ -2930,6 +2957,8 @@ const FX_CSS=`
 @keyframes wmFall{0%{transform:translate(0,-20px) rotate(0);opacity:0}10%{opacity:1}85%{opacity:1}100%{transform:translate(var(--dx),var(--h)) rotate(var(--rot));opacity:0}}
 @keyframes wmRays{to{transform:rotate(360deg)}}
 @keyframes wmRing{0%{transform:translate(-50%,-50%) scale(.2);opacity:.9}100%{transform:translate(-50%,-50%) scale(2.4);opacity:0}}
+@keyframes wmGflash{0%{opacity:0}14%{opacity:1}100%{opacity:0}}
+@keyframes wmGring{0%{transform:scale(.25);opacity:.95}100%{transform:scale(9);opacity:0}}
 @keyframes wmVig{0%{opacity:0}12%{opacity:1}85%{opacity:1}100%{opacity:0}}
 @keyframes wmShake{0%,100%{transform:translate(0,0)}10%{transform:translate(-4px,3px)}20%{transform:translate(5px,-3px)}30%{transform:translate(-5px,-2px)}40%{transform:translate(4px,3px)}50%{transform:translate(-3px,2px)}60%{transform:translate(3px,-2px)}70%{transform:translate(0,0)}}
 @keyframes wmBannerPop{0%{transform:translateY(-30px) scale(.7);opacity:0}12%{transform:translateY(0) scale(1.06);opacity:1}20%{transform:scale(1)}88%{opacity:1}100%{transform:translateY(-10px) scale(.95);opacity:0}}
@@ -3017,20 +3046,23 @@ const sfx=(()=>{
       files.set(key,{buf,norm:pk>0?Math.min(12,.9/pk):1});
     }catch(e){files.set(key,null);}
   }
-  function playFile(f,tier,maxSec){
+  function playFile(f,tier,maxSec,from=0){
     const c=ctx,t=c.currentTime,s=c.createBufferSource(),g=c.createGain();
     s.buffer=f.buf;
-    const dur=Math.min(f.buf.duration,maxSec||6);
+    const start=Math.max(0,Math.min(from||0,Math.max(0,f.buf.duration-.2)));   // เริ่มกลางไฟล์ได้ (ตัดท่อนหน้าที่ไม่เข้ากับภาพออก)
+    const dur=Math.min(f.buf.duration-start,maxSec||6);
     const vol=f.norm*[0,.6,.7,.8,.9,1][Math.min(5,Math.max(1,tier||3))];
     g.gain.setValueAtTime(vol,t);
     if(dur<f.buf.duration){g.gain.setValueAtTime(vol,t+Math.max(0,dur-.4));g.gain.linearRampToValueAtTime(0,t+dur);}
-    s.connect(g);g.connect(fmaster);s.start(t);s.stop(t+dur+.05);
+    s.connect(g);g.connect(fmaster);s.start(t,start);s.stop(t+dur+.05);
   }
-  function playKey(key,tier,maxSec,fallback){
+  // คืน true ถ้าเล่นไฟล์จริงได้ (ยังไม่โหลด = สั่งโหลดไว้ แล้วให้เสียงสำรองเล่นไปก่อน)
+  function playKey(key,tier,maxSec,fallback,from){
     const f=files.get(key);
-    if(f&&f!=="loading"){playFile(f,tier,maxSec);return;}
+    if(f&&f!=="loading"){playFile(f,tier,maxSec,from||0);return true;}
     if(f===undefined)loadFile(key); // ครั้งแรกที่ยังไม่ได้โหลด: ใช้เสียงสังเคราะห์ไปก่อน แล้วโหลดไว้ใช้ครั้งต่อไป
-    fallback();
+    if(fallback)fallback();
+    return false;
   }
 
   // ── เสียงเฉพาะของของขวัญแต่ละชิ้น (ใส่เสียงใหม่ = เพิ่มคีย์ตามไอดีของขวัญ) ──
@@ -3094,6 +3126,7 @@ const sfx=(()=>{
     },
   };
   if(GIFTS_PLUS_ENABLED)Object.assign(GIFT,makeGiftSounds({tone,noise,arp,bell,pluck,thump,brass,nt,ac:()=>ctx,out:()=>master})); // เสียงของขวัญชุดใหม่
+  if(GIFT_SHOW_ENABLED)Object.assign(GIFT,makeShowSounds({tone,noise,arp,bell,pluck,thump,brass,nt}));                               // เสียงที่ยืดให้ยาวเท่าภาพ
   const tierFallback=tier=>{
     if(tier<=1){tone(nt(12),0,.12,{vol:.3});tone(nt(19),.07,.14,{vol:.3});}
     else if(tier===2){arp([12,16,19,24],0,.07,{dur:.22,vol:.35});}
@@ -3108,13 +3141,23 @@ const sfx=(()=>{
     ids:()=>Object.keys(GIFT),
     entranceIds:()=>Object.keys(ENT),
     // ถ้าของขวัญมีเสียงเฉพาะตัวจะใช้เสียงนั้น ไม่มีก็ใช้เสียงตามระดับ
-    gift(tier,id,maxSec){run(()=>playKey("gift-"+id,tier,maxSec||5,()=>(GIFT[id]||(()=>tierFallback(tier)))()));},
+    gift(tier,id,maxSec){run(()=>{
+      const alt=GIFT_SHOW_ENABLED?GIFT_SOUND_FILE[id]:null;                       // ยืมไฟล์เสียงของเอฟเฟกต์เข้าห้องมาใช้ (ตัดท่อนตาม from)
+      if(alt&&playKey(alt.key,tier,maxSec||5,null,alt.from))return;
+      playKey("gift-"+id,tier,maxSec||5,()=>(GIFT[id]||(()=>tierFallback(tier)))());
+    });},
     entrance(kind,maxSec){run(()=>playKey("entrance-"+kind,4,maxSec||7,()=>{if(ENT[kind])ENT[kind]();}));},
-    preload(){if(!ensure())return;Object.keys(GIFT).forEach(i=>loadFile("gift-"+i));Object.keys(ENT).forEach(k=>loadFile("entrance-"+k));},
+    preload(){if(!ensure())return;Object.keys(GIFT).forEach(i=>loadFile("gift-"+i));Object.keys(ENT).forEach(k=>loadFile("entrance-"+k));if(GIFT_SHOW_ENABLED)Object.values(GIFT_SOUND_FILE).forEach(a=>loadFile(a.key));},
     source(key){const f=files.get(key);return f&&f!=="loading"?"file":(f==="loading"?"loading":"synth");},
     buy(){run(()=>{arp([12,16,19,24],0,.08,{dur:.3,vol:.35});});},
   };
 })();
+
+// รายการของขวัญที่มีบทการเคลื่อนไหว — ใช้ในหน้าทดลอง ?giftdemo=1
+const SHOW_DEMO_ITEMS=GIFT_SHOW_ENABLED?SHOW_IDS.map(id=>{
+  const g=GIFT_BY_ID[id],sh=showFor(id);
+  return g&&sh?{id,emoji:g.emoji,name:g.name,price:g.price,cur:g.cur||"gold",tier:giftTier(g),dur:sh.dur,flash:sh.flash}:null;
+}).filter(Boolean).concat(ENTRANCE_DRAGON_FROM_GIFT?[{id:"entrance:dragon",emoji:"🐉",name:"มังกรไฟนำทางเข้าห้อง",group:"entrance",tier:4,dur:(ENTRANCES.dragon.dur||5200)/1000,flash:[]}]:[]):[];
 
 // ── ตัวช่วยสุ่มแบบกำหนดเมล็ด (เพื่อให้อนุภาคไม่สลับตำแหน่งเมื่อหน้าจอรีเรนเดอร์) ──
 function rng(seed){let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
@@ -3166,10 +3209,11 @@ function makeFx(giftId,d){
   const g=GIFT_BY_ID[giftId];
   if(!g)return null;
   const tier=giftTier(g),meta=TIER_META[tier],f=GIFT_FX[g.id]||{};
+  const show=GIFT_SHOW_ENABLED&&g.model?showFor(g.id):null; // ของขวัญใหญ่: ความยาวมาจากบท (ตรงกับเสียง) ชิ้นอื่นใช้ความยาวตามระดับเหมือนเดิม
   return{
-    id:Date.now()+Math.random(),gift:g.id,emoji:g.emoji,model:g.model||null,tier,
+    id:Date.now()+Math.random(),gift:g.id,emoji:g.emoji,model:g.model||null,tier,show,t0:performance.now(),
     motion:f.motion||"rise",p:f.p||[g.emoji,"✨"],tint:f.tint||meta.color,
-    dur:meta.dur+(g.model?500:0),
+    dur:show?Math.round(show.dur*1000):meta.dur+(g.model?500:0),
     text:d&&d.author?(d.author+" "+(d.text||"")):"",
   };
 }
@@ -3190,7 +3234,7 @@ function useGiftStage(){
     const it=q.current.shift();
     if(!it)return;
     busy.current=true;
-    const fast=q.current.length>=2&&it.tier<=3;
+    const fast=q.current.length>=2&&it.tier<=3&&!it.show;
     it.dur=fast?Math.round(it.dur*.6):it.dur;
     setFx(it);
     sfx.gift(it.tier,it.gift,it.dur/1000);
@@ -3213,20 +3257,26 @@ function useGiftStage(){
 function GiftFx({fx}){
   const parts=useMemo(()=>fx?buildParticles(fx):[],[fx&&fx.id]); // eslint-disable-line
   if(!fx)return null;
-  const t=fx.tier,tint=fx.tint,dur=fx.dur/1000;
+  const t=fx.tier,tint=fx.tint,dur=fx.dur/1000,show=fx.show||null;
   const size=[0,72,96,120,150,190][t];
   const hero=fx.model
-    ?<Model3D model={fx.model} size={t>=5?340:t>=4?280:260}/>
+    ?<Model3D model={fx.model} size={t>=5?340:t>=4?280:260} show={show} startAt={show?fx.t0:null}/>
     :<div style={{fontSize:size,lineHeight:1,filter:t>=3?"drop-shadow(0 0 "+(8+t*4)+"px "+tint+")":undefined}}>{fx.emoji}</div>;
   return(
     <div key={fx.id} style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden",zIndex:20,contain:"layout paint"}}>
       {t>=4&&<Vignette tint={tint} dark={t>=5?.62:.42} dur={dur}/>}
       {t>=4&&<Rays tint={tint} dur={dur}/>}
-      <div style={{position:"absolute",inset:0,animation:t>=5?"wmShake .7s ease-in-out .6s 2":undefined}}>
+      {show&&(show.flash||[]).map(([bt,v,col],i)=>(
+        <div key={"f"+i} style={{position:"absolute",inset:0,opacity:v*.9,mixBlendMode:"screen"}}>
+          <div style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 47%,"+(col||tint)+" 0%,transparent 60%)",animation:"wmGflash "+(.14+v*.5).toFixed(2)+"s ease-out "+bt+"s both"}}/>
+          {v>=.6&&<div style={{position:"absolute",left:"50%",top:"47%",width:44,height:44,marginLeft:-22,marginTop:-22,borderRadius:"50%",border:"3px solid "+(col||tint),animation:"wmGring .75s ease-out "+bt+"s both"}}/>}
+        </div>
+      ))}
+      <div style={{position:"absolute",inset:0,animation:(t>=5&&!show)?"wmShake .7s ease-in-out .6s 2":undefined}}>
         {t>=3&&[0,.35,.7].slice(0,t>=5?3:2).map(d=><div key={d} style={{position:"absolute",left:"50%",top:"50%",width:200,height:200,borderRadius:"50%",border:"3px solid "+tint,animation:"wmRing 1.4s ease-out "+d+"s both"}}/>)}
         <Particles parts={parts}/>
         <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <div style={{animation:"wmM_"+fx.motion+" "+dur+"s ease-out forwards"}}>{hero}</div>
+          <div style={show?undefined:{animation:"wmM_"+fx.motion+" "+dur+"s ease-out forwards"}}>{hero}</div>
         </div>
       </div>
       {t>=3&&fx.text&&(
@@ -3255,7 +3305,7 @@ function EntranceFx({fx}){
       {t>=3&&<Vignette tint={e.fx==="dragon"?"#F97316":tint} dark={t>=5?.6:.4} dur={dur}/>}
       {t>=5&&<Rays tint="#FBBF24" dur={dur}/>}
       {e.fx==="mist"&&[0,1,2].map(i=><div key={i} style={{position:"absolute",left:(i*30-10)+"%",bottom:"-10%",width:"70%",height:"70%",borderRadius:"50%",background:"radial-gradient(circle,rgba(168,85,247,.6),transparent 65%)",animation:"wmFog "+dur+"s ease-in-out "+(i*.3)+"s both"}}/>)}
-      <EntranceScene3D kind={e.fx} dur={e.dur||4000} fallback={
+      <EntranceScene3D kind={e.fx} dur={e.dur||4000} startAt={fx.t0||null} fallback={
         <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{fontSize:170,lineHeight:1,filter:"drop-shadow(0 0 24px "+tint+")",animation:({thunder:"wmBolt 1.3s ease-out both",dragon:"wmSweep "+(dur*.75)+"s ease-in-out .2s both",emperor:"wmCrown "+(dur*.8)+"s ease-out both"})[e.fx]}}>{e.emoji}</div>
         </div>}/>
@@ -3309,7 +3359,7 @@ function GiftPicker({user,to,onClose,onSent,ctx}){
   const [msg,setMsg]=useState("");
   const [pv,setPv]=useState(null);
   const [,setTick]=useState(0);
-  useEffect(()=>{sfx.preload();const tm=setTimeout(()=>setTick(1),1800);return()=>clearTimeout(tm);},[]);
+  useEffect(()=>{sfx.preload();preload3D();const tm=setTimeout(()=>setTick(1),1800);return()=>clearTimeout(tm);},[]);
   async function send(){
     if(!sel||busy)return;
     setBusy(true);setMsg("");
@@ -3791,6 +3841,24 @@ export default function App(){
   const [chatTabReq,setChatTabReq]=useState(null); // สั่งเปิดแท็บในหน้าแชท (เช่น เพื่อน)
   const [shopOpen,setShopOpen]=useState(false);
   const [fxDemo,setFxDemo]=useState(()=>{try{return /[?&]fxdemo=1(&|$)/.test(window.location.search);}catch(e){return false;}}); // ?fxdemo=1 = หน้าดูตัวอย่างฟอนต์
+  const [giftDemo,setGiftDemo]=useState(()=>{try{return GIFT_DEMO_ENABLED&&GIFT_SHOW_ENABLED&&/[?&]giftdemo=1(&|$)/.test(window.location.search);}catch(e){return false;}}); // ?giftdemo=1 = หน้าดูตัวอย่างเอฟเฟกต์ของขวัญ
+  const [demoFx,setDemoFx]=useState(null);
+  const [demoEntry,setDemoEntry]=useState(null);
+  useEffect(()=>{if(giftDemo){preload3D();sfx.preload();}},[giftDemo]); // หน้าทดลอง: โหลด three + ไฟล์เสียงไว้ก่อน ภาพกับเสียงจะได้ตรงกันตั้งแต่ครั้งแรก
+  // หน้าทดลอง: เล่นเอฟเฟกต์ของจริง (ของขวัญ หรือเอฟเฟกต์เข้าห้อง) — ไม่แตะเหรียญ/ฐานข้อมูล
+  const playDemo=id=>{
+    setDemoFx(null);setDemoEntry(null);
+    if(id.startsWith("entrance:")){
+      const kind=id.slice(9),e=ENTRANCES[kind];
+      if(!e)return;
+      const eid=Date.now()+Math.random();
+      setDemoEntry({id:eid,name:"ตัวอย่าง",e,t0:performance.now()});
+      sfx.entrance(e.fx,(e.dur||4000)/1000);
+      setTimeout(()=>setDemoEntry(f=>(f&&f.id===eid?null:f)),e.dur||4000);
+      return;
+    }
+    triggerGiftFx(id,setDemoFx);
+  };
   const [appear,setAppear]=useState(null); // เมนูธีม: null=ปิด, หรือชื่อหน้าที่เริ่มต้น
   const openAppearance=sec=>setAppear(sec||"voice");
   useThemeAccountSync(user?getUid():null,user?users[getUid()]:null);
@@ -3866,6 +3934,7 @@ export default function App(){
 
   const notif=usePostNotifs(posts,user);
   if(!authReady)return<div style={{minHeight:"100dvh",background:T.bg,color:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif"}}>💜 กำลังโหลด...</div>;
+  if(giftDemo)return<GiftShowDemo items={SHOW_DEMO_ITEMS} onPlay={playDemo} onClose={()=>{setDemoFx(null);setDemoEntry(null);setGiftDemo(false);}}><GiftFx fx={demoFx}/>{demoEntry&&<EntranceFx fx={demoEntry}/>}</GiftShowDemo>;
   if(!user)return<AuthPage onLogin={setUser}/>;
   if(user.needName)return<NamePrompt user={user} onDone={u=>{ls.set("user",u);setUser(u);}}/>;
   const openProfile=uid=>{ if(!uid)return; if(uid===getUid()){setPage("profile");return;} setViewUid(uid); };
