@@ -1,0 +1,12 @@
+{
+  "name": "warmly-rules-test",
+  "private": true,
+  "type": "module",
+  "description": "ทดสอบ Firestore Rules กับตัวจำลองในเครื่อง — แยกจากแอป ไม่กระทบ build",
+  "scripts": { "test": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-warmly \"node rules.test.mjs\"" },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase": "^10.14.1",
+    "firebase-tools": "^13.35.1"
+  }
+}

@@ -1,0 +1,144 @@
+rules_version = '2';
+// ─────────────────────────────────────────────────────────────────────────────
+// Warmly — Firestore Rules (ฉบับร่าง · ยังไม่ใช้งานจริง)
+// ไฟล์นี้ "ไม่ถูกนำไปใช้เอง" ต้องไปวางใน Firebase Console → Firestore → Rules ด้วยตัวเอง
+// เก็บกฎเก่าไว้ย้อนกลับ:  allow read, write: if true;
+//
+// หลักการ: ทุกคนต้องล็อกอินก่อน (Google หรือบัญชีนิรนามของผู้เยี่ยมชม) แล้วค่อยแยกตามความเป็นเจ้าของ
+// หมายเหตุ: เซิร์ฟเวอร์ (api/*.js ใช้ Firebase Admin) ข้ามกฎเหล่านี้เสมอ จึงไม่ได้รับผลกระทบ
+// ─────────────────────────────────────────────────────────────────────────────
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── ตัวช่วย ──────────────────────────────────────────────────────────────
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function isGoogle() { return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous'; }
+    // แชท/เพื่อนใช้รหัสคู่ "uidA_uidB" (เรียงตัวอักษร) — ใช้รหัสเอกสารบอกว่าใครเป็นสมาชิก ไม่ต้องอ่านเอกสารแม่
+    function inPair(pid) { return signedIn() && pid.split('_').size() == 2 && me() in pid.split('_'); }
+    function num(d, k) { return d.get(k, 0); }
+    function only(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+
+    // ── users/{uid}: ทุกคนที่ล็อกอินอ่านได้ · เจ้าของแก้ของตัวเอง · ห้ามเพิ่มเหรียญเอง ──
+    // ข้อจำกัดที่รู้อยู่: โบนัสรายวัน (+20/+70) ยังคำนวณฝั่งเครื่องผู้ใช้ จึงไล่รับซ้ำได้ ต้องย้ายไปเซิร์ฟเวอร์ภายหลัง
+    function coinsOk(oldD, newD) {
+      return !('coins' in newD)                                   // ไม่ได้แตะ
+        || ('coins' in oldD && newD.coins <= oldD.coins)          // หักเหรียญ (ซื้อ/ส่งของขวัญ)
+        || (isGoogle() && !('coins' in oldD) && newD.coins <= 50) // เหรียญต้อนรับครั้งแรก (WELCOME_COINS)
+        || (isGoogle() && 'coins' in oldD && newD.coins - oldD.coins <= 70
+            && newD.get('lastDaily', '') != oldD.get('lastDaily', ''));  // โบนัสรายวัน (20 + 50)
+    }
+    function purpleOk(oldD, newD) {                               // เหรียญม่วงห้ามเพิ่มจากเครื่องผู้ใช้เลย
+      return (!('purple' in newD) || newD.purple <= num(oldD, 'purple'))
+          && (!('purpleBought' in newD) || newD.purpleBought <= num(oldD, 'purpleBought'));
+    }
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && me() == uid
+                    && coinsOk({}, request.resource.data) && purpleOk({}, request.resource.data);
+      allow update: if signedIn() && (
+        (me() == uid && coinsOk(resource.data, request.resource.data) && purpleOk(resource.data, request.resource.data))
+        // คนอื่นแก้ได้เฉพาะตัวนับของขวัญ และต้องเพิ่มขึ้นเท่านั้น (ตอนส่งของขวัญ)
+        || (me() != uid && only(['giftCount', 'giftPurple', 'giftValue'])
+            && request.resource.data.get('giftCount', 0) >= num(resource.data, 'giftCount')
+            && request.resource.data.get('giftPurple', 0) >= num(resource.data, 'giftPurple')
+            && request.resource.data.get('giftValue', 0) >= num(resource.data, 'giftValue')));
+      allow delete: if false;
+    }
+
+    // ── ข้อมูลที่เป็นของเจ้าของ: ทุกคนอ่านได้ แก้ได้เฉพาะเจ้าของ ──
+    match /profilePhotos/{uid} { allow read: if signedIn(); allow write: if signedIn() && me() == uid; }
+    match /covers/{uid}        { allow read: if signedIn(); allow write: if signedIn() && me() == uid; }
+    match /presence/{uid}      { allow read: if signedIn(); allow write: if signedIn() && me() == uid; }
+    match /userBlocks/{uid}    { allow read, write: if signedIn() && me() == uid; }   // รายชื่อที่บล็อก = เฉพาะเจ้าของ
+
+    // ── ประวัติเหรียญ: เห็น/เขียนได้เฉพาะของตัวเอง แก้หรือลบย้อนหลังไม่ได้ ──
+    match /ledger/{id} {
+      allow read: if signedIn() && resource.data.uid == me();
+      allow create: if signedIn() && request.resource.data.uid == me();
+      allow update, delete: if false;
+    }
+
+    // ── โพสต์ ──
+    match /posts/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.authorUid == me();
+      // คนอื่นกดถูกใจ/คอมเมนต์ได้ (แตะได้แค่ 3 ฟิลด์นี้) · เจ้าของแก้อะไรก็ได้
+      allow update: if signedIn() && (resource.data.authorUid == me() || only(['likes', 'likers', 'comments']));
+      allow delete: if signedIn() && resource.data.authorUid == me();
+    }
+
+    // ── แชทห้องรวม / แชทห้องเสียง: ต้องใส่ uid ของตัวเองเท่านั้น (กันสวมรอยส่งแทนคนอื่น) ──
+    // ลบ: ระบบล้างข้อความเก่าอัตโนมัติ (chatCleanup) ทำจากเครื่องผู้ใช้ จึงยังต้องให้ทุกคนที่ล็อกอินลบได้
+    //     ภายหลังควรย้ายไปทำที่เซิร์ฟเวอร์ แล้วเปลี่ยนเป็น allow delete: if false
+    match /groupChat/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == me();
+      allow update: if false;
+      allow delete: if signedIn();
+    }
+    match /voiceRooms/{room} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn();   // สมาชิก/เตะ/เพลย์ลิสต์ ถูกแก้โดยหลายคน จึงยังเปิดให้ทุกคนที่ล็อกอิน
+      match /chat/{id} {
+        allow read: if signedIn();
+        allow create: if signedIn() && request.resource.data.uid == me();
+        allow update: if false;
+        allow delete: if signedIn();
+      }
+    }
+
+    // ── แชทส่วนตัว: เฉพาะ 2 คนในห้อง ──
+    match /dms/{pid} {
+      // get ของห้องที่ยังไม่เคยมี (resource == null) ต้องผ่านด้วย ไม่งั้นแอปจะ error ตอนเริ่มคุยครั้งแรก
+      allow get: if inPair(pid);
+      allow list: if signedIn() && me() in resource.data.uids;       // รายการ "บทสนทนาของฉัน"
+      allow create, update: if inPair(pid) && me() in request.resource.data.uids;
+      allow delete: if inPair(pid);
+      match /messages/{id} {
+        allow read: if inPair(pid);
+        allow create: if inPair(pid) && request.resource.data.uid == me();
+        allow update: if false;
+        allow delete: if inPair(pid);
+      }
+    }
+
+    // ── เพื่อน ──
+    match /friendships/{pid} {
+      allow get: if inPair(pid);
+      allow list: if signedIn() && me() in resource.data.uids;
+      allow create: if inPair(pid) && request.resource.data.from == me()
+                    && request.resource.data.status == 'pending' && me() in request.resource.data.uids;
+      // ตอบรับได้เฉพาะ "ฝั่งที่ถูกขอ" (ไม่ใช่คนส่งคำขอ) และเปลี่ยนได้แค่สถานะ
+      allow update: if inPair(pid) && resource.data.from != me() && only(['status', 'acceptedAt']);
+      allow delete: if inPair(pid);
+    }
+
+    // ── เชิญเข้าห้อง: ผู้ส่งเขียนลงกล่องของผู้รับ (รหัสเอกสาร = uid ผู้ส่ง) · เจ้าของกล่องอ่าน/ลบ ──
+    match /inbox/{owner}/roomInvites/{from} {
+      allow read, delete: if signedIn() && (me() == owner || me() == from);
+      allow create, update: if signedIn() && me() == from && request.resource.data.from == me();
+    }
+
+    // ── โทรส่วนตัว ──
+    match /calls/{callId} {
+      allow read: if signedIn() && (resource == null || me() in [resource.data.from, resource.data.to]);
+      allow create: if signedIn() && request.resource.data.from == me();
+      allow update, delete: if signedIn() && me() in [resource.data.from, resource.data.to];
+    }
+    // กล่องปลุกสาย: ผู้โทรเขียนเข้ากล่องผู้รับ และผู้รับเขียนกลับกล่องผู้โทร จึงเปิดให้ทุกคนที่ล็อกอินเขียนได้ · อ่านได้เฉพาะเจ้าของ
+    match /callInbox/{owner} {
+      allow read: if signedIn() && me() == owner;
+      allow write: if signedIn();
+    }
+
+    // ── ธีมร่วมทั้งแอป: ทุกคนอ่านได้ · เขียนได้เฉพาะผู้ใช้ Google (ผู้เยี่ยมชมไม่มีเหรียญซื้อธีมอยู่แล้ว) ──
+    match /appConfig/{doc} {
+      allow read: if signedIn();
+      allow write: if isGoogle();
+    }
+
+    // อย่างอื่นที่ไม่ได้ระบุไว้ = ปฏิเสธทั้งหมด
+    match /{document=**} { allow read, write: if false; }
+  }
+}
