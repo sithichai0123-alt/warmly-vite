@@ -8,7 +8,7 @@ const C = {
   text: "#F0EEFF", sub: "#9B94C4", muted: "#8A84B0", brand2: "#A78BFA", gold: "#FBBF24", green: "#22C55E",
 };
 
-export default function GiftShowDemo({ items = [], onPlay, onClose, children }) {
+export default function GiftShowDemo({ items = [], onPlay, onClose, children, soundOn = true, onToggleSound }) {
   const [cur, setCur] = useState(null);     // { id, dur, t0 }
   const [prog, setProg] = useState(0);      // 0–1
   const [auto, setAuto] = useState(false);
@@ -85,6 +85,14 @@ export default function GiftShowDemo({ items = [], onPlay, onClose, children }) 
         <button data-demo-close onClick={onClose} aria-label="ปิด" style={{ width: 32, height: 32, borderRadius: "50%", border: "none",
           background: "rgba(255,255,255,.1)", color: "#fff", cursor: "pointer", fontFamily: "inherit", fontSize: 15, flexShrink: 0 }}>✕</button>
       </div>
+
+      {!soundOn && (
+        <div data-demo-muted style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: "rgba(244,63,94,.14)", borderBottom: "1px solid rgba(244,63,94,.4)", flexShrink: 0 }}>
+          <span style={{ fontSize: 18 }}>🔇</span>
+          <span style={{ flex: 1, fontSize: 13, color: "#FCA5A5", lineHeight: 1.4 }}>เสียงเอฟเฟกต์ปิดอยู่ จึงไม่มีเสียง (ตั้งค่านี้ใช้ร่วมกับในห้องเสียง)</span>
+          <button data-demo-unmute onClick={onToggleSound} style={{ border: "none", background: "#F43F5E", color: "#fff", borderRadius: 20, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>เปิดเสียง</button>
+        </div>
+      )}
 
       {/* เวที: เอฟเฟกต์ของจริงเล่นตรงนี้ */}
       <div style={{ position: "relative", flex: "0 0 46%", minHeight: 240, overflow: "hidden",

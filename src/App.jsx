@@ -1357,12 +1357,12 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
             {/* ปุ่มรอง: ไอคอน + ป้ายชื่อ เรียงเป็นตาราง */}
             <div style={{display:"flex",gap:8,marginBottom:12}}>
               {[
-                {k:"snd",on:soundOn,ic:soundOn?"🔔":"🔕",l:"แจ้งเตือน",fn:()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);},show:true},
+                {k:"snd",on:soundOn,warn:!soundOn,ic:soundOn?"🔊":"🔇",l:soundOn?"เสียงเอฟเฟกต์":"ปิดเสียงอยู่",fn:()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);if(v)sfx.preload();},show:true},
                 {k:"mix",on:audioOpen,ic:"🎚️",l:"ระดับเสียง",fn:()=>setAudioOpen(o=>!o),show:AUDIO_CONTROLS_ENABLED},
                 {k:"bg",on:false,ic:"🌙",l:"เสียงพื้นหลัง",fn:()=>setBgOpen(true),show:BACKGROUND_AUDIO_ENABLED,bg:true},
                 {k:"aura",on:false,ic:"✨",l:"ออร่าเสียง",fn:()=>setAuraOpen(true),show:VOICE_AURA_ENABLED&&!user.isGuest},
               ].filter(x=>x.show).map(x=>(
-                <button key={x.k} onClick={x.fn} {...(x.bg?{"data-bg-open":true}:{})} style={{flex:1,minWidth:0,padding:"5px 2px",borderRadius:10,border:"1px solid "+(x.on?T.brand:T.border),background:x.on?T.brandA33:"transparent",color:x.on?T.brand2:T.sub,cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
+                <button key={x.k} onClick={x.fn} {...(x.bg?{"data-bg-open":true}:{})} style={{flex:1,minWidth:0,padding:"5px 2px",borderRadius:10,border:"1px solid "+(x.warn?T.red:x.on?T.brand:T.border),background:x.warn?T.redBg:x.on?T.brandA33:"transparent",color:x.warn?T.red:x.on?T.brand2:T.sub,cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
                   <span style={{fontSize:15,lineHeight:1.2}}>{x.ic}</span>
                   <span style={{fontSize:12,whiteSpace:"nowrap"}}>{x.l}</span>
                 </button>
@@ -3844,6 +3844,7 @@ export default function App(){
   const [giftDemo,setGiftDemo]=useState(()=>{try{return GIFT_DEMO_ENABLED&&GIFT_SHOW_ENABLED&&/[?&]giftdemo=1(&|$)/.test(window.location.search);}catch(e){return false;}}); // ?giftdemo=1 = หน้าดูตัวอย่างเอฟเฟกต์ของขวัญ
   const [demoFx,setDemoFx]=useState(null);
   const [demoEntry,setDemoEntry]=useState(null);
+  const [demoSound,setDemoSound]=useState(()=>sfx.isOn()); // สวิตช์เดียวกับปุ่ม "เสียงเอฟเฟกต์" ในห้องเสียง
   useEffect(()=>{if(giftDemo){preload3D();sfx.preload();}},[giftDemo]); // หน้าทดลอง: โหลด three + ไฟล์เสียงไว้ก่อน ภาพกับเสียงจะได้ตรงกันตั้งแต่ครั้งแรก
   // หน้าทดลอง: เล่นเอฟเฟกต์ของจริง (ของขวัญ หรือเอฟเฟกต์เข้าห้อง) — ไม่แตะเหรียญ/ฐานข้อมูล
   const playDemo=id=>{
@@ -3934,7 +3935,7 @@ export default function App(){
 
   const notif=usePostNotifs(posts,user);
   if(!authReady)return<div style={{minHeight:"100dvh",background:T.bg,color:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif"}}>💜 กำลังโหลด...</div>;
-  if(giftDemo)return<GiftShowDemo items={SHOW_DEMO_ITEMS} onPlay={playDemo} onClose={()=>{setDemoFx(null);setDemoEntry(null);setGiftDemo(false);}}><GiftFx fx={demoFx}/>{demoEntry&&<EntranceFx fx={demoEntry}/>}</GiftShowDemo>;
+  if(giftDemo)return<GiftShowDemo soundOn={demoSound} onToggleSound={()=>{const v=!demoSound;sfx.set(v);setDemoSound(v);if(v)sfx.preload();}} items={SHOW_DEMO_ITEMS} onPlay={playDemo} onClose={()=>{setDemoFx(null);setDemoEntry(null);setGiftDemo(false);}}><GiftFx fx={demoFx}/>{demoEntry&&<EntranceFx fx={demoEntry}/>}</GiftShowDemo>;
   if(!user)return<AuthPage onLogin={setUser}/>;
   if(user.needName)return<NamePrompt user={user} onDone={u=>{ls.set("user",u);setUser(u);}}/>;
   const openProfile=uid=>{ if(!uid)return; if(uid===getUid()){setPage("profile");return;} setViewUid(uid); };
