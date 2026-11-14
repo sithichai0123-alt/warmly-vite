@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, Component, createContext, useContext } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, Component, createContext, useContext, Fragment } from "react";
 import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
@@ -459,7 +459,32 @@ const AUTO_REPLIES=["อ่อ จริงๆ เหรอ 😊","รู้ส�
 function getYTId(url){try{const u=new URL(url.trim());if(u.hostname.includes("youtu.be"))return u.pathname.slice(1).split(/[?&]/)[0];return u.searchParams.get("v")||"";}catch{return "";}}
 function ytThumb(id){return`https://img.youtube.com/vi/${id}/mqdefault.jpg`;}
 function ytEmbed(id){return`https://www.youtube.com/embed/${id}?autoplay=0&rel=0`;}
-function timeAgo(ts){if(!ts)return"เมื่อกี้";const s=Math.floor((Date.now()-ts.toMillis())/1000);if(s<60)return"เมื่อกี้";if(s<3600)return Math.floor(s/60)+" นาทีที่แล้ว";if(s<86400)return Math.floor(s/3600)+" ชม.";return Math.floor(s/86400)+" วันที่แล้ว";}
+// ── วันที่แบบ LINE (นับตามวันตามปฏิทินเวลาไทย) ──
+const TH_DAYS=["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
+const dayKeyBkk=ms=>new Date(ms+7*3600*1000).toISOString().slice(0,10);
+// ป้ายคั่นวันในแชท: วันนี้ / เมื่อวาน / วันพุธ (ภายใน 6 วัน) / 13 พ.ย. (ข้ามปีใส่ปี พ.ศ.)
+function dayLabel(ms){
+  const key=dayKeyBkk(ms),today=dayKeyBkk(Date.now());
+  if(key===today)return"วันนี้";
+  if(key===dayKeyBkk(Date.now()-86400000))return"เมื่อวาน";
+  const [y,m,d]=key.split("-").map(Number);
+  const diff=Math.round((Date.parse(today)-Date.parse(key))/86400000);
+  if(diff>0&&diff<7)return"วัน"+TH_DAYS[new Date(Date.UTC(y,m-1,d)).getUTCDay()];
+  return d+" "+TH_M[m-1]+(y!==+today.slice(0,4)?" "+(y+543):"");
+}
+// อายุของโพสต์/ความเห็น: ไม่ถึง 1 วันบอกเป็นนาที/ชั่วโมง · เมื่อวาน · 2–6 วันบอกจำนวนวัน · 7 วันขึ้นไปบอกวันที่
+function agoLabel(ms){
+  if(!ms)return"เมื่อกี้";
+  const s=Math.max(0,Math.floor((Date.now()-ms)/1000));
+  if(s<60)return"เมื่อกี้";
+  if(s<3600)return Math.floor(s/60)+" นาทีที่แล้ว";
+  if(s<86400)return Math.floor(s/3600)+" ชม.";
+  const diff=Math.round((Date.parse(dayKeyBkk(Date.now()))-Date.parse(dayKeyBkk(ms)))/86400000);
+  if(diff<=1)return"เมื่อวาน "+fmtTime(ms);
+  if(diff<7)return diff+" วันที่แล้ว";
+  return dayLabel(ms);
+}
+function timeAgo(ts){return agoLabel(ts?ts.toMillis():0);}
 
 // ── Shared UI ─────────────────────────────────────────────
 function Av({init,bg,tc,size=40,online,grad,isSelf,uid}){
@@ -1486,7 +1511,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
 // ── Post Card ─────────────────────────────────────────────
 // เวลาของคอมเมนต์ (ใหม่เก็บ t เป็น ms ส่วนของเก่าอ่านจาก id รูปแบบ "c<ms>")
 function cmtTs(c){ return (c&&c.t)||parseInt(String((c&&c.id)||"").slice(1),10)||0; }
-function agoMs(ms){ if(!ms)return"เมื่อกี้";const s=Math.max(0,Math.floor((Date.now()-ms)/1000));if(s<60)return"เมื่อกี้";if(s<3600)return Math.floor(s/60)+" นาทีที่แล้ว";if(s<86400)return Math.floor(s/3600)+" ชม.";return Math.floor(s/86400)+" วันที่แล้ว"; }
+function agoMs(ms){ return agoLabel(ms); }
 
 function PostCard({p,user,autoOpen,onAutoOpened}){
   const users=useContext(UsersCtx);
@@ -2008,6 +2033,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
       <div style={{flex:1,overflowY:"auto",padding:"12px 12px",display:"flex",flexDirection:"column",gap:6}}>
         {vis.length===0&&!err&&<div style={{textAlign:"center",color:T.muted,fontSize:13,padding:"30px 0"}}>ยังไม่มีข้อความ — ทักทายกันได้เลย 👋</div>}
         {vis.map((m,i)=>{
+          const node=(()=>{
           if(m.gift){
             const g=GIFT_BY_ID[m.gift];
             return(<div key={m.id} style={{textAlign:"center",padding:"8px 0"}}>
@@ -2032,6 +2058,12 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
               </div>
             </div>
           );
+          })();
+          // ป้ายคั่นวันแบบ LINE: ขึ้นเมื่อวันเปลี่ยน (และก่อนข้อความแรก) — ข้อความที่ยังส่งไม่เสร็จ (ไม่มีเวลา) นับเป็นวันนี้
+          const tm=x=>(x&&x.t&&x.t.toMillis?x.t.toMillis():0)||Date.now();
+          const dsep=(i===0||dayKeyBkk(tm(vis[i-1]))!==dayKeyBkk(tm(m)))
+            ?<div data-day-sep style={{alignSelf:"center",margin:"8px 0 4px",padding:"3px 14px",borderRadius:14,background:T.card,border:"1px solid "+T.borderHi,color:T.sub,fontSize:12,fontWeight:600}}>{dayLabel(tm(m))}</div>:null;
+          return <Fragment key={m.id}>{dsep}{node}</Fragment>;
         })}
         <div ref={endRef}/>
       </div>
