@@ -2233,6 +2233,33 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
 }
 
 // ── Profile ───────────────────────────────────────────────
+// ── ดูโพสต์เดี่ยว: กดโพสต์ในโปรไฟล์แล้วเปิดโพสต์เต็มแบบเดียวกับในฟีด (ถูกใจ/ความเห็น/ลบได้ครบ)
+// อ่านจากรายการโพสต์สดทุกครั้ง ยอดถูกใจและความเห็นจึงอัปเดตตาม และถ้าโพสต์ถูกลบหน้าต่างจะปิดเอง
+function PostViewer({postId,posts,user,onClose}){
+  const users=useContext(UsersCtx);
+  const p=posts.find(x=>x.id===postId)||null;
+  useEffect(()=>{if(!p)onClose();},[p]); // eslint-disable-line
+  if(!p)return null;
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",zIndex:75,display:"flex",alignItems:"flex-start",justifyContent:"center",overflowY:"auto",padding:"16px 10px",overscrollBehavior:"contain"}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:480}}>
+        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}>
+          <button data-post-close onClick={onClose} aria-label="ปิด" style={{width:34,height:34,borderRadius:"50%",border:"none",background:"rgba(255,255,255,.14)",color:"#fff",fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>✕</button>
+        </div>
+        <OwnerScope ownerDoc={p.authorUid?users[p.authorUid]:null} section="feed"><PostCard p={p} user={user}/></OwnerScope>
+      </div>
+    </div>
+  );
+}
+
+// รูปย่อในรายการโพสต์ (วิดีโอไม่ใช่รูป ใส่สัญลักษณ์แทน ไม่งั้นขึ้นเป็นรูปเสีย)
+function PostThumb({src,video}){
+  const st={width:56,height:56,borderRadius:10,objectFit:"cover",border:"1px solid "+T.border,flexShrink:0};
+  if(video||String(src||"").startsWith("data:video"))
+    return <div style={{...st,display:"flex",alignItems:"center",justifyContent:"center",background:T.surface,fontSize:20}}>🎬</div>;
+  return <img src={src} alt="" style={st} onError={e=>{e.target.style.display="none";}}/>;
+}
+
 function ProfilePage({user,posts,onUpdateName,onAppearance}){
   const friendsCtx=useFriends();
   const [bio,setBio]=useState(()=>ls.get("bio","ชอบคุยเล่น • ฟังเพื่อนใหม่ 💜"));
@@ -2268,6 +2295,7 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
   },[]);
   const _myAv=_allUsers[getUid()]&&_allUsers[getUid()].avatar;
   useEffect(()=>{ if(_myAv){setAvatarImg(_myAv);ls.set("avatarImg",_myAv);} },[_myAv]);
+  const [viewPost,setViewPost]=useState(null); // โพสต์ที่กดเปิดดูอยู่
   const myPosts=posts.filter(p=>p.authorUid?p.authorUid===getUid():(p.author===user.name||p.author===displayName));
   const saveBio=()=>{setBio(bioInput);ls.set("bio",bioInput);saveMyProfile({bio:bioInput}).catch(()=>{});setEditing(false);};
   const saveMood=m=>{setMood(m);ls.set("mood",m);saveMyProfile({mood:m}).catch(()=>{});setShowMP(false);};
@@ -2326,18 +2354,20 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
           <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:14}}>โพสต์ของฉัน</div>
           {myPosts.length===0&&<div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"20px 0"}}>ยังไม่มีโพสต์ ✨</div>}
           {myPosts.map(p=>(
-            <div key={p.id} style={{borderBottom:"1px solid "+T.border,paddingBottom:12,marginBottom:12}}>
-              {p.images?.length>0&&<div style={{display:"flex",gap:5,marginBottom:7,flexWrap:"wrap"}}>{p.images.map((src,i)=><img key={i} src={src} alt="" style={{width:56,height:56,borderRadius:10,objectFit:"cover",border:"1px solid "+T.border}}/>)}</div>}
+            <div key={p.id} data-open-post={p.id} onClick={()=>setViewPost(p.id)} style={{borderBottom:"1px solid "+T.border,paddingBottom:12,marginBottom:12,cursor:"pointer"}}>
+              {p.images?.length>0&&<div style={{display:"flex",gap:5,marginBottom:7,flexWrap:"wrap"}}>{p.images.map((src,i)=><PostThumb key={i} src={src} video={p.mediaTypes&&p.mediaTypes[i]==="video"}/>)}</div>}
               {p.content&&<div style={{fontSize:13,color:T.sub,lineHeight:1.65}}><FxMsg uid={p.authorUid||getUid()} fx={p.fx}>{p.content}</FxMsg></div>}
               <div style={{fontSize:12,color:T.muted,marginTop:5,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
                 <span>{p.createdAt?timeAgo(p.createdAt):"เมื่อกี้"}</span>
                 {p.mood&&<span style={{background:T.brandA22,borderRadius:20,padding:"0 7px",color:T.brand2,fontWeight:600}}>✦ {p.mood}</span>}
                 <span>❤️{p.likes||0}</span><span>💬{(p.comments||[]).length}</span>
+                <span style={{marginLeft:"auto",color:T.brand2,fontWeight:600}}>ดูโพสต์ ›</span>
               </div>
             </div>
           ))}
         </div>
       </Card>
+      {viewPost&&<PostViewer postId={viewPost} posts={posts} user={user} onClose={()=>setViewPost(null)}/>}
     </div>
   );
 }
@@ -3770,6 +3800,7 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
   const [cover,setCover]=useState("");
   const [giftOpen,setGiftOpen]=useState(false);
   const [note,setNote]=useState("");
+  const [viewPost,setViewPost]=useState(null); // โพสต์ที่กดเปิดดูอยู่
   useEffect(()=>{
     setCover("");
     return onSnapshot(doc(db,"covers",uid),sn=>{setCover(sn.exists()?(sn.data().cover||""):"");},()=>{});
@@ -3807,15 +3838,16 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
             <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:10}}>โพสต์ ({list.length})</div>
             {list.length===0&&<div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"10px 0"}}>ยังไม่มีโพสต์สาธารณะ</div>}
             {list.map(pp=>(
-              <div key={pp.id} style={{borderBottom:"1px solid "+T.border,paddingBottom:10,marginBottom:10}}>
-                {pp.images?.length>0&&<div style={{display:"flex",gap:5,marginBottom:6,flexWrap:"wrap"}}>{pp.images.slice(0,4).map((src,i)=>(pp.mediaTypes&&pp.mediaTypes[i]==="video")?null:<img key={i} src={src} alt="" style={{width:56,height:56,borderRadius:10,objectFit:"cover",border:"1px solid "+T.border}}/>)}</div>}
+              <div key={pp.id} data-open-post={pp.id} onClick={()=>setViewPost(pp.id)} style={{borderBottom:"1px solid "+T.border,paddingBottom:10,marginBottom:10,cursor:"pointer"}}>
+                {pp.images?.length>0&&<div style={{display:"flex",gap:5,marginBottom:6,flexWrap:"wrap"}}>{pp.images.slice(0,4).map((src,i)=><PostThumb key={i} src={src} video={pp.mediaTypes&&pp.mediaTypes[i]==="video"}/>)}</div>}
                 {pp.content&&<div style={{fontSize:13,color:T.sub,lineHeight:1.6}}><FxMsg uid={pp.authorUid||uid} fx={pp.fx}>{pp.content}</FxMsg></div>}
-                <div style={{fontSize:12,color:T.muted,marginTop:4}}>{pp.createdAt?timeAgo(pp.createdAt):"เมื่อกี้"} • ❤️{pp.likes||0}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:4,display:"flex",gap:8,alignItems:"center"}}><span>{pp.createdAt?timeAgo(pp.createdAt):"เมื่อกี้"} • ❤️{pp.likes||0}</span><span style={{marginLeft:"auto",color:T.brand2,fontWeight:600}}>ดูโพสต์ ›</span></div>
               </div>
             ))}
           </div>
         </div>
       </div>
+      {viewPost&&<PostViewer postId={viewPost} posts={posts} user={user} onClose={()=>setViewPost(null)}/>}
     </div>
   );
 }
