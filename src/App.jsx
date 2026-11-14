@@ -2199,10 +2199,13 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
           <Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ค้นหาชื่อ..." style={{marginBottom:8}}/>
           {people.length===0&&<div style={{fontSize:13,color:T.muted,padding:"10px 0"}}>ยังไม่มีผู้ใช้คนอื่น — ชวนเพื่อนเข้ามาได้เลย 💜</div>}
           {people.map(u=>(
-            <div key={u.id} onClick={()=>setPeer(u.id)} style={{display:"flex",gap:11,alignItems:"center",padding:"9px 6px",borderBottom:"1px solid "+T.border,cursor:"pointer"}}>
-              <Av uid={u.id} init={u.init||"??"} bg={T.card} tc={T.brand2} size={38}/>
-              <div style={{flex:1,fontSize:14,fontWeight:600,color:T.text}}><FxT uid={u.id} area="name" lite>{u.name||"ผู้ใช้"}</FxT>{u.isGuest&&<span style={{fontSize:12,marginLeft:6,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"1px 7px",fontWeight:700}}>Guest</span>}</div>
-              <span style={{fontSize:12,color:T.brand2}}>💬</span>
+            <div key={u.id} style={{display:"flex",gap:4,alignItems:"center",borderBottom:"1px solid "+T.border}}>
+              {/* รูป + ชื่อ → เปิดโปรไฟล์ · ไอคอน 💬 ด้านขวา → เข้าแชท (เดิมทั้งแถวเป็นทางเข้าแชท) */}
+              <div data-person-profile onClick={()=>openProfileFromChat&&openProfileFromChat(u.id)} style={{display:"flex",gap:11,alignItems:"center",flex:1,minWidth:0,padding:"9px 6px",cursor:"pointer"}}>
+                <Av uid={u.id} init={u.init||"??"} bg={T.card} tc={T.brand2} size={38}/>
+                <div style={{flex:1,minWidth:0,fontSize:14,fontWeight:600,color:T.text}}><FxT uid={u.id} area="name" lite>{u.name||"ผู้ใช้"}</FxT>{u.isGuest&&<span style={{fontSize:12,marginLeft:6,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"1px 7px",fontWeight:700}}>Guest</span>}</div>
+              </div>
+              <button data-person-chat onClick={()=>setPeer(u.id)} aria-label={"แชทกับ "+(u.name||"ผู้ใช้")} style={{width:46,height:46,flexShrink:0,border:"none",background:"transparent",color:T.brand2,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>💬</button>
             </div>
           ))}
         </div>
