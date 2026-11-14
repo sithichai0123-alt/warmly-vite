@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo, Component, createContext, useContext, Fragment } from "react";
 import { Room, RoomEvent, Track } from "livekit-client";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signInAnonymously, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, arrayRemove, runTransaction, getCountFromServer, writeBatch } from "firebase/firestore";
 import { useNow, useRoomHeartbeat, useRoomJanitor, roomExpired, roomCloseInMs, fmtCountdown, ROOM_AUTOCLOSE_ENABLED } from "./roomLife/index.js"; // ปิดห้องเสียงอัตโนมัติเมื่อโฮสต์ไม่อยู่เกิน 5 นาที (ปิดได้ที่ roomLife/config.js)
@@ -439,8 +439,11 @@ async function sendGiftLogged(gift,fromUser,toUid,toName,ctx){
 
 // </WALLET-CORE>
 
+// โทเคนสำหรับเรียก /api/* — เฉพาะผู้ใช้ Google จริง (บัญชีนิรนามของผู้เยี่ยมชมถือว่า "ไม่มีโทเคน" เหมือนเดิมทุกอย่าง)
+const realUserToken=msg=>{const u=auth.currentUser;return u&&!u.isAnonymous?u.getIdToken():Promise.reject(new Error(msg));};
+
 // Voice Aura: ซื้อ/สวมใส่เอฟเฟกต์เสียง (ตรรกะอยู่ใน voiceAura/wallet.js — ใช้ transaction + ledger แบบเดียวกับกระเป๋าเดิม)
-const auraWallet=makeAuraWallet({db,getUid,runTransaction,doc,collection,serverTimestamp,serverMode:AURA_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))});
+const auraWallet=makeAuraWallet({db,getUid,runTransaction,doc,collection,serverTimestamp,serverMode:AURA_SERVER_PURCHASE,getToken:()=>realUserToken("ต้องล็อกอินด้วย Google ก่อน")});
 const auraApi={buy:id=>auraWallet.buyAura(id),equip:id=>auraWallet.equipAura(id)};
 
 // ── Static Data ───────────────────────────────────────────
@@ -640,12 +643,21 @@ function AuthPage({onLogin}){
     }
     setBusy(false);
   }
-  function loginGuest(){
+  async function loginGuest(){
+    if(busy)return;
     if(!name.trim()){setErr("ใส่ชื่อก่อนนะ");return;}
     const n=name.trim();
     const init=n.slice(0,2).toUpperCase();
     const u={name:n,email:"",avatar:"",isGuest:true,init,provider:"guest",uid:getUid()};
     ls.set("user",u);
+    // ขอตัวตนนิรนามจาก Firebase (ให้ Firestore Rules รู้จักผู้เยี่ยมชม) — ถ้าทำไม่ได้ (เช่นยังไม่เปิด Anonymous ใน Console / ออฟไลน์) ใช้รหัสในเครื่องแบบเดิม ไม่พังอะไร
+    setBusy(true);
+    try{
+      const cred=await signInAnonymously(auth);
+      u.uid=cred.user.uid;
+      ls.set("uid",u.uid);ls.set("user",u);
+    }catch(e){console.warn("guest anonymous sign-in unavailable, using local id",e&&e.code);}
+    setBusy(false);
     onLogin(u);
   }
   return(
@@ -3897,15 +3909,15 @@ function PrivacyPage({onLogout}){
 // หน้า → ส่วนของธีม (หน้าอื่น เช่น ความเป็นส่วนตัว ใช้สีเดิม)
 const THEME_PAGE={voice:"voice",feed:"feed",chat:"chat",profile:"profile"};
 const dmApi=makeDmApi({db,doc,setDoc,onSnapshot,collection,query,where,serverTimestamp}); // เครื่องมือแชทส่วนตัว (บล็อกเก็บที่ userBlocks/{uid}, ลบประวัติเก็บที่ dms/{pair}.clearedAt)
-const chatDeleteApi=makeChatDeleteApi({getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("guest")),fallback:makeClientFallback({db,getUid,doc,collection,query,orderBy,limit,getDocs,getDoc,deleteDoc,setDoc,writeBatch})}); // เรียก /api/chat-delete (ลบจริงที่เซิร์ฟเวอร์ ตรวจสิทธิ์เองทุกครั้ง)
+const chatDeleteApi=makeChatDeleteApi({getToken:()=>realUserToken("guest"),fallback:makeClientFallback({db,getUid,doc,collection,query,orderBy,limit,getDocs,getDoc,deleteDoc,setDoc,writeBatch})}); // เรียก /api/chat-delete (ลบจริงที่เซิร์ฟเวอร์ ตรวจสิทธิ์เองทุกครั้ง)
 const friendsApi=makeFriendsApi({db,doc,setDoc,deleteDoc,getDoc,onSnapshot,collection,query,where,serverTimestamp});
 const inviteApi=makeInviteApi({db,doc,setDoc,deleteDoc,onSnapshot,collection,serverTimestamp});
 const callApi=makePrivateCallApi({db,doc,collection,setDoc,updateDoc,deleteDoc,getDoc,onSnapshot,serverTimestamp});
 const photosApi=makePhotosApi({db,doc,setDoc,onSnapshot}); // เก็บรูปโปรไฟล์ที่ profilePhotos/{uid} (แยกจาก users)
 const presenceApi=makePresenceApi({db,doc,setDoc,collection,onSnapshot,serverTimestamp}); // เก็บสถานะออนไลน์ที่ presence/{uid} (แยกจาก users)
 const chatCleanup=makeChatCleanup({db,collection,query,orderBy,limit,where,getDocs,getCountFromServer,writeBatch}); // ลบได้เฉพาะ groupChat และ voiceRooms/*/chat เท่านั้น
-const textFxApi=makeTextFxApi({db,getUid,setDoc,doc,runTransaction,collection,serverTimestamp,serverMode:TEXTFX_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))}); // บันทึกสไตล์ตัวอักษร (users/{uid}.textFx)
-const themeApi=makeThemeApi({db,getUid,setDoc,doc,onSnapshot,runTransaction,collection,serverTimestamp,serverMode:THEME_SERVER_PURCHASE,getToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("ต้องล็อกอินด้วย Google ก่อน"))});
+const textFxApi=makeTextFxApi({db,getUid,setDoc,doc,runTransaction,collection,serverTimestamp,serverMode:TEXTFX_SERVER_PURCHASE,getToken:()=>realUserToken("ต้องล็อกอินด้วย Google ก่อน")}); // บันทึกสไตล์ตัวอักษร (users/{uid}.textFx)
+const themeApi=makeThemeApi({db,getUid,setDoc,doc,onSnapshot,runTransaction,collection,serverTimestamp,serverMode:THEME_SERVER_PURCHASE,getToken:()=>realUserToken("ต้องล็อกอินด้วย Google ก่อน")});
 const TABS=[{key:"feed",icon:"🏠",label:"หน้าแรก"},{key:"chat",icon:"💬",label:"แชท"},{key:"voice",icon:"🎙️",label:"ห้องคุย"},{key:"profile",icon:"👤",label:"โปรไฟล์"},{key:"privacy",icon:"⚙️",label:"ตั้งค่า"}];
 
 // ครอบเพื่อน/โทร + แถบแจ้งเตือน + ตัวฟังคำเชิญ (เฟส C) — ทุกโมดูลปิดได้ด้วยสวิตช์ของตัวเอง
@@ -3969,7 +3981,20 @@ export default function App(){
 
   // ติดตามสถานะล็อกอิน Google จริง (Firebase Auth) + ผู้เยี่ยมชม
   useEffect(()=>{
+    let triedAnon=false; // ลองล็อกอินนิรนามให้ผู้เยี่ยมชมเดิมแค่ครั้งเดียวต่อการเปิดหน้า (กันวนซ้ำ)
     return onAuthStateChanged(auth,async fb=>{
+      if(fb&&fb.isAnonymous){
+        // ผู้เยี่ยมชม: ใช้ชื่อ/ข้อมูลที่บันทึกในเครื่อง แต่ใช้รหัสจาก Firebase เป็นตัวตน
+        const l=ls.get("user",null);
+        if(l&&l.isGuest){
+          ls.set("uid",fb.uid);
+          const u={...l,uid:fb.uid};
+          ls.set("user",u);
+          setUser(u);
+        }else setUser(null); // ออกจากระบบแล้ว (เก็บเซสชันนิรนามไว้ ล็อกอินผู้เยี่ยมชมใหม่จะได้ตัวตนเดิม)
+        setAuthReady(true);
+        return;
+      }
       if(fb){
         ls.set("uid",fb.uid);
         let saved={};
@@ -3986,6 +4011,11 @@ export default function App(){
         setUser(u);
       }else{
         const l=ls.get("user",null);
+        if(l&&l.isGuest&&!triedAnon){
+          // ผู้เยี่ยมชมเดิมที่ยังไม่มีตัวตนใน Firebase: ขอให้ตอนนี้ ถ้าสำเร็จ onAuthStateChanged จะถูกเรียกอีกครั้งเอง
+          triedAnon=true;
+          try{await signInAnonymously(auth);return;}catch(e){console.warn("guest anonymous sign-in unavailable, using local id",e&&e.code);}
+        }
         setUser(l&&l.isGuest?l:null);
       }
       setAuthReady(true);
