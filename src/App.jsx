@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, Component, createContext, useContext } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, Component, createContext, useContext, Fragment } from "react";
 import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
@@ -459,7 +459,32 @@ const AUTO_REPLIES=["อ่อ จริงๆ เหรอ 😊","รู้ส�
 function getYTId(url){try{const u=new URL(url.trim());if(u.hostname.includes("youtu.be"))return u.pathname.slice(1).split(/[?&]/)[0];return u.searchParams.get("v")||"";}catch{return "";}}
 function ytThumb(id){return`https://img.youtube.com/vi/${id}/mqdefault.jpg`;}
 function ytEmbed(id){return`https://www.youtube.com/embed/${id}?autoplay=0&rel=0`;}
-function timeAgo(ts){if(!ts)return"เมื่อกี้";const s=Math.floor((Date.now()-ts.toMillis())/1000);if(s<60)return"เมื่อกี้";if(s<3600)return Math.floor(s/60)+" นาทีที่แล้ว";if(s<86400)return Math.floor(s/3600)+" ชม.";return Math.floor(s/86400)+" วันที่แล้ว";}
+// ── วันที่แบบ LINE (นับตามวันตามปฏิทินเวลาไทย) ──
+const TH_DAYS=["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
+const dayKeyBkk=ms=>new Date(ms+7*3600*1000).toISOString().slice(0,10);
+// ป้ายคั่นวันในแชท: วันนี้ / เมื่อวาน / วันพุธ (ภายใน 6 วัน) / 13 พ.ย. (ข้ามปีใส่ปี พ.ศ.)
+function dayLabel(ms){
+  const key=dayKeyBkk(ms),today=dayKeyBkk(Date.now());
+  if(key===today)return"วันนี้";
+  if(key===dayKeyBkk(Date.now()-86400000))return"เมื่อวาน";
+  const [y,m,d]=key.split("-").map(Number);
+  const diff=Math.round((Date.parse(today)-Date.parse(key))/86400000);
+  if(diff>0&&diff<7)return"วัน"+TH_DAYS[new Date(Date.UTC(y,m-1,d)).getUTCDay()];
+  return d+" "+TH_M[m-1]+(y!==+today.slice(0,4)?" "+(y+543):"");
+}
+// อายุของโพสต์/ความเห็น: ไม่ถึง 1 วันบอกเป็นนาที/ชั่วโมง · เมื่อวาน · 2–6 วันบอกจำนวนวัน · 7 วันขึ้นไปบอกวันที่
+function agoLabel(ms){
+  if(!ms)return"เมื่อกี้";
+  const s=Math.max(0,Math.floor((Date.now()-ms)/1000));
+  if(s<60)return"เมื่อกี้";
+  if(s<3600)return Math.floor(s/60)+" นาทีที่แล้ว";
+  if(s<86400)return Math.floor(s/3600)+" ชม.";
+  const diff=Math.round((Date.parse(dayKeyBkk(Date.now()))-Date.parse(dayKeyBkk(ms)))/86400000);
+  if(diff<=1)return"เมื่อวาน "+fmtTime(ms);
+  if(diff<7)return diff+" วันที่แล้ว";
+  return dayLabel(ms);
+}
+function timeAgo(ts){return agoLabel(ts?ts.toMillis():0);}
 
 // ── Shared UI ─────────────────────────────────────────────
 function Av({init,bg,tc,size=40,online,grad,isSelf,uid}){
@@ -1357,12 +1382,12 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
             {/* ปุ่มรอง: ไอคอน + ป้ายชื่อ เรียงเป็นตาราง */}
             <div style={{display:"flex",gap:8,marginBottom:12}}>
               {[
-                {k:"snd",on:soundOn,ic:soundOn?"🔔":"🔕",l:"แจ้งเตือน",fn:()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);},show:true},
+                {k:"snd",on:soundOn,warn:!soundOn,ic:soundOn?"🔊":"🔇",l:soundOn?"เสียงเอฟเฟกต์":"ปิดเสียงอยู่",fn:()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);if(v)sfx.preload();},show:true},
                 {k:"mix",on:audioOpen,ic:"🎚️",l:"ระดับเสียง",fn:()=>setAudioOpen(o=>!o),show:AUDIO_CONTROLS_ENABLED},
                 {k:"bg",on:false,ic:"🌙",l:"เสียงพื้นหลัง",fn:()=>setBgOpen(true),show:BACKGROUND_AUDIO_ENABLED,bg:true},
                 {k:"aura",on:false,ic:"✨",l:"ออร่าเสียง",fn:()=>setAuraOpen(true),show:VOICE_AURA_ENABLED&&!user.isGuest},
               ].filter(x=>x.show).map(x=>(
-                <button key={x.k} onClick={x.fn} {...(x.bg?{"data-bg-open":true}:{})} style={{flex:1,minWidth:0,padding:"5px 2px",borderRadius:10,border:"1px solid "+(x.on?T.brand:T.border),background:x.on?T.brandA33:"transparent",color:x.on?T.brand2:T.sub,cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
+                <button key={x.k} onClick={x.fn} {...(x.bg?{"data-bg-open":true}:{})} style={{flex:1,minWidth:0,padding:"5px 2px",borderRadius:10,border:"1px solid "+(x.warn?T.red:x.on?T.brand:T.border),background:x.warn?T.redBg:x.on?T.brandA33:"transparent",color:x.warn?T.red:x.on?T.brand2:T.sub,cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
                   <span style={{fontSize:15,lineHeight:1.2}}>{x.ic}</span>
                   <span style={{fontSize:12,whiteSpace:"nowrap"}}>{x.l}</span>
                 </button>
@@ -1486,7 +1511,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
 // ── Post Card ─────────────────────────────────────────────
 // เวลาของคอมเมนต์ (ใหม่เก็บ t เป็น ms ส่วนของเก่าอ่านจาก id รูปแบบ "c<ms>")
 function cmtTs(c){ return (c&&c.t)||parseInt(String((c&&c.id)||"").slice(1),10)||0; }
-function agoMs(ms){ if(!ms)return"เมื่อกี้";const s=Math.max(0,Math.floor((Date.now()-ms)/1000));if(s<60)return"เมื่อกี้";if(s<3600)return Math.floor(s/60)+" นาทีที่แล้ว";if(s<86400)return Math.floor(s/3600)+" ชม.";return Math.floor(s/86400)+" วันที่แล้ว"; }
+function agoMs(ms){ return agoLabel(ms); }
 
 function PostCard({p,user,autoOpen,onAutoOpened}){
   const users=useContext(UsersCtx);
@@ -1959,9 +1984,12 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
   const [fx,setFx]=useState(null);
   const [msgFx,setMsgFx]=useState(null); // สไตล์ของข้อความที่จะส่ง (null = ข้อความปกติ; ผู้ใช้กดปุ่ม Aa เลือกเอง)
   const fileRef=useRef();const endRef=useRef();
+  const [replyTo,setReplyTo]=useState(null);   // ข้อความที่เลือกตอบกลับ { id, uid, name, text, img }
+  const [flashId,setFlashId]=useState(null);   // ข้อความที่เพิ่งกดเลื่อนไปหา (ไฮไลต์ชั่วครู่)
+  const listRef=useRef();const inputRef=useRef();
 
   useEffect(()=>{
-    setMsgs([]);setErr("");
+    setMsgs([]);setErr("");setReplyTo(null);
     let first=true;
     const q=sinceMs?query(collection(db,...path),where("t",">",new Date(sinceMs)),orderBy("t","desc"),limit(150)):query(collection(db,...path),orderBy("t","desc"),limit(150)); // sinceMs = เวลาที่ผู้ใช้ลบประวัติแชทส่วนตัว (ไม่ใส่ = โหลดตามเดิม)
     return onSnapshot(q,snap=>{
@@ -1989,25 +2017,37 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
     const sendFx=txt?resolveMessageFx(users[myUid],msgFx):null; // ส่งเฉพาะสไตล์ที่ใช้ได้จริง
     if(sendFx)payload.fx=sendFx;
     if(img)payload.image=img;
-    const keepImg=img;
-    setInput("");setImg(null);setErr("");
+    if(replyTo)payload.replyTo={id:replyTo.id,uid:replyTo.uid||"",name:replyTo.name||"",text:replyTo.text||"",img:!!replyTo.img}; // เก็บสำเนาข้อความที่ตอบไว้ (ต้นฉบับถูกลบก็ยังเห็นว่าตอบอะไร)
+    const keepImg=img,keepReply=replyTo;
+    setInput("");setImg(null);setErr("");setReplyTo(null);
     try{
       await addDoc(collection(db,...path),payload);
       chatCleanup.trim(path); // เฉพาะแชทรวม — แชทส่วนตัว (dms) จะถูกปฏิเสธในโมดูล ไม่โดนลบ
       onSent&&onSent(txt||"📷 รูปภาพ");
     }catch(e){
       console.error("send",e);
-      setInput(txt);setImg(keepImg);
+      setInput(txt);setImg(keepImg);setReplyTo(keepReply);
       setErr("ส่งไม่ได้ ("+(e.code||e.message)+")");
     }
+  }
+  function startReply(m,nm){
+    setReplyTo({id:m.id,uid:m.uid,name:nm,text:(m.text||"").slice(0,80),img:!!m.image});
+    setTimeout(()=>{try{inputRef.current&&inputRef.current.focus();}catch(e){}},50);
+  }
+  function jumpTo(id){ // เลื่อนไปหาข้อความต้นฉบับ (ถ้ายังโหลดอยู่ในรายการ) พร้อมไฮไลต์
+    const el=listRef.current&&listRef.current.querySelector('[data-mid="'+id+'"]');
+    if(!el)return;
+    el.scrollIntoView({behavior:"smooth",block:"center"});
+    setFlashId(id);setTimeout(()=>setFlashId(f=>f===id?null:f),1400);
   }
 
   return(
     <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0,position:"relative"}}>
       <GiftFx fx={fx}/>
-      <div style={{flex:1,overflowY:"auto",padding:"12px 12px",display:"flex",flexDirection:"column",gap:6}}>
+      <div ref={listRef} style={{flex:1,overflowY:"auto",padding:"12px 12px",display:"flex",flexDirection:"column",gap:6}}>
         {vis.length===0&&!err&&<div style={{textAlign:"center",color:T.muted,fontSize:13,padding:"30px 0"}}>ยังไม่มีข้อความ — ทักทายกันได้เลย 👋</div>}
         {vis.map((m,i)=>{
+          const node=(()=>{
           if(m.gift){
             const g=GIFT_BY_ID[m.gift];
             return(<div key={m.id} style={{textAlign:"center",padding:"8px 0"}}>
@@ -2022,16 +2062,26 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
           const ms=m.t&&m.t.toMillis?m.t.toMillis():0;
           const mfx=resolveMessageFx(users[m.uid],m.fx); // สไตล์ที่ผู้ส่งเลือก (ตรวจกับคลังของผู้ส่ง)
           return(
-            <div key={m.id} style={{display:"flex",gap:8,alignItems:"flex-end",flexDirection:me?"row-reverse":"row"}}>
+            <div key={m.id} data-mid={m.id} style={{display:"flex",gap:8,alignItems:"flex-end",flexDirection:me?"row-reverse":"row",borderRadius:14,background:flashId===m.id?"rgba(124,92,252,.22)":"transparent",transition:"background .4s"}}>
               {!me&&<div onClick={()=>{if(avatarGift&&!user.isGuest&&m.uid)setPickTarget({uid:m.uid,name:nm});}} style={{cursor:avatarGift&&!user.isGuest?"pointer":"default"}}><Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={28}/></div>}
               <div style={{maxWidth:"74%",display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start"}}>
                 {head&&<div style={{fontSize:12,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px"}}><Nm uid={m.uid} name={m.author}/></div>}
+                {m.replyTo&&m.replyTo.id&&<div data-reply-quote onClick={()=>jumpTo(m.replyTo.id)} style={{maxWidth:"100%",marginBottom:3,padding:"5px 10px",borderRadius:10,background:"rgba(255,255,255,.07)",borderLeft:"3px solid "+T.brand2,cursor:"pointer",textAlign:"left",boxSizing:"border-box"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:T.brand2}}>{(m.replyTo.uid&&users[m.replyTo.uid]&&users[m.replyTo.uid].name)||m.replyTo.name||"ผู้ใช้"}</div>
+                  <div style={{fontSize:12,color:T.sub,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:220}}>{m.replyTo.text||(m.replyTo.img?"📷 รูปภาพ":"")}</div>
+                </div>}
                 {m.image&&<img src={m.image} alt="" onClick={viewer.enabled?()=>viewer.open([m.image],0):undefined} style={{maxWidth:"100%",cursor:viewer.enabled?"zoom-in":undefined,borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
                 {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?"#fff":T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={i<vis.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text}</div>}
-                <div style={{fontSize:12,color:T.muted,margin:"2px 4px 0",display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:me?"flex-end":"flex-start",gap:4}}><span>{fmtTime(ms)}</span>{onDeleteMessage&&me&&!String(m.id).startsWith("tmp-")&&<MessageDeleteControl onDelete={async()=>{await onDeleteMessage(m.id);setMsgs(prev=>prev.filter(x=>x.id!==m.id));}}/>}</div>
+                <div style={{fontSize:12,color:T.muted,margin:"2px 4px 0",display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:me?"flex-end":"flex-start",gap:4}}><span>{fmtTime(ms)}</span>{!lock&&!String(m.id).startsWith("tmp-")&&<span data-reply-btn onClick={()=>startReply(m,nm)} style={{cursor:"pointer",fontWeight:600,color:T.sub,padding:"0 2px"}}>ตอบกลับ</span>}{onDeleteMessage&&me&&!String(m.id).startsWith("tmp-")&&<MessageDeleteControl onDelete={async()=>{await onDeleteMessage(m.id);setMsgs(prev=>prev.filter(x=>x.id!==m.id));}}/>}</div>
               </div>
             </div>
           );
+          })();
+          // ป้ายคั่นวันแบบ LINE: ขึ้นเมื่อวันเปลี่ยน (และก่อนข้อความแรก) — ข้อความที่ยังส่งไม่เสร็จ (ไม่มีเวลา) นับเป็นวันนี้
+          const tm=x=>(x&&x.t&&x.t.toMillis?x.t.toMillis():0)||Date.now();
+          const dsep=(i===0||dayKeyBkk(tm(vis[i-1]))!==dayKeyBkk(tm(m)))
+            ?<div data-day-sep style={{alignSelf:"center",margin:"8px 0 4px",padding:"3px 14px",borderRadius:14,background:T.card,border:"1px solid "+T.borderHi,color:T.sub,fontSize:12,fontWeight:600}}>{dayLabel(tm(m))}</div>:null;
+          return <Fragment key={m.id}>{dsep}{node}</Fragment>;
         })}
         <div ref={endRef}/>
       </div>
@@ -2040,11 +2090,18 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
       {lock?<div data-dm-lock style={{padding:"12px 14px",borderTop:"1px solid "+T.border,background:T.surface,flexShrink:0,fontSize:13,color:T.sub,textAlign:"center"}}>{lock}</div>:
       <div style={{padding:"10px 12px",borderTop:"1px solid "+T.border,background:T.surface,flexShrink:0}}>
         <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];e.target.value="";if(!f)return;compressImage(f,900,0.6).then(setImg).catch(()=>setErr("อ่านรูปไม่ได้"));}}/>
+        {replyTo&&<div data-reply-bar style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",marginBottom:8,borderRadius:12,background:T.card,borderLeft:"3px solid "+T.brand2}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:700,color:T.brand2}}>ตอบกลับ {replyTo.name}</div>
+            <div style={{fontSize:12,color:T.sub,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{replyTo.text||(replyTo.img?"📷 รูปภาพ":"")}</div>
+          </div>
+          <button onClick={()=>setReplyTo(null)} aria-label="ยกเลิกการตอบกลับ" style={{width:24,height:24,borderRadius:"50%",border:"none",background:"rgba(255,255,255,.1)",color:T.sub,cursor:"pointer",fontSize:12,fontFamily:"inherit",flexShrink:0}}>✕</button>
+        </div>}
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <button onClick={()=>fileRef.current.click()} style={{width:36,height:36,borderRadius:"50%",border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:15,flexShrink:0,fontFamily:"inherit"}}>📷</button>
           {TEXTFX_ENABLED&&<MsgFxButton me={users[myUid]} value={msgFx} onChange={setMsgFx}/>}
           {giftTo&&!user.isGuest&&<button onClick={()=>setGiftOpen(true)} style={{width:36,height:36,borderRadius:"50%",border:"1px solid "+T.borderHi,background:T.brandA22,cursor:"pointer",fontSize:15,flexShrink:0,fontFamily:"inherit"}}>🎁</button>}
-          <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder}
+          <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder}
             style={{flex:1,minWidth:0,border:"1px solid "+T.border,borderRadius:20,padding:"9px 16px",fontSize:14,color:T.text,background:T.card,outline:"none",fontFamily:"inherit"}}
             onFocus={e=>e.target.style.borderColor=T.borderHi} onBlur={e=>e.target.style.borderColor=T.border}/>
           <button onClick={send} style={{width:38,height:38,borderRadius:"50%",background:T.brandGrad,border:"none",cursor:"pointer",color:"#fff",flexShrink:0,fontSize:17,fontFamily:"inherit"}}>↑</button>
@@ -3844,6 +3901,7 @@ export default function App(){
   const [giftDemo,setGiftDemo]=useState(()=>{try{return GIFT_DEMO_ENABLED&&GIFT_SHOW_ENABLED&&/[?&]giftdemo=1(&|$)/.test(window.location.search);}catch(e){return false;}}); // ?giftdemo=1 = หน้าดูตัวอย่างเอฟเฟกต์ของขวัญ
   const [demoFx,setDemoFx]=useState(null);
   const [demoEntry,setDemoEntry]=useState(null);
+  const [demoSound,setDemoSound]=useState(()=>sfx.isOn()); // สวิตช์เดียวกับปุ่ม "เสียงเอฟเฟกต์" ในห้องเสียง
   useEffect(()=>{if(giftDemo){preload3D();sfx.preload();}},[giftDemo]); // หน้าทดลอง: โหลด three + ไฟล์เสียงไว้ก่อน ภาพกับเสียงจะได้ตรงกันตั้งแต่ครั้งแรก
   // หน้าทดลอง: เล่นเอฟเฟกต์ของจริง (ของขวัญ หรือเอฟเฟกต์เข้าห้อง) — ไม่แตะเหรียญ/ฐานข้อมูล
   const playDemo=id=>{
@@ -3934,7 +3992,7 @@ export default function App(){
 
   const notif=usePostNotifs(posts,user);
   if(!authReady)return<div style={{minHeight:"100dvh",background:T.bg,color:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif"}}>💜 กำลังโหลด...</div>;
-  if(giftDemo)return<GiftShowDemo items={SHOW_DEMO_ITEMS} onPlay={playDemo} onClose={()=>{setDemoFx(null);setDemoEntry(null);setGiftDemo(false);}}><GiftFx fx={demoFx}/>{demoEntry&&<EntranceFx fx={demoEntry}/>}</GiftShowDemo>;
+  if(giftDemo)return<GiftShowDemo soundOn={demoSound} onToggleSound={()=>{const v=!demoSound;sfx.set(v);setDemoSound(v);if(v)sfx.preload();}} items={SHOW_DEMO_ITEMS} onPlay={playDemo} onClose={()=>{setDemoFx(null);setDemoEntry(null);setGiftDemo(false);}}><GiftFx fx={demoFx}/>{demoEntry&&<EntranceFx fx={demoEntry}/>}</GiftShowDemo>;
   if(!user)return<AuthPage onLogin={setUser}/>;
   if(user.needName)return<NamePrompt user={user} onDone={u=>{ls.set("user",u);setUser(u);}}/>;
   const openProfile=uid=>{ if(!uid)return; if(uid===getUid()){setPage("profile");return;} setViewUid(uid); };
