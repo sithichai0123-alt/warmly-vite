@@ -48,7 +48,8 @@ export default function GiftShowDemo({ items = [], onPlay, onClose, children }) 
   }, [auto]); // eslint-disable-line
 
   const playing = cur ? items.find(x => x.id === cur.id) : null;
-  const groups = [["ทอง 100 เหรียญขึ้นไป", items.filter(i => i.cur !== "purple")], ["เหรียญม่วง", items.filter(i => i.cur === "purple")]];
+  const G = { gold: "ทอง 100 เหรียญขึ้นไป", purple: "เหรียญม่วง", entrance: "เอฟเฟกต์เข้าห้อง" };
+  const groups = Object.keys(G).map(k => [G[k], items.filter(i => (i.group || (i.cur === "purple" ? "purple" : "gold")) === k)]);
 
   const row = it => {
     const on = cur && cur.id === it.id;
@@ -61,7 +62,7 @@ export default function GiftShowDemo({ items = [], onPlay, onClose, children }) 
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: "block", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.name}</span>
           <span style={{ display: "block", fontSize: 12, color: C.muted }}>
-            {it.cur === "purple" ? "💜 " : "🪙 "}{it.price} · ระดับ {it.tier} · {it.dur.toFixed(1)} วิ
+            {it.group === "entrance" ? "เอฟเฟกต์เข้าห้อง" : (it.cur === "purple" ? "💜 " : "🪙 ") + it.price + " · ระดับ " + it.tier} · {it.dur.toFixed(1)} วิ
           </span>
         </span>
         <Beats show={it} width={76} />
