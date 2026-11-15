@@ -1,6 +1,6 @@
 // Admin — หน้าต่างลบ/ระงับผู้ใช้ทั้งหมด (เฉพาะแอดมิน) · ทำงานผ่านเซิร์ฟเวอร์ ไม่ลบจากหน้าเว็บตรงๆ
 // ขั้นตอน: ดูว่าจะลบอะไรบ้าง → (แนะนำ) ระงับบัญชีก่อน → พิมพ์ยืนยัน 6 ตัวท้ายของ uid → ลบ
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { callAdmin } from "./fb.js";
 
 const C = { bg: "#0F0E17", card: "#221F33", surface: "#1A1825", border: "#2E2A45", borderHi: "#4F46A8",
@@ -19,13 +19,33 @@ const rowsOf = counts => {
 const btn = (bd, bg, col, off) => ({ border: "1px solid " + bd, background: bg, color: col, borderRadius: 20, padding: "8px 16px", fontSize: 13, fontWeight: 700,
   cursor: off ? "not-allowed" : "pointer", opacity: off ? .45 : 1, fontFamily: "inherit" });
 
+// กล่องลิงก์วิดีโอ + ปุ่มคัดลอกทั้งหมด (ไม่มี clipboard ก็แตะกล่องเพื่อเลือกทั้งหมดแล้วคัดลอกเอง)
+function LinkBox({ urls }) {
+  const ref = useRef(null), [ok, setOk] = useState(false);
+  const text = urls.join("\n");
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(text); setOk(true); setTimeout(() => setOk(false), 1800); }
+    catch (e) { if (ref.current) { ref.current.focus(); ref.current.select(); } }
+  };
+  return (
+    <div>
+      <textarea data-del-videos ref={ref} readOnly value={text} rows={Math.min(5, urls.length + 1)} onFocus={e => e.target.select()}
+        style={{ width: "100%", boxSizing: "border-box", border: "1px solid " + C.border, borderRadius: 10, padding: "8px 10px", fontSize: 11, background: C.surface, color: C.sub, outline: "none", resize: "vertical", fontFamily: "monospace" }} />
+      <button data-del-copy onClick={copy} style={{ ...btn(C.borderHi, "transparent", C.brand2), padding: "5px 12px", fontSize: 12, marginTop: 6 }}>{ok ? "คัดลอกแล้ว ✓" : "คัดลอกลิงก์ทั้งหมด"}</button>
+    </div>
+  );
+}
+
 export default function DeleteUser({ uid, name, onClose, onDeleted, api = callAdmin }) {
   const [plan, setPlan] = useState(null), [err, setErr] = useState(""), [busy, setBusy] = useState(false);
   const [txt, setTxt] = useState(""), [delAuth, setDelAuth] = useState(false), [done, setDone] = useState(null), [note, setNote] = useState("");
+  const [delVideos, setDelVideos] = useState(false), [vidInit, setVidInit] = useState(false);
   const word = uid.slice(-6);
 
   const load = () => api("plan", { uid }).then(p => { setPlan(p); setErr(""); }).catch(e => setErr(e.message));
   useEffect(() => { load(); }, [uid]); // eslint-disable-line
+  // ตั้งค่าเริ่มต้นครั้งเดียว: มี key ของ Cloudinary และมีวิดีโอ → ติ๊กลบวิดีโอให้ (ผู้ดูแลเอาออกได้)
+  useEffect(() => { if (plan && !vidInit) { setVidInit(true); setDelVideos(!!(plan.cloudinary && plan.cloudinary.configured && (plan.videos || []).length > 0)); } }, [plan]); // eslint-disable-line
 
   const run = async (fn, okMsg) => {
     setBusy(true); setErr(""); setNote("");
@@ -35,13 +55,15 @@ export default function DeleteUser({ uid, name, onClose, onDeleted, api = callAd
   const toggleDisable = () => run(() => api(plan.auth.disabled ? "enable" : "disable", { uid }), plan.auth.disabled ? "เปิดบัญชีคืนแล้ว" : "ระงับบัญชีแล้ว — เขาล็อกอินใหม่ไม่ได้ (เซสชันที่เปิดค้างจะหลุดภายในประมาณ 1 ชั่วโมง)");
   const doDelete = async () => {
     setBusy(true); setErr("");
-    try { const r = await api("delete", { uid, confirm: txt.trim(), deleteAuth: delAuth }); setDone(r); onDeleted && onDeleted(uid); }
+    try { const r = await api("delete", { uid, confirm: txt.trim(), deleteAuth: delAuth, deleteVideos: canDelVideos && delVideos }); setDone(r); onDeleted && onDeleted(uid); }
     catch (e) { setErr(e.message); }
     setBusy(false);
   };
 
   const rows = plan ? rowsOf(plan.counts) : [];
   const au = plan && plan.auth;
+  const vids = (plan && plan.videos) || [];
+  const canDelVideos = !!(plan && plan.cloudinary && plan.cloudinary.configured && vids.length > 0);
   return (
     <div data-del-modal onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,.72)", overflowY: "auto", padding: "16px 12px" }}>
       <div onClick={e => e.stopPropagation()} style={{ maxWidth: 520, margin: "0 auto", background: C.card, border: "1px solid " + C.borderHi, borderRadius: 18, padding: 16, color: C.text }}>
@@ -64,7 +86,14 @@ export default function DeleteUser({ uid, name, onClose, onDeleted, api = callAd
               {rowsOf(done.counts).map(([k, l, n]) => <div key={k}>• {l}: {n}</div>)}
               {done.kept && done.kept.ledger > 0 && <div style={{ marginTop: 4 }}>• ประวัติเหรียญ {done.kept.ledger} รายการ <b>เก็บไว้</b> (ไม่ลบ)</div>}
               <div>• บัญชีล็อกอิน: {done.authAction === "deleted" ? "ลบแล้ว" : "ยังอยู่ (ไม่ได้ติ๊กลบ)"}</div>
+              {done.videoResult && <div data-del-videos-done>• วิดีโอใน Cloudinary: ลบแล้ว {done.videoResult.deleted}{done.videoResult.notFound > 0 ? " (ไม่พบ " + done.videoResult.notFound + " ไฟล์ — น่าจะถูกลบไปก่อนแล้ว)" : ""}</div>}
             </div>
+            {!done.videoResult && (done.videos || []).length > 0 && (
+              <div data-del-videos-left style={{ marginTop: 10, padding: "9px 12px", borderRadius: 10, background: "rgba(244,63,94,.1)", border: "1px solid rgba(244,63,94,.35)", color: "#FCA5A5", fontSize: 12, lineHeight: 1.6 }}>
+                วิดีโอ {(done.videos || []).length} ไฟล์ <b>ยังค้างอยู่ใน Cloudinary</b> (ลิงก์ในโพสต์หายไปแล้ว) คัดลอกลิงก์นี้ไว้ แล้วค้นชื่อไฟล์ท้ายลิงก์ใน Media Library เพื่อลบเอง
+                <div style={{ marginTop: 8 }}><LinkBox urls={(done.videos || []).map(v => v.url)} /></div>
+              </div>
+            )}
             <div style={{ marginTop: 10, padding: "9px 12px", borderRadius: 10, background: "rgba(251,191,36,.1)", border: "1px solid rgba(251,191,36,.3)", color: C.yellow, fontSize: 12, lineHeight: 1.6 }}>
               ถ้าเขายังเปิดแอปค้างอยู่ แอปอาจสร้างโปรไฟล์ขึ้นใหม่ได้ ให้ระงับบัญชีแล้วกดลบอีกครั้งหลังผ่านไปประมาณ 1 ชั่วโมง
             </div>
@@ -88,6 +117,23 @@ export default function DeleteUser({ uid, name, onClose, onDeleted, api = callAd
               <div style={{ marginTop: 8 }}>
                 <button data-del-disable disabled={busy} onClick={toggleDisable} style={btn(C.borderHi, "transparent", C.brand2, busy)}>{au.disabled ? "▶ เปิดบัญชีคืน" : "⏸ ระงับบัญชี (แนะนำทำก่อน)"}</button>
                 <div style={{ fontSize: 12, color: C.muted, marginTop: 6, lineHeight: 1.6 }}>ระงับ = เขาล็อกอินไม่ได้ แต่ยังกู้คืนได้ · ลบบัญชีล็อกอินแล้ว คนที่ใช้ Google ล็อกอินใหม่ได้ ระบบจะสร้างบัญชีใหม่ให้</div>
+              </div>
+            )}
+
+            {vids.length > 0 && (
+              <div data-del-videos-section style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, letterSpacing: .5 }}>วิดีโอบน Cloudinary ({vids.length} ไฟล์)</div>
+                {canDelVideos ? (
+                  <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: C.sub, lineHeight: 1.5, cursor: "pointer", margin: "6px 0 8px" }}>
+                    <input data-del-videos-check type="checkbox" checked={delVideos} onChange={e => setDelVideos(e.target.checked)} style={{ marginTop: 3 }} />
+                    <span>ลบวิดีโอเหล่านี้ใน Cloudinary ด้วย <span style={{ color: C.muted }}>(กู้คืนไม่ได้ · ถ้าลบไม่สำเร็จ ระบบจะหยุดและยังไม่ลบข้อมูลอะไร)</span></span>
+                  </label>
+                ) : (
+                  <div data-del-videos-hint style={{ fontSize: 12, color: C.yellow, lineHeight: 1.6, margin: "6px 0 8px" }}>
+                    ยังไม่ได้ตั้ง CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET ใน Vercel จึงลบให้อัตโนมัติไม่ได้ — <b>คัดลอกลิงก์ไว้ก่อนกดลบ</b> (กดลบแล้วลิงก์ในโพสต์จะหาย) แล้วไปลบเองที่ Cloudinary
+                  </div>
+                )}
+                <LinkBox urls={vids.map(v => v.url)} />
               </div>
             )}
 

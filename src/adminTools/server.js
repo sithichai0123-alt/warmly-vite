@@ -6,8 +6,11 @@
 //  - ลบแอดมิน/ตัวเองไม่ได้ · ลบจริงต้องพิมพ์ยืนยัน (6 ตัวท้ายของ uid) ที่ส่งมาตรงกับเป้าหมาย
 //  - รายการที่ลบกำหนดตายตัวในไฟล์นี้ ไม่รับ path จากหน้าเว็บ
 //  - ไม่ลบ ledger (ประวัติเหรียญ เก็บไว้เป็นหลักฐาน) และไม่แก้ข้อมูลในโพสต์/ห้องของคนอื่น
+//  - วิดีโอบน Cloudinary: ลบเฉพาะไฟล์ในบัญชีของแอปที่อยู่ในโพสต์ของเป้าหมาย และลบ "ก่อน" ข้อมูลใน Firestore
+//    ถ้าลบที่ Cloudinary ไม่สำเร็จ = หยุดทั้งหมด ยังไม่แตะข้อมูลใดๆ (ลิงก์ยังอยู่ให้ลองใหม่ได้)
 //  - บันทึกทุกการกระทำลง adminLog (คอลเลกชันนี้ไม่มีกฎเปิด เฉพาะเซิร์ฟเวอร์เขียน/อ่านได้)
-import { validUid, isAdmin, isConfigured, targetIsAdmin, confirmWord } from "./logic.js";
+import { validUid, isAdmin, isConfigured, targetIsAdmin, confirmWord, collectVideos } from "./logic.js";
+import { deleteVideos } from "./cloudinary.js";
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 
@@ -34,7 +37,7 @@ async function authInfo(auth, uid) {
 }
 
 // นับว่าจะลบอะไรบ้าง (ไม่ลบจริง)
-export async function planDelete({ db }, uid) {
+export async function planDelete({ db }, uid, cloud) {
   const counts = {};
   const own = await db.getAll(...OWN_DOCS.map(n => db.collection(n).doc(uid)));
   OWN_DOCS.forEach((n, i) => { counts[n] = own[i].exists ? 1 : 0; });
@@ -51,12 +54,21 @@ export async function planDelete({ db }, uid) {
   }
   counts.dmMessages = messages;
   const ledger = await db.collection("ledger").where("uid", "==", uid).count().get();
-  return { counts, kept: { ledger: ledger.data().count } };
+  const posts = await db.collection("posts").where("authorUid", "==", uid).select("images").get();
+  const videos = collectVideos(posts.docs.map(d => d.data()), cloud);
+  return { counts, kept: { ledger: ledger.data().count }, videos };
 }
 
 // ลบจริง — คืนจำนวนที่ลบ (จากแผนที่นับไว้ก่อนลบ)
-export async function deleteUserData({ db }, uid) {
-  const plan = await planDelete({ db }, uid);
+// opts.cloudinary = { cloud, key?, secret?, fetchFn? } — cloud ใช้ระบุลิงก์วิดีโอของแอปเสมอ · ลบจริงต่อเมื่อ deleteVideos = true และมี key+secret
+export async function deleteUserData({ db }, uid, opts = {}) {
+  const cl = opts.cloudinary || null;
+  const plan = await planDelete({ db }, uid, cl && cl.cloud);
+  let videoResult = null;
+  if (opts.deleteVideos && cl && cl.key && cl.secret && plan.videos.length) {
+    try { videoResult = await deleteVideos(cl, plan.videos.map(v => v.publicId)); }
+    catch (e) { throw httpError(502, e.message + " — ยังไม่ได้ลบข้อมูลใดๆ ลองใหม่ หรือลบโดยไม่เลือกวิดีโอแล้วไปลบเองใน Cloudinary"); }
+  }
   const bw = db.bulkWriter();
   // 1) ข้อมูลที่ผูกกับคนนี้ ยกเว้นโปรไฟล์ (ไว้ลบท้ายสุด ถ้าพังกลางทางยังหาตัวเจอและกดซ้ำได้)
   for (const [name, col, field, op, recursive] of QUERIES) {
@@ -69,14 +81,14 @@ export async function deleteUserData({ db }, uid) {
   OWN_DOCS.filter(n => n !== "users").forEach(n => bw.delete(db.collection(n).doc(uid)));
   await bw.close();
   await db.collection("users").doc(uid).delete();              // ท้ายสุด
-  return plan;
+  return { ...plan, videoResult };
 }
 
 async function writeLog({ db, FieldValue }, entry) {
   try { await db.collection("adminLog").add({ ...entry, t: FieldValue.serverTimestamp() }); } catch (e) { /* บันทึกไม่ได้ไม่ควรทำให้งานหลักล้ม */ }
 }
 
-export function makeHandler(getAdmin, getConfig) {
+export function makeHandler(getAdmin, getConfig, getCloudinary = () => ({})) {
   return async function handler(req, res) {
     res.setHeader("Cache-Control", "no-store");
     if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
@@ -100,9 +112,10 @@ export function makeHandler(getAdmin, getConfig) {
       if (uid === decoded.uid || targetIsAdmin(uid, info.email, cfg)) return res.status(400).json({ error: "ลบ/ระงับบัญชีแอดมิน (รวมถึงตัวเอง) ไม่ได้" });
 
       if (action === "plan") {
-        const p = await planDelete(admin, uid);
+        const cl = getCloudinary() || {};
+        const p = await planDelete(admin, uid, cl.cloud);
         const u = await admin.db.collection("users").doc(uid).get();
-        return res.status(200).json({ ok: true, uid, name: (u.exists && (u.data() || {}).name) || "", auth: info, ...p });
+        return res.status(200).json({ ok: true, uid, name: (u.exists && (u.data() || {}).name) || "", auth: info, cloudinary: { configured: !!(cl.key && cl.secret) }, ...p });
       }
 
       if (action === "disable" || action === "enable") {
@@ -115,10 +128,13 @@ export function makeHandler(getAdmin, getConfig) {
 
       // delete
       if (body.confirm !== confirmWord(uid)) return res.status(400).json({ error: "คำยืนยันไม่ตรง (พิมพ์ 6 ตัวท้ายของ uid)" });
-      const plan = await deleteUserData(admin, uid);
+      const cl = getCloudinary() || {};
+      const wantVideos = body.deleteVideos === true;
+      if (wantVideos && !(cl.key && cl.secret)) return res.status(400).json({ error: "ยังไม่ได้ตั้งค่า CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET ใน Vercel (หรือเอาติ๊ก \"ลบวิดีโอใน Cloudinary\" ออก)" });
+      const plan = await deleteUserData(admin, uid, { cloudinary: cl, deleteVideos: wantVideos });
       let authAction = "none";
       if (body.deleteAuth === true && info.exists) { await admin.auth.deleteUser(uid); authAction = "deleted"; }
-      await writeLog(admin, { by: decoded.uid, action: "delete", target: uid, counts: plan.counts, authAction });
+      await writeLog(admin, { by: decoded.uid, action: "delete", target: uid, counts: plan.counts, authAction, videos: { found: plan.videos.length, deleted: plan.videoResult ? plan.videoResult.deleted : 0 } });
       return res.status(200).json({ ok: true, uid, ...plan, authAction });
     } catch (e) {
       const status = e && (e.code === 501 || e.status) ? (e.code === 501 ? 501 : e.status) : 500;
