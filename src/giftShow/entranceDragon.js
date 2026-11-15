@@ -1,64 +1,46 @@
-// Gift Show — เอฟเฟกต์เข้าห้อง "มังกรไฟ" ที่ใช้ตัวมังกรของของขวัญ (giftsPlus/dragon.js ไม่ถูกแก้เลย — ที่นี่แค่พาบิน)
+// Gift Show — เอฟเฟกต์เข้าห้อง "มังกรไฟ" ที่ใช้ตัวมังกรของของขวัญ (giftsPlus/dragon.js)
 // เสียงและความยาวเหมือนเดิม: public/sounds/entrance-dragon.mp3 · 5.2 วิ
 //
-// การบินแบบใหม่ (ปรับให้เป็นธรรมชาติและน่าเกรงขาม):
-//   0–1.5   โผล่จากที่ไกลด้านบนซ้าย ร่อนลงเข้าหาจอ ลำตัวขนานกับทิศที่บิน กระพือปีกหนัก ๆ
-//   1.5–3.3 โฉบผ่านหน้าจอแล้ววนโค้งกว้างกลับมา เห็นด้านข้างเต็มตัว ตัวเอียงเข้าโค้ง ปีกร่อน (กระพือช้าลง)
-//   3.3–3.6 บินตรงเข้าหาจอ ค่อย ๆ เชิดตัวยืนผงาด               ← เสียงคำรามเริ่ม (3.3)
-//   3.6–4.35 ยืนผงาดกลางจอ พุ่งเข้ามาพ่นไฟใส่จอ จอสั่น        ← เสียงคำรามพีค · ไฟแรงสุดที่ 3.8 วิ
-//   4.35–5.2 ทะยานขึ้นบินข้ามหัวผู้ชมออกด้านบนจอ (ไม่ต้องหันหลังกลับ)
+// ท่าใหม่: มังกรกระพือปีกบินตรงเข้าหาจอคนดู → เบรกลอยตัวหน้าจอ อ้าปาก → พ่นไฟใส่จอ → ทะยานขึ้นข้ามหัวออกไป
+//   0–2.7    โผล่จากที่ไกล กระพือปีกหนัก ๆ บินเข้าหาจอ ส่ายซ้ายขวาเป็นคลื่นเล็กน้อย (ตัวเอียงตามโค้ง)
+//            ← เสียงช่วงแรกดังต่อเนื่อง พีคราว 2.2–2.55 วิ
+//   2.7–3.3  เบรก ลอยตัวกลางจอ กระพือถี่ เงยหัวสูดลม ค่อย ๆ อ้าปาก (ยังไม่มีไฟ)   ← เสียงเบาลง (2.85–3.3)
+//   3.3–4.35 อ้าปากกว้าง พ่นไฟพุ่งใส่จอ โน้มตัวไปข้างหน้า จอสั่น               ← เสียงคำราม (3.35–4.35)
+//   4.35–5.2 หุบปาก ทะยานขึ้นบินข้ามหัวผู้ชมออกด้านบนจอ
 //
-// แก้จากรุ่นก่อน: (1) โมเดลมีการส่ายตัวเอง ±14° สำหรับโชว์ของขวัญ → ตัดทิ้งตอนบิน (เคยบินเฉียงเหมือนปู)
-//   (2) ท่าเดิมเงยตัว ~40° ตลอด → ตอนบินก้มลำตัวให้ขนานทิศบิน เงยเฉพาะตอนยืนผงาดพ่นไฟ
-//   (3) เส้นทางเป็นเส้นโค้งต่อเนื่อง (ไม่วนเป็นวงกลม) ทิศหัวตามทิศบินจริง เอียงตัวเข้าหาโค้งตามความเร็วการเลี้ยว
-// คืนค่ารูปแบบเดียวกับ build3DEntrance เดิมทุกอย่าง: { group, cam, light, update(t) }
+// คืนค่ารูปแบบเดียวกับเดิมทุกอย่าง: { group, cam, light, update(t) } → App.jsx ไม่ต้องแก้
 
 const BASE_DUR = 5.2;                   // ความยาวที่ออกแบบไว้ (ถ้าจริงต่างไป จะยืด/หดให้เองตามสัดส่วน)
 export const FACE_CAM = -Math.PI / 2;   // หัวมังกรอยู่ทาง +X ของโมเดล · หมุนรอบแกน Y −90° = หันเข้ากล้อง (+Z)
-const T_TURN = 3.2, T_SETTLE = 3.6, T_FIRE = 3.8, T_LEAVE = 4.35, T_GONE = 4.75;
-const ROAR_A = 3.3, ROAR_B = 4.35;   // ช่วงเสียงคำรามในไฟล์เสียง
+const T_TURN = 2.55, T_SETTLE = 2.95, T_LEAVE = 4.35, T_GONE = 4.75;   // ช่วง "หันหน้าเข้าจอเต็มที่"
+export const T_OPEN = 2.85, T_FIRE_ON = 3.3, T_FIRE_FULL = 3.45, T_FIRE_OFF = 4.3, T_FIRE_END = 4.6;
 const CRUISE_PITCH = -0.52;             // ก้มลำตัวให้ขนานทิศบิน (ท่าโมเดลเดิมเงยราว 30°)
 const BANK_GAIN = 0.3, BANK_MAX = 0.75; // เอียงเข้าโค้งตามความเร็วการเลี้ยว
 
-// ช่วงวนกลับ: ส่วนโค้งของวงกลมจริง (ศูนย์กลาง ARC_C รัศมี ARC_R) หมุนด้วยความเร็วคงที่ → เลี้ยวนุ่มสม่ำเสมอแบบสัตว์ตัวใหญ่
-//   เข้าโค้งที่มุม 135° (ทิศของวงตรงกับทิศที่บินเข้ามาพอดี → ไม่หักหัว) โฉบผ่านหน้าจอไปทางขวา วนไปด้านหลัง
-//   แล้วออกจากโค้งที่ −180° โดยหันหน้าเข้าหาจอพอดี · รวม 315° ใน 1.5 วิ = เลี้ยว 210°/วิ สม่ำเสมอ
-const ARC_C = [1.6, -2.6], ARC_R = 2.5, ARC_T0 = 1.85, ARC_T1 = 3.35, ARC_A0 = 135, ARC_A1 = -180;
-const arcKeys = () => {
-  const out = [], n = 10;
-  for (let i = 0; i <= n; i++) {
-    const t = ARC_T0 + (ARC_T1 - ARC_T0) * i / n, th = (ARC_A0 + (ARC_A1 - ARC_A0) * i / n) * Math.PI / 180;
-    const y = 1.25 + 0.75 * Math.sin(Math.PI * i / n);                       // ไต่ขึ้นเล็กน้อยตอนอยู่ด้านหลัง
-    out.push([+t.toFixed(3), ARC_C[0] + ARC_R * Math.cos(th), y, ARC_C[1] + ARC_R * Math.sin(th)]);
-  }
-  return out;
-};
 // จุดผ่าน [เวลา, x, y, z] — กล้องอยู่ที่ z≈+10.6 มองไปทาง −Z
 export const KEYS = [
-  [0.0, -10.0, 5.5, -26.0],
-  [0.8, -6.6, 3.4, -14.0],
-  [1.5, -2.6, 1.9, -4.0],
-  ...arcKeys(),              // 1.85–3.35 โฉบผ่านหน้าจอ แล้ววนโค้งกว้างกลับมา
-  [3.8, 0.0, 0.95, 1.0],     // บินตรงเข้าหาจอ แล้วพุ่งเข้าใกล้ขณะพ่นไฟ
-  [4.35, 0.1, 1.2, 0.3],
-  [4.8, 0.05, 3.4, 3.6],     // ทะยานขึ้นข้ามหัวผู้ชม
-  [5.2, 0.0, 6.8, 6.6],
+  [0.0, -2.5, 4.5, -32.0],   // จุดเล็ก ๆ ไกลลิบ
+  [1.0, 1.8, 3.4, -19.0],    // ส่ายเป็นคลื่นช้า ๆ ขณะบินเข้ามา
+  [2.0, -0.9, 2.0, -7.5],
+  [2.7, 0.0, 1.25, -0.8],    // เข้ามาใกล้จอ เริ่มเบรก
+  [3.3, 0.0, 1.05, 0.6],     // ลอยตัวหน้าจอ
+  [3.8, 0.0, 0.95, 2.0],     // โน้มเข้ามาพ่นไฟใส่จอ
+  [4.35, 0.0, 1.1, 1.7],
+  [4.8, 0.05, 3.4, 4.2],     // ทะยานขึ้นข้ามหัวผู้ชม
+  [5.2, 0.0, 6.8, 7.0],
 ];
 
 const clamp01 = x => (x < 0 ? 0 : x > 1 ? 1 : x);
 const smooth = x => { x = clamp01(x); return x * x * (3 - 2 * x); };
 const mix = (a, b, k) => a + (b - a) * k;
+const ramp = (ts, a, b) => smooth((ts - a) / (b - a));
 const wrap = d => { d %= Math.PI * 2; if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return d; };
 const mixAngle = (a, b, k) => a + wrap(b - a) * k;
 
 // ความชันของแต่ละจุด (Catmull-Rom แบบเวลาไม่เท่ากัน) → ความเร็วต่อเนื่อง ไม่กระตุกที่จุดผ่าน
-// จุดเข้าโค้งใช้ทิศสัมผัสของวงกลมจริง → ทางบินเลี้ยวทางเดียวต่อเนื่อง ไม่ส่ายเป็นตัว S ก่อนเข้าโค้ง
-const ARC_I0 = 3, ARC_W = (ARC_A1 - ARC_A0) * Math.PI / 180 / (ARC_T1 - ARC_T0);
 const TAN = KEYS.map((k, i) => {
   const a = KEYS[Math.max(0, i - 1)], b = KEYS[Math.min(KEYS.length - 1, i + 1)], dt = b[0] - a[0] || 1;
-  const t = [1, 2, 3].map(j => (b[j] - a[j]) / dt);
-  if (i === ARC_I0) { const th = ARC_A0 * Math.PI / 180; t[0] = -ARC_R * ARC_W * Math.sin(th); t[2] = ARC_R * ARC_W * Math.cos(th); }
-  return t;
+  return [1, 2, 3].map(j => (b[j] - a[j]) / dt);
 });
 // ตำแหน่ง + ความเร็ว ณ เวลา ts (Hermite)
 export function pathAt(ts) {
@@ -77,7 +59,7 @@ export function pathAt(ts) {
   }
   return { p, v };
 }
-// ทิศหัวตาม "ทิศบินเฉลี่ย" ช่วง ±0.3 วิ (ถ่วงน้ำหนักแบบระฆัง) → หัวหมุนเนียนต่อเนื่อง ไม่หักตามมุมของเส้นทาง
+// ทิศหัวตาม "ทิศบินเฉลี่ย" ช่วง ±0.3 วิ (ถ่วงน้ำหนักแบบระฆัง) → หัวหมุนเนียนต่อเนื่อง
 const SM_OFF = [-0.3, -0.25, -0.2, -0.15, -0.1, -0.05, 0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3];
 const SM_W = SM_OFF.map(d => Math.exp(-0.5 * (d / 0.13) * (d / 0.13)));
 const pathYaw = ts => {
@@ -87,18 +69,25 @@ const pathYaw = ts => {
 };
 
 // น้ำหนัก "หันหน้าเข้าจอ" 0..1
-export const faceWeight = ts => (ts < T_TURN ? 0 : ts < T_SETTLE ? smooth((ts - T_TURN) / (T_SETTLE - T_TURN)) : ts < T_LEAVE ? 1 : 1 - smooth((ts - T_LEAVE) / (T_GONE - T_LEAVE)));
+export const faceWeight = ts => (ts < T_TURN ? 0 : ts < T_SETTLE ? ramp(ts, T_TURN, T_SETTLE) : ts < T_LEAVE ? 1 : 1 - ramp(ts, T_LEAVE, T_GONE));
 
-// เวลาของตัวโมเดล (คุมความถี่กระพือปีก/จังหวะพ่นไฟ): ร่อนช่วงโฉบ = กระพือช้า · ยืนพ่นไฟ = กระพือแรง
-//   ไฟของโมเดลแรงสุดเมื่อ sin(τ·1.9 − 1) = 1 → τ = 1.3527 + 3.3069k → ตั้งให้ τ(3.8 วิ) ตกที่ยอดถัดไป (4.66)
-const RATE = [[0, 1.15], [1.6, 1.15], [1.9, 0.6], [2.6, 0.6], [2.95, 1.3], [5.2, 1.3]];
-const rateAt = ts => { for (let i = 0; i < RATE.length - 1; i++) { const [a, ra] = RATE[i], [b, rb] = RATE[i + 1]; if (ts <= b) return mix(ra, rb, smooth((ts - a) / (b - a))); } return RATE[RATE.length - 1][1]; };
-const integ = ts => { let s = 0; const n = Math.max(1, Math.ceil(ts / 0.01)), d = ts / n; for (let i = 0; i < n; i++) s += rateAt((i + .5) * d) * d; return s; };
-const FIRE_PEAK_TAU = (Math.PI / 2 + 1) / 1.9 + (2 * Math.PI / 1.9);   // ≈ 4.66
-const TAU0 = FIRE_PEAK_TAU - integ(T_FIRE);
-const TAU_TABLE = Array.from({ length: Math.round(BASE_DUR / 0.02) + 1 }, (_, i) => TAU0 + integ(i * 0.02));
-export const modelTime = ts => { const x = Math.min(Math.max(ts, 0), BASE_DUR) / 0.02, i = Math.floor(x), f = x - i; return i >= TAU_TABLE.length - 1 ? TAU_TABLE[TAU_TABLE.length - 1] : mix(TAU_TABLE[i], TAU_TABLE[i + 1], f); };
-export const breathAt = ts => 0.5 + 0.5 * Math.sin(modelTime(ts) * 1.9 - 1.0);
+// ปาก: ปิดตอนบินเข้ามา → ค่อย ๆ อ้า (สูดลม) → อ้ากว้างสุดตอนพ่นไฟ (สั่นนิด ๆ ตามแรงคำราม) → หุบ
+export const breathAt = ts => {
+  const open = 0.55 * ramp(ts, T_OPEN, T_FIRE_ON) + 0.7 * ramp(ts, T_FIRE_ON - 0.05, T_FIRE_FULL);
+  const flicker = 0.08 * Math.sin(ts * 23) * ramp(ts, T_FIRE_ON, T_FIRE_FULL);
+  return (open + flicker) * (1 - ramp(ts, T_FIRE_OFF, T_FIRE_END));
+};
+// ความแรงของไฟ 0..1: ไม่มีไฟเลยตอนบินเข้ามา · เต็มที่ช่วงเสียงคำราม
+export const fireAt = ts => ramp(ts, T_FIRE_ON - 0.02, T_FIRE_FULL) * (1 - ramp(ts, T_FIRE_OFF, T_FIRE_END));
+
+// ปีก: จังหวะกระพือ (เรเดียน/วิ) · บินเข้ามา = หนักและช้า (≈1 ครั้ง/วิ) · เบรกลอยตัว = ถี่ขึ้น · พ่นไฟ = กางค้างกระพือเบา
+const FLAP = [[0, 6.2, 0.78], [2.5, 6.2, 0.78], [2.9, 8.6, 0.85], [3.3, 8.6, 0.85], [3.5, 6.0, 0.5], [4.3, 6.0, 0.5], [4.6, 8.4, 0.9], [5.2, 8.4, 0.9]];
+const flapAt = (ts, j) => { for (let i = 0; i < FLAP.length - 1; i++) { const a = FLAP[i], b = FLAP[i + 1]; if (ts <= b[0]) return mix(a[j], b[j], smooth((ts - a[0]) / (b[0] - a[0]))); } return FLAP[FLAP.length - 1][j]; };
+const PHI_DT = 0.01, PHI_TABLE = [0];
+for (let i = 1; i <= Math.round(BASE_DUR / PHI_DT) + 1; i++) PHI_TABLE.push(PHI_TABLE[i - 1] + flapAt((i - .5) * PHI_DT, 1) * PHI_DT);
+const PHI0 = 1.2;                       // เริ่มที่ปีกกำลังยกขึ้น
+export const flapPhase = ts => { const x = Math.min(Math.max(ts, 0), BASE_DUR) / PHI_DT, i = Math.floor(x); return PHI0 + mix(PHI_TABLE[i], PHI_TABLE[i + 1], x - i); };
+export const flapAmp = ts => flapAt(Math.min(Math.max(ts, 0), BASE_DUR), 2);
 
 // ท่าทั้งหมด ณ เวลา ts: ตำแหน่ง · หัน (yaw) · ก้ม/เงย (pitch) · เอียง (bank)
 export function flightAt(ts) {
@@ -106,8 +95,10 @@ export function flightAt(ts) {
   const yaw = mixAngle(pathYaw(ts), FACE_CAM, F);
   const hs = Math.hypot(v[0], v[2]);
   const climb = Math.max(-0.45, Math.min(0.45, Math.atan2(v[1], Math.max(hs, 0.5)) * 0.7));
-  const lunge = Math.exp(-Math.pow((ts - T_FIRE) / 0.22, 2));          // โน้มตัวไปข้างหน้าตอนพ่นไฟ
-  const pitch = mix(CRUISE_PITCH + climb, 0.06 - 0.18 * lunge, F);       // ยืนผงาด = ท่าเงยของโมเดลเดิม
+  // ลอยตัวหน้าจอ: เงยหัวสูดลมก่อนพ่น (inhale) แล้วโน้มตัวพุ่งไปข้างหน้าตอนพ่นไฟ (lunge)
+  const inhale = ramp(ts, T_OPEN - 0.1, T_FIRE_ON - 0.05) * (1 - ramp(ts, T_FIRE_ON - 0.05, T_FIRE_FULL + 0.05));
+  const lunge = fireAt(ts);
+  const pitch = mix(CRUISE_PITCH + climb, 0.06 + 0.2 * inhale - 0.4 * lunge, F);   // พ่นไฟ = ก้มหัวเล็งตรงเข้ากล้อง
   // เอียงเข้าโค้ง: เลี้ยวซ้าย (yaw เพิ่ม) → ปีกซ้ายลง (bank ติดลบ) · เฉลี่ยช่วง ±0.12 วิ ให้นุ่ม
   const rate = wrap(pathYaw(Math.min(ts + 0.12, BASE_DUR)) - pathYaw(Math.max(ts - 0.12, 0))) / 0.24;
   const bank = Math.max(-BANK_MAX, Math.min(BANK_MAX, -rate * BANK_GAIN)) * (1 - F);
@@ -147,20 +138,53 @@ export function entranceDragonScene(T, durSec, buildDragon) {
   }
   const warm = new T.PointLight(0xff7a1a, 1.6, 26); g.add(warm);
 
+  // สายไฟพุ่งจากปากมาถึงหน้าจอ แผ่กว้างจนเต็มจอ (ไฟของตัวโมเดลสั้น มองตรง ๆ จะเห็นเป็นแท่งเล็ก)
+  const NS = 340, spos = new Float32Array(NS * 3), scol = new Float32Array(NS * 3);
+  const sgeo = new T.BufferGeometry();
+  sgeo.setAttribute("position", new T.BufferAttribute(spos, 3));
+  sgeo.setAttribute("color", new T.BufferAttribute(scol, 3));
+  const sMat = new T.PointsMaterial({ size: .55, transparent: true, depthWrite: false, blending: T.AdditiveBlending, vertexColors: true, map: emberTexture(T) });
+  const stream = new T.Points(sgeo, sMat); stream.frustumCulled = false; g.add(stream);
+  const ss = Array.from({ length: NS }, () => ({ a: rnd() * 6.283, rr: Math.sqrt(rnd()), sp: .8 + rnd() * .5, ph: rnd(), rise: rnd() * .5 }));
+  const TARGET = new T.Vector3(0, 0.9, 10.6), STREAM_RATE = 1.5;
+  // เล็งไปที่กล้องจริง (จอมือถือแนวตั้ง กล้องถอยไปไกลกว่าบนคอม) — อ่านตำแหน่งกล้องตอนวาดจากถ่านไฟที่แสดงตลอด
+  em.onBeforeRender = (r, sc, camera) => { if (camera && camera.position) { TARGET.copy(camera.position); g.worldToLocal(TARGET); } };
+  const M = new T.Vector3(), D = new T.Vector3(), U = new T.Vector3(), V = new T.Vector3(), Yup = new T.Vector3(0, 1, 0);
+
   const update = t => {
     const ts = Math.min(t / k, BASE_DUR), f = flightAt(ts);
     yawG.position.set(f.p[0], f.p[1], f.p[2]);
     yawG.rotation.y = f.yaw;
     pitchG.rotation.z = f.pitch;
     bankG.rotation.x = f.bank;
-    if (model.userData.update) model.userData.update(modelTime(ts));
+    const fire = fireAt(ts);
+    if (model.userData.update) model.userData.update(ts + 2, { phi: flapPhase(ts), flapAmp: flapAmp(ts), breath: breathAt(ts), fire });
     model.rotation.y = 0;                                  // ตัดการส่ายตัวเองของโมเดล (มีไว้สำหรับโชว์ของขวัญ)
+    // สายไฟ: ออกจากปาก เล็งไปทางกล้อง แต่ละอนุภาคแสดงตามความแรงไฟ "ตอนที่มันถูกพ่นออกมา" → หัวไฟวิ่งเข้าหาจอ หางไฟตามไปเมื่อหยุดพ่น
+    const live = fire > 0 || ts < T_FIRE_END + 1 / STREAM_RATE;
+    stream.visible = live && ts > T_FIRE_ON - 0.05;
+    if (stream.visible && model.userData.mouth) {
+      g.updateMatrixWorld(true);
+      M.copy(model.userData.mouth); model.localToWorld(M); g.worldToLocal(M);
+      D.copy(TARGET).sub(M); const L = Math.max(1, D.length() - 1.4); D.normalize();
+      U.crossVectors(D, Yup).normalize(); V.crossVectors(U, D).normalize();
+      for (let i = 0; i < NS; i++) {
+        const q = ss[i], rate = STREAM_RATE * q.sp, s = ((ts * rate + q.ph) % 1 + 1) % 1;
+        const born = fireAt(ts - s / rate), spread = q.rr * (0.06 + 2.6 * Math.pow(s, 1.6));
+        const ca = Math.cos(q.a + s * 2.2), sa = Math.sin(q.a + s * 2.2), d = s * L;
+        spos[i * 3] = M.x + D.x * d + (U.x * ca + V.x * sa) * spread;
+        spos[i * 3 + 1] = M.y + D.y * d + (U.y * ca + V.y * sa) * spread + s * s * q.rise;
+        spos[i * 3 + 2] = M.z + D.z * d + (U.z * ca + V.z * sa) * spread;
+        const heat = 1 - s, al = born * Math.pow(1 - s, .7) * Math.min(1, s * 14) * .85;
+        scol[i * 3] = al; scol[i * 3 + 1] = al * (.28 + .62 * heat * heat); scol[i * 3 + 2] = al * (.05 + .4 * heat * heat * heat);
+      }
+      sgeo.attributes.position.needsUpdate = true; sgeo.attributes.color.needsUpdate = true;
+    }
     // คำรามพ่นไฟ: จอสั่นเล็กน้อย + แสงส้มวูบตามไฟ
-    const roar = ts > ROAR_A && ts < ROAR_B ? Math.sin(Math.PI * (ts - ROAR_A) / (ROAR_B - ROAR_A)) : 0;
-    const shake = 0.07 * roar * breathAt(ts);
+    const shake = 0.07 * fire;
     g.position.set(Math.sin(t * 47) * shake, Math.sin(t * 61 + 1.3) * shake * 0.7, 0);
     warm.position.set(f.p[0], f.p[1] + .6, f.p[2] + 1.6);
-    warm.intensity = 1.0 + 3.2 * breathAt(ts) * (0.35 + 0.65 * f.face);
+    warm.intensity = 1.0 + 3.2 * fire * (0.35 + 0.65 * f.face);
     for (let i = 0; i < NE; i++) {
       const e = es[i];
       pos[i * 3] = e[0] + Math.sin(t * e[3] + e[2]) * .5;

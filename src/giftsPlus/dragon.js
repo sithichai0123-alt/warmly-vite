@@ -178,8 +178,12 @@ export function dragon(T) {
   // ───────────── ขยับทุกเฟรม ─────────────
   const hq = new T.Quaternion(), hm = new T.Matrix4(), tiltQ = new T.Quaternion(), headPos = new T.Vector3(), mouthW = new T.Vector3();
   const Dh = new T.Vector3(), Uh = new T.Vector3(), Vh = new T.Vector3();
-  g.userData.update = t => {
-    const phi = t * 3.3, fl = Math.sin(phi), flap = fl * .62 + .22;
+  g.userData.mouth = mouthW; g.userData.mouthDir = Dh;   // ตำแหน่ง/ทิศปาก (พิกัดของโมเดล) ให้เอฟเฟกต์ภายนอกอ่านได้ — อ่านอย่างเดียว
+  // o (ไม่บังคับ) ใช้โดยเอฟเฟกต์เข้าห้อง: { phi: จังหวะกระพือปีก, flapAmp: แรงกระพือ, breath: อ้าปาก 0..1.3, fire: ความแรงไฟ 0..1 }
+  // โชว์ของขวัญเรียก update(t) แบบเดิม → ทุกอย่างเหมือนเดิมทุกประการ
+  g.userData.update = (t, o) => {
+    const phi = o && o.phi != null ? o.phi : t * 3.3, fl = Math.sin(phi), flap = fl * (o && o.flapAmp != null ? o.flapAmp : .62) + .22;
+    const fireK = o && o.fire != null ? o.fire : 1;
     const lift = Math.sin(phi - .6) * .1;
     g.rotation.y = .38 + Math.sin(t * .55) * .24; g.position.y = lift * .5;
     const w = (i, x, y, z) => ctrl[i].set(x, y, z);
@@ -209,7 +213,7 @@ export function dragon(T) {
     // ใบหอกปลายหาง
     spade.position.copy(RP[0]); tmp.copy(RT[0]).negate(); spade.quaternion.setFromUnitVectors(new T.Vector3(1, 0, 0), tmp); spade.position.addScaledVector(tmp, .22);
     // หัว: ตามทิศคอ ก้มลงเล็กน้อย อ้าปากตามจังหวะพ่นไฟ
-    const ie = NR - 1, breath = .5 + .5 * Math.sin(t * 1.9 - 1.0);
+    const ie = NR - 1, breath = o && o.breath != null ? o.breath : .5 + .5 * Math.sin(t * 1.9 - 1.0);
     hm.makeBasis(RT[ie], RN[ie], RB[ie]); hq.setFromRotationMatrix(hm);
     tiltQ.setFromAxisAngle(Zv, -.62 + Math.sin(t * 1.1) * .06 - breath * .1); hq.multiply(tiltQ);
     headPos.copy(RP[ie]).addScaledVector(RT[ie], .05); head.position.copy(headPos); head.quaternion.copy(hq);
@@ -255,12 +259,12 @@ export function dragon(T) {
       fire.pos[i * 3] = mouthW.x + Dh.x * d + (Uh.x * ca2 + Vh.x * sa2) * spread;
       fire.pos[i * 3 + 1] = mouthW.y + Dh.y * d + (Uh.y * ca2 + Vh.y * sa2) * spread + s * s * f.rise;
       fire.pos[i * 3 + 2] = mouthW.z + Dh.z * d + (Uh.z * ca2 + Vh.z * sa2) * spread;
-      const heat = 1 - s, a = Math.pow(1 - s, .8) * (.25 + .75 * breath) * clamp(s * 9, 0, 1);
+      const heat = 1 - s, a = Math.pow(1 - s, .8) * (.25 + .75 * breath) * clamp(s * 9, 0, 1) * fireK;
       fire.col[i * 3] = a; fire.col[i * 3 + 1] = a * (.3 + .6 * heat * heat); fire.col[i * 3 + 2] = a * (.04 + .45 * heat * heat * heat);
     }
     fire.geo.attributes.position.needsUpdate = true; fire.geo.attributes.color.needsUpdate = true;
-    mouthGlow.position.copy(mouthW).addScaledVector(Dh, .25); const gs = 1.2 + 1.1 * breath; mouthGlow.scale.set(gs, gs, 1); mouthGlow.material.opacity = .25 + .5 * breath;
-    mouthLight.position.copy(mouthW).addScaledVector(Dh, .8); mouthLight.intensity = 1 + 2.2 * breath;
+    mouthGlow.position.copy(mouthW).addScaledVector(Dh, .25); const gs = 1.2 + 1.1 * breath; mouthGlow.scale.set(gs, gs, 1); mouthGlow.material.opacity = (.25 + .5 * breath) * fireK;
+    mouthLight.position.copy(mouthW).addScaledVector(Dh, .8); mouthLight.intensity = (1 + 2.2 * breath) * fireK;
   };
   g.userData.update(0);
   return g;
