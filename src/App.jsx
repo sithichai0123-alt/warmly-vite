@@ -7,7 +7,7 @@ import { useNow, useRoomHeartbeat, useRoomJanitor, roomExpired, roomCloseInMs, f
 import { TextFx, FxGallery, FxSettings, MsgFxButton, makeTextFxApi, resolveTextFx, resolveMessageFx, resolveTune, TEXTFX_ENABLED, TEXTFX_SERVER_PURCHASE } from "./textFx/index.js"; // ฟอนต์พิเศษ/เอฟเฟกต์ตัวอักษร (ปิดได้ที่ textFx/config.js)
 import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { makeChatCleanup } from "./chatCleanup/index.js"; // ลบข้อความเก่าเกิน 100 ในแชทรวม/แชทห้องเสียง (แยกไฟล์ — ปิดได้ที่ chatCleanup/config.js)
-import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, createMicGainController, applyYtVolume, applyYtVolumeWhenReady } from "./audioControls/index.js"; // ปรับเสียงไมค์/เพลงแยกกัน (แยกไฟล์ — ปิดได้ที่ audioControls/config.js)
+import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, createMicGainController, applyYtVolume, applyYtVolumeWhenReady, setMusicMuted } from "./audioControls/index.js"; // ปรับเสียงไมค์/เพลงแยกกัน (แยกไฟล์ — ปิดได้ที่ audioControls/config.js)
 import { ImageViewerProvider, useImageViewer } from "./imageViewer/index.js"; // ดูรูปเต็มจอ (แยกไฟล์ — ปิดได้ที่ imageViewer/config.js)
 import { PRESENCE_ENABLED, DOT_MIN_SIZE, PresenceProvider, PresenceDot, PresenceText, makePresenceApi, usePresencePrefs, setPresencePrefs, useIsOnline } from "./presence/index.js"; // สถานะออนไลน์ จุดเขียว/เทา (แยกไฟล์ — ปิดได้ที่ presence/config.js)
 import { CHAT_DELETE_ENABLED, makeChatDeleteApi, makeClientFallback, MessageDeleteControl } from "./chatDelete/index.js"; // ลบข้อความแชทส่วนตัว (ทีละข้อความ/ทั้งหมด) ผ่าน Backend — ปิดได้ที่ chatDelete/config.js
@@ -15,7 +15,8 @@ import { DM_UNREAD_ENABLED, DmUnreadProvider, useDmUnread, UnreadBadge, UnreadDo
 import { FRIENDS_ENABLED, makeFriendsApi, FriendsProvider, useFriends, FriendButton, FriendsPanel } from "./friends/index.js"; // ระบบเพื่อน — ปิดได้ที่ friends/config.js
 import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from "./roomInvite/index.js"; // เชิญเพื่อนเข้าห้องเสียง — ปิดได้ที่ roomInvite/config.js
 import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds, PLUS_MODELS } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
-import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
+import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession, detectPlatform } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
+import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, useRoomMusicKeeper } from "./roomMusic/index.js"; // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
 import { BannerStack, MemberMenu } from "./social/index.js"; // แถบแจ้งเตือน + เมนูแตะรูปสมาชิก (ชุดกลางของเฟส C)
 import { GIFT_SHOW_ENABLED, GIFT_DEMO_ENABLED, ENTRANCE_DRAGON_FROM_GIFT, GIFT_SOUND_FILE, SHOW_IDS, showFor, sampleShow, makeShowSounds, entranceDragonScene, GiftShowDemo } from "./giftShow/index.js"; // จังหวะการเคลื่อนไหวของของขวัญใหญ่ให้ตรงกับเสียง (ปิดได้ที่ giftShow/config.js)
@@ -704,7 +705,8 @@ function AuthPage({onLogin}){
 // YoutubePlaylist — Sync เวลาเพลงด้วย startedAt timestamp
 // Host กดเปิด → บันทึก nowPlaying + songStartedAt ใน Firebase
 // คนใหม่เข้ามา → คำนวณว่าเพลงเล่นไปแล้วกี่วินาที → ข้ามไปตรงนั้นเลย
-function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPlay,isHost}){
+// collapsed = ผู้ใช้ซ่อนแผงเพลง: ตัวเล่นยังอยู่ (ซ่อนไว้) และแสดงแถบเล็กแทน · onExpand = เปิดแผงกลับ
+function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPlay,isHost,collapsed=false,onExpand}){
   const [url,setUrl]=useState("");
   const [title,setTitle]=useState("");
   const [err,setErr]=useState("");
@@ -713,12 +715,16 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
   // ปรับเสียงเพลง (เฉพาะเครื่องนี้): ส่งคำสั่งเข้าตัวเล่น YouTube — ไม่กระทบเสียงพูดของใคร
   const ytRef=useRef(null);const ytCancel=useRef(null);
   const audioPrefs=useAudioPrefs();
-  const ytApi=AUDIO_CONTROLS_ENABLED?"&enablejsapi=1&origin="+encodeURIComponent(window.location.origin):"";
-  const onYtLoad=()=>{if(!AUDIO_CONTROLS_ENABLED)return;if(ytCancel.current)ytCancel.current();ytCancel.current=applyYtVolumeWhenReady(ytRef.current,getAudioPrefs);};
+  const ytApi=(AUDIO_CONTROLS_ENABLED||ROOM_MUSIC_BG_ENABLED)?"&enablejsapi=1&origin="+encodeURIComponent(window.location.origin):"";
+  const onYtLoad=()=>{if(ROOM_MUSIC_BG_ENABLED)music.onLoad();if(!AUDIO_CONTROLS_ENABLED)return;if(ytCancel.current)ytCancel.current();ytCancel.current=applyYtVolumeWhenReady(ytRef.current,getAudioPrefs);};
   useEffect(()=>{if(AUDIO_CONTROLS_ENABLED&&ytRef.current)applyYtVolume(ytRef.current,audioPrefs.music,audioPrefs.musicMuted);},[audioPrefs.music,audioPrefs.musicMuted]);
   useEffect(()=>()=>{if(ytCancel.current)ytCancel.current();},[]);
   const safeList=Array.isArray(playlist)?playlist:[];
   const currentSong=safeList.find(s=>s.id===nowPlaying);
+  // เพลงในห้องเล่นต่อให้ดีที่สุด (ปิดได้ที่ roomMusic/config.js) — เครื่องนี้กำลังเล่นอยู่ = Host หรือคนที่กดเข้าฟังแล้ว
+  const playingHere=!!currentSong&&(isHost||(joined&&!!seekSrc));
+  const music=useRoomMusicKeeper(ytRef,{active:ROOM_MUSIC_BG_ENABLED&&playingHere,songKey:isHost?(currentSong&&currentSong.id):seekSrc,startedAt:songStartedAt});
+  const isMobileDev=typeof navigator!=="undefined"&&detectPlatform(navigator.userAgent,navigator.maxTouchPoints)!=="desktop";
 
   // Reset joined state เมื่อเพลงเปลี่ยน
   useEffect(()=>{
@@ -759,18 +765,32 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
     return `${m}:${String(sec).padStart(2,"0")}`;
   }
 
+  if(collapsed&&!currentSong)return null;
   return(
-    <div style={{borderTop:"1px solid "+T.border,paddingTop:14,marginTop:14}}>
-      <div style={{fontSize:13,fontWeight:700,color:T.brand2,marginBottom:12,display:"flex",alignItems:"center",gap:7}}>
+    <div data-music-root style={collapsed?undefined:{borderTop:"1px solid "+T.border,paddingTop:14,marginTop:14}}>
+      {collapsed&&currentSong&&(
+        <div data-music-mini style={{display:"flex",alignItems:"center",gap:9,padding:"8px 10px",borderRadius:12,background:T.surface,border:"1px solid "+(music.needTap?"rgba(245,158,11,.5)":T.border)}}>
+          <img src={currentSong.thumb} alt="" style={{width:40,height:28,borderRadius:6,objectFit:"cover",flexShrink:0}} onError={e=>e.target.style.display="none"}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{currentSong.title}</div>
+            <div data-music-mini-status style={{fontSize:12,color:music.needTap?T.yellow:music.playing?T.green:T.muted}}>
+              {!playingHere?"ห้องกำลังเปิดเพลงนี้ · เปิดแผงเพื่อฟัง":music.needTap?"⏸ หยุดอยู่ · แตะ ฟังต่อ":music.playing?"🎵 เล่นอยู่ (ซ่อนแผงไว้)":"⏸ หยุดอยู่"}
+            </div>
+          </div>
+          {AUDIO_CONTROLS_ENABLED&&playingHere&&<button data-music-mini-mute onClick={()=>setMusicMuted(!audioPrefs.musicMuted)} aria-label={audioPrefs.musicMuted?"เปิดเสียงเพลง":"ปิดเสียงเพลง"} style={{width:34,height:34,flexShrink:0,borderRadius:"50%",border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:15,fontFamily:"inherit"}}>{audioPrefs.musicMuted?"🔇":"🔊"}</button>}
+          <button data-music-mini-open onClick={onExpand} style={{flexShrink:0,border:"1px solid "+T.borderHi,background:music.needTap||!playingHere?T.brand:"transparent",color:music.needTap||!playingHere?"#fff":T.brand2,borderRadius:20,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{music.needTap?"▶ ฟังต่อ":!playingHere?"▶ ฟัง":"เปิดแผง"}</button>
+        </div>
+      )}
+      {!collapsed&&<div style={{fontSize:13,fontWeight:700,color:T.brand2,marginBottom:12,display:"flex",alignItems:"center",gap:7}}>
         🎵 Playlist
         <span style={{fontSize:12,fontWeight:400,color:T.muted}}>({safeList.length})</span>
         {currentSong&&<span style={{fontSize:12,background:T.greenA33,color:T.green,borderRadius:20,padding:"2px 8px",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
           <span style={{width:5,height:5,borderRadius:"50%",background:T.green,display:"inline-block",animation:"pulse 1.5s infinite"}}/>LIVE
         </span>}
-      </div>
+      </div>}
 
       {/* Add song - Host only */}
-      {isHost&&(
+      {isHost&&!collapsed&&(
         <div style={{background:T.surface,border:"1px dashed "+T.border,borderRadius:14,padding:"12px 14px",marginBottom:12}}>
           <div style={{fontSize:12,color:T.muted,marginBottom:8}}>➕ เพิ่มจาก YouTube URL</div>
           <Input value={url} onChange={e=>{setUrl(e.target.value);setErr("");}} placeholder="https://youtube.com/watch?v=..." style={{marginBottom:7}}/>
@@ -782,7 +802,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
 
       {/* Now Playing */}
       {currentSong&&(
-        <div style={{marginBottom:14,borderRadius:14,overflow:"hidden",border:"1px solid "+T.borderHi}}>
+        <div data-music-player style={{marginBottom:14,borderRadius:14,overflow:"hidden",border:"1px solid "+T.borderHi,display:collapsed?"none":"block"}}>
           {/* Header */}
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"linear-gradient(90deg,"+T.brandA44+","+T.brand2A22+")"}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -799,6 +819,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
             {isHost&&<button onClick={()=>onPlay(null)} style={{background:T.redBg,border:"1px solid rgba(244,63,94,.3)",color:T.red,cursor:"pointer",fontSize:12,padding:"4px 10px",borderRadius:8,fontFamily:"inherit",fontWeight:600}}>⏹ หยุด</button>}
           </div>
 
+          {music.needTap&&<div data-music-tap style={{padding:"8px 14px",background:"rgba(245,158,11,.12)",borderBottom:"1px solid rgba(245,158,11,.35)",color:T.yellow,fontSize:12,lineHeight:1.5}}>⏸ เพลงหยุดตอนคุณออกจากแอป — แตะ ▶ บนวิดีโอ แล้วระบบจะข้ามไปตรงที่ห้องกำลังเล่นให้</div>}
           {/* Player */}
           {isHost?(
             // Host เล่นตั้งแต่ต้น
@@ -835,17 +856,25 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
               <div style={{fontSize:12,color:T.muted,marginTop:8}}>เพลงจะเริ่มตรงที่กำลังเล่นอยู่ทันที</div>
             </div>
           )}
+          {ROOM_MUSIC_BG_ENABLED&&playingHere&&(music.wakeSupported||isMobileDev)&&(
+            <div data-music-bg style={{padding:"8px 12px",background:T.surface,borderTop:"1px solid "+T.border}}>
+              {music.wakeSupported&&<button data-music-wake onClick={()=>music.setWakePref(!music.wakePref)} style={{border:"1px solid "+(music.wakePref?T.borderHi:T.border),background:music.wakePref?T.brandA22:"transparent",color:music.wakePref?T.brand2:T.muted,borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                {music.wakePref?(music.wakeHeld?"🔆 จอไม่ดับระหว่างเล่น · เปิดอยู่":"🔆 จอไม่ดับระหว่างเล่น · เปิด"):"🔅 จอไม่ดับระหว่างเล่น · ปิด"}
+              </button>}
+              {isMobileDev&&<div style={{fontSize:12,color:T.muted,marginTop:music.wakeSupported?6:0,lineHeight:1.5}}>สลับแอปหรือล็อกจอ YouTube จะหยุดเอง (ข้อจำกัดของ YouTube) กลับมาแล้วจะเล่นต่อตรงที่ห้องเล่นอยู่ให้อัตโนมัติ</div>}
+            </div>
+          )}
         </div>
       )}
 
-      {safeList.length===0&&(
+      {!collapsed&&safeList.length===0&&(
         <div style={{textAlign:"center",padding:"16px 0",color:T.muted,fontSize:13}}>
           {isHost?"วาง YouTube URL ด้านบนเพื่อเพิ่มเพลง 🎵":"Host ยังไม่ได้เพิ่มเพลง"}
         </div>
       )}
 
       {/* Playlist items */}
-      <div style={{display:"flex",flexDirection:"column",gap:7}}>
+      {!collapsed&&<div style={{display:"flex",flexDirection:"column",gap:7}}>
         {safeList.map((s,i)=>{
           const isPlaying=nowPlaying===s.id;
           return(
@@ -867,7 +896,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
             </div>
           );
         })}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -1457,7 +1486,8 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
             </div>
           </div>
           {AUDIO_CONTROLS_ENABLED&&audioOpen&&<div style={{padding:"0 16px 12px"}}><AudioControls micOn={micOn} onToggleMic={duckActive?()=>{}:toggleMic} connected={connected} hasMusic={!!inRoom.nowPlaying}/></div>}
-          {showPL&&<div style={{padding:"0 16px 16px"}}><YoutubePlaylist playlist={inRoom.playlist} nowPlaying={inRoom.nowPlaying||null} songStartedAt={inRoom.songStartedAt||null} onAdd={addSong} onRemove={removeSong} onPlay={playSong} isHost={isHost}/></div>}
+          {/* ซ่อนแผงเพลงแล้วตัวเล่นยังอยู่ (เพลงเล่นต่อ) และแสดงแถบเล็กแทน — ปิดได้ที่ roomMusic/config.js */}
+          {(showPL||(ROOM_MUSIC_BG_ENABLED&&KEEP_PLAYER_WHEN_COLLAPSED&&!!inRoom.nowPlaying))&&<div style={{padding:showPL?"0 16px 16px":"0 16px 12px"}}><YoutubePlaylist playlist={inRoom.playlist} nowPlaying={inRoom.nowPlaying||null} songStartedAt={inRoom.songStartedAt||null} onAdd={addSong} onRemove={removeSong} onPlay={playSong} isHost={isHost} collapsed={!showPL} onExpand={()=>setShowPL(true)}/></div>}
           <div style={{padding:"0 16px 16px",borderTop:"1px solid "+T.border}}><RoomChat roomId={inRoomId} user={user} onGift={(gid,d)=>pushRoomGift(gid,d)}/></div>
         </Card>
         </div>

@@ -120,7 +120,7 @@ export function BackgroundAudioPanel({ onClose }) {
         <Row ok={st.mediaSession} label="ชื่อห้อง/ปุ่มบนหน้าจอล็อก" hint={st.mediaSession ? "ปุ่มหยุด = ปิดไมค์ (ไม่ออกจากห้อง)" : "เบราว์เซอร์นี้ไม่รองรับ"} />
         <Row ok={wlSupported ? (prefs.wake ? st.wakeLock : null) : false} label="กันจอดับขณะอยู่ในห้อง" hint={wlSupported ? (prefs.wake ? (st.wakeLock ? "ทำงานอยู่" : "ขอไม่สำเร็จ (อาจเปิดโหมดประหยัดแบต)") : "ปิดอยู่") : "เครื่องนี้ไม่รองรับ"} />
         {wlSupported && <button type="button" data-bg-wake onClick={() => setBgPrefs({ wake: !prefs.wake })} style={{ marginTop: 8, width: "100%", border: "1px solid " + C.borderHi, background: prefs.wake ? C.brand : "transparent", color: prefs.wake ? "#fff" : C.text, borderRadius: 10, padding: "10px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{prefs.wake ? "🔆 กันจอดับ: เปิดอยู่ (แตะเพื่อปิด)" : "🔅 เปิดกันจอดับ (กินแบตมากขึ้น)"}</button>}
-        <div style={{ fontSize:12, color: C.sub, marginTop: 12, lineHeight: 1.5 }}>ถ้าระบบตัดการเชื่อมต่อตอนอยู่เบื้องหลัง แอปจะเชื่อมต่อห้องให้ใหม่เมื่อคุณกลับมา (ไมค์ที่ปิดไว้จะยังปิดอยู่) เพลง YouTube ที่ฝังในห้องอาจหยุดเมื่ออยู่เบื้องหลังตามข้อจำกัดของเบราว์เซอร์ ถ้าเงียบหลังกลับมาให้กดเล่นเพลงใหม่</div>
+        <div style={{ fontSize:12, color: C.sub, marginTop: 12, lineHeight: 1.5 }}>ถ้าระบบตัดการเชื่อมต่อตอนอยู่เบื้องหลัง แอปจะเชื่อมต่อห้องให้ใหม่เมื่อคุณกลับมา (ไมค์ที่ปิดไว้จะยังปิดอยู่) เพลง/วิดีโอ YouTube ในห้อง: บนมือถือ YouTube จะหยุดเองเมื่อสลับแอปหรือล็อกจอ (YouTube สงวนการเล่นเบื้องหลังไว้ให้ YouTube Premium) เมื่อกลับมา แอปจะเล่นต่อให้ตรงกับที่ห้องกำลังเล่นอยู่ และระหว่างเพลงเล่น จอจะไม่ดับเอง (ปิดได้ที่ใต้ตัวเล่นเพลง)</div>
       </div>
     </div>
   );
