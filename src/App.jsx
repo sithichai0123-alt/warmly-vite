@@ -16,7 +16,7 @@ import { FRIENDS_ENABLED, makeFriendsApi, FriendsProvider, useFriends, FriendBut
 import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from "./roomInvite/index.js"; // เชิญเพื่อนเข้าห้องเสียง — ปิดได้ที่ roomInvite/config.js
 import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds, PLUS_MODELS } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
 import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession, detectPlatform, BG_PANEL_ENABLED } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
-import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, useRoomMusicKeeper } from "./roomMusic/index.js";
+import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, AUTO_JOIN_MUSIC, useRoomMusicKeeper } from "./roomMusic/index.js";
 import { ROOM_ACTIONS_GRID_ENABLED, ROOM_MEMBERS_COLLAPSE_ENABLED, MEMBERS_VISIBLE_ROWS, RoomActions, CollapsibleMembers } from "./roomUi/index.js";
 import { ROOM_STAGE_ENABLED, STAGE_MAX, COHOST_MAX, keyOf as stageKey, roleOf as stageRole, cohostsOf, stageView, canModerate, canManageCohosts, joinEntry, takeSeat, leaveSeat, setHand, setMicAllowed, setCohost, RoleBadge, StageHeader, EmptySeat, RequestsPanel, ListenerStatus } from "./roomStage/index.js"; // ห้องแบบเวที 7 คน + เจ้าของ👑/รอง🛡️ + ผู้ฟังขอพูด — ปิดได้ที่ roomStage/config.js // ห้องคุยกระชับ: ปุ่มแถวเดียว + รายชื่อพับได้ — ปิดได้ที่ roomUi/config.js // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
@@ -733,13 +733,18 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
     setJoined(false);
     setSeekSrc(null);
   },[nowPlaying]);
+  // คนในห้องฟังเพลงที่เจ้าของห้องเปิดได้เลย ไม่ต้องกด "เข้าฟัง" (รวมทุกครั้งที่เพลงเปลี่ยน) — ปิดได้ที่ roomMusic/config.js
+  useEffect(()=>{
+    if(ROOM_MUSIC_BG_ENABLED&&AUTO_JOIN_MUSIC&&!isHost&&nowPlaying&&!joined)handleJoin();
+  },[nowPlaying,joined,isHost]); // eslint-disable-line
 
   // คำนวณ embed URL พร้อม start time (seconds ที่เพลงเล่นไปแล้ว)
   function getSeekUrl(songId){
-    if(!songStartedAt)return `https://www.youtube.com/embed/${songId}?autoplay=1&rel=0&modestbranding=1${ytApi}`;
+    const mute=AUDIO_CONTROLS_ENABLED&&ROOM_MUSIC_BG_ENABLED&&getAudioPrefs().musicMuted?"&mute=1":"";
+    if(!songStartedAt)return `https://www.youtube.com/embed/${songId}?autoplay=1&rel=0&modestbranding=1${mute}${ytApi}`;
     const elapsed=Math.floor((Date.now()-songStartedAt)/1000);
     const start=Math.max(0,elapsed);
-    return `https://www.youtube.com/embed/${songId}?autoplay=1&start=${start}&rel=0&modestbranding=1${ytApi}`;
+    return `https://www.youtube.com/embed/${songId}?autoplay=1&start=${start}&rel=0&modestbranding=1${mute}${ytApi}`;
   }
 
   function handleJoin(){
@@ -776,11 +781,11 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:13,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{currentSong.title}</div>
             <div data-music-mini-status style={{fontSize:12,color:music.needTap?T.yellow:music.playing?T.green:T.muted}}>
-              {!playingHere?"ห้องกำลังเปิดเพลงนี้ · เปิดแผงเพื่อฟัง":music.needTap?"⏸ หยุดอยู่ · แตะ ฟังต่อ":music.playing?"🎵 เล่นอยู่ (ซ่อนแผงไว้)":"⏸ หยุดอยู่"}
+              {!playingHere?"ห้องกำลังเปิดเพลงนี้ · เปิดแผงเพื่อฟัง":music.needTap?(music.tapReason==="autoplay"?"▶ แตะเพื่อเริ่มฟัง":"⏸ หยุดอยู่ · แตะ ฟังต่อ"):music.playing?"🎵 เล่นอยู่ (ซ่อนแผงไว้)":"⏸ หยุดอยู่"}
             </div>
           </div>
           {AUDIO_CONTROLS_ENABLED&&playingHere&&<button data-music-mini-mute onClick={()=>setMusicMuted(!audioPrefs.musicMuted)} aria-label={audioPrefs.musicMuted?"เปิดเสียงเพลง":"ปิดเสียงเพลง"} style={{width:34,height:34,flexShrink:0,borderRadius:"50%",border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:15,fontFamily:"inherit"}}>{audioPrefs.musicMuted?"🔇":"🔊"}</button>}
-          <button data-music-mini-open onClick={onExpand} style={{flexShrink:0,border:"1px solid "+T.borderHi,background:music.needTap||!playingHere?T.brand:"transparent",color:music.needTap||!playingHere?"#fff":T.brand2,borderRadius:20,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{music.needTap?"▶ ฟังต่อ":!playingHere?"▶ ฟัง":"เปิดแผง"}</button>
+          <button data-music-mini-open onClick={onExpand} style={{flexShrink:0,border:"1px solid "+T.borderHi,background:music.needTap||!playingHere?T.brand:"transparent",color:music.needTap||!playingHere?"#fff":T.brand2,borderRadius:20,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{music.needTap?(music.tapReason==="autoplay"?"▶ ฟัง":"▶ ฟังต่อ"):!playingHere?"▶ ฟัง":"เปิดแผง"}</button>
         </div>
       )}
       {!collapsed&&<div style={{fontSize:13,fontWeight:700,color:T.brand2,marginBottom:12,display:"flex",alignItems:"center",gap:7}}>
@@ -821,7 +826,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
             {isHost&&<button onClick={()=>onPlay(null)} style={{background:T.redBg,border:"1px solid rgba(244,63,94,.3)",color:T.red,cursor:"pointer",fontSize:12,padding:"4px 10px",borderRadius:8,fontFamily:"inherit",fontWeight:600}}>⏹ หยุด</button>}
           </div>
 
-          {music.needTap&&<div data-music-tap style={{padding:"8px 14px",background:"rgba(245,158,11,.12)",borderBottom:"1px solid rgba(245,158,11,.35)",color:T.yellow,fontSize:12,lineHeight:1.5}}>⏸ เพลงหยุดตอนคุณออกจากแอป — แตะ ▶ บนวิดีโอ แล้วระบบจะข้ามไปตรงที่ห้องกำลังเล่นให้</div>}
+          {music.needTap&&<div data-music-tap style={{padding:"8px 14px",background:"rgba(245,158,11,.12)",borderBottom:"1px solid rgba(245,158,11,.35)",color:T.yellow,fontSize:12,lineHeight:1.5}}>{music.tapReason==="autoplay"?"▶ เครื่องนี้ไม่ให้เปิดเสียงเอง — แตะ ▶ บนวิดีโอ 1 ครั้ง แล้วระบบจะข้ามไปตรงที่ห้องกำลังเล่นให้":"⏸ เพลงหยุดตอนคุณออกจากแอป — แตะ ▶ บนวิดีโอ แล้วระบบจะข้ามไปตรงที่ห้องกำลังเล่นให้"}</div>}
           {/* Player */}
           {isHost?(
             // Host เล่นตั้งแต่ต้น
