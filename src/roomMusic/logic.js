@@ -65,6 +65,14 @@ export function planReturn({ playingAtHide, state, startedAt, now, duration = 0 
   return { action: "resume", at };
 }
 
+// เริ่มเล่นแล้ว ตัวเล่นช้ากว่าห้องเกิน tolerance (เพราะเวลาโหลดวิดีโอ) → คืนวินาทีที่ควรข้ามไป · ไม่ต้องข้าม = null
+export function initialSyncAt({ startedAt, now, time, duration = 0, tolerance = 3 }) {
+  const live = liveSeconds(startedAt, now);
+  if (live == null || typeof time !== "number" || !Number.isFinite(time)) return null;
+  if (duration > 0 && live >= duration - 1) return null;          // เพลงของห้องจบแล้ว
+  return Math.abs(live - time) > tolerance ? live : null;
+}
+
 // กันจอดับเมื่อ: ผู้ใช้เปิดตัวเลือกไว้ + เพลงกำลังเล่น + หน้าแอปแสดงอยู่ (ระบบปล่อยล็อกเองเมื่อซ่อนหน้า)
 export const shouldHoldWake = ({ pref, playing, visible }) => !!pref && !!playing && !!visible;
 
