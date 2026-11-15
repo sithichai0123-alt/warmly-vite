@@ -16,7 +16,8 @@ import { FRIENDS_ENABLED, makeFriendsApi, FriendsProvider, useFriends, FriendBut
 import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from "./roomInvite/index.js"; // เชิญเพื่อนเข้าห้องเสียง — ปิดได้ที่ roomInvite/config.js
 import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds, PLUS_MODELS } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
 import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession, detectPlatform, BG_PANEL_ENABLED } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
-import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, useRoomMusicKeeper } from "./roomMusic/index.js"; // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
+import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, useRoomMusicKeeper } from "./roomMusic/index.js";
+import { ROOM_ACTIONS_GRID_ENABLED, RoomActions } from "./roomUi/index.js"; // ปุ่มห้องคุยแบบตารางเท่ากันทุกช่อง — ปิดได้ที่ roomUi/config.js // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
 import { BannerStack, MemberMenu } from "./social/index.js"; // แถบแจ้งเตือน + เมนูแตะรูปสมาชิก (ชุดกลางของเฟส C)
 import { GIFT_SHOW_ENABLED, GIFT_DEMO_ENABLED, ENTRANCE_DRAGON_FROM_GIFT, GIFT_SOUND_FILE, SHOW_IDS, showFor, sampleShow, makeShowSounds, entranceDragonScene, GiftShowDemo } from "./giftShow/index.js"; // จังหวะการเคลื่อนไหวของของขวัญใหญ่ให้ตรงกับเสียง (ปิดได้ที่ giftShow/config.js)
@@ -1413,6 +1414,18 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
               <Btn onClick={leave} v="danger" sz="sm" style={{flexShrink:0}}>ออกจากห้อง</Btn>
             </div>
 
+            {ROOM_ACTIONS_GRID_ENABLED?(
+              /* ปุ่มทั้งหมดของห้อง: ตารางเดียว ทุกช่องขนาดเท่ากัน (roomUi/RoomActions.jsx) */
+              <RoomActions T={T} items={[
+                {k:"mic",ic:micOn?"🎙️":"🔇",l:micOn?"ไมค์":"ไมค์ปิด",tone:micOn?"primary":"warn",fn:onMicClick},
+                {k:"music",ic:"🎵",l:"เพลง",tone:showPL?"on":"idle",dot:!!inRoom.nowPlaying,fn:()=>setShowPL(!showPL)},
+                {k:"invite",ic:"➕",l:"เชิญ",tone:"idle",fn:()=>setInviteOpen(true),show:ROOM_INVITE_ENABLED&&FRIENDS_ENABLED&&!user.isGuest},
+                {k:"snd",ic:soundOn?"🔊":"🔇",l:soundOn?"เสียงเอฟเฟกต์":"ปิดเสียงอยู่",tone:soundOn?"idle":"warn",fn:()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);if(v)sfx.preload();}},
+                {k:"mix",ic:"🎚️",l:"ระดับเสียง",tone:audioOpen?"on":"idle",fn:()=>setAudioOpen(o=>!o),show:AUDIO_CONTROLS_ENABLED},
+                {k:"bg",ic:"🌙",l:"เสียงพื้นหลัง",tone:"idle",fn:()=>setBgOpen(true),show:BACKGROUND_AUDIO_ENABLED&&BG_PANEL_ENABLED,attrs:{"data-bg-open":true}},
+                {k:"aura",ic:"✨",l:"ออร่าเสียง",tone:"idle",fn:()=>setAuraOpen(true),show:VOICE_AURA_ENABLED&&!user.isGuest},
+              ]}/>
+            ):(<>
             {/* ปุ่มหลัก: เท่ากันทุกปุ่ม */}
             <div style={{display:"flex",gap:8,marginBottom:10}}>
               <Btn onClick={onMicClick} v={micOn?"primary":"danger"} sz="sm" style={{flex:1,padding:"8px 4px",fontSize:13,whiteSpace:"nowrap"}}>{micOn?"🎙️ ไมค์":"🔇 ไมค์"}</Btn>
@@ -1434,6 +1447,8 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                 </button>
               ))}
             </div>
+
+            </>)}
 
             {(inRoom.members||[]).length>1&&<div style={{fontSize:12,color:T.muted,marginBottom:12,lineHeight:1.6}}>
               👆 {user.isGuest?"แตะรูปสมาชิกเพื่อส่งของขวัญ":"แตะรูปสมาชิกเพื่อดูเมนู"}{isHost?" • 🚫 = เตะออก":""}
