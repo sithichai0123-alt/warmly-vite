@@ -4,7 +4,7 @@ import { createKeepAlive } from "./keepAlive.js";
 import { createMediaSession } from "./mediaSession.js";
 import { createWakeLock } from "./wakeLock.js";
 import { planResume, pruneTries, mediaTitle, detectPlatform, platformNotice } from "./logic.js";
-import { REJOIN_RETRY_MS } from "./config.js";
+import { REJOIN_RETRY_MS, BG_PANEL_ENABLED } from "./config.js";
 import { useSessions, useBgPrefs, useBgStatus, setBgPrefs, setBgStatus, getBgStatus } from "./store.js";
 
 // ตัวดูแลเสียงเบื้องหลัง: ไม่แสดงอะไรบนจอ ทำงานเมื่อมีห้องเสียง (หรือสายส่วนตัว) ที่ผู้ใช้อยู่เท่านั้น
@@ -64,9 +64,9 @@ export function BackgroundAudioKeeper({ callActive = false }) {
     return () => { off = true; window.removeEventListener("pointerdown", retry); ka.stop(); kaRef.current = null; ms.clear(); setBgStatus({ keepAlive: false, mediaSession: false }); };
   }, [active, title]); // eslint-disable-line
 
-  // กันจอดับ (เฉพาะเมื่อผู้ใช้เปิดเอง)
+  // กันจอดับ (เฉพาะเมื่อผู้ใช้เปิดเองในแผง 🌙 — ซ่อนแผงแล้ว = ไม่ทำงาน กันค้างเปิดถาวรโดยไม่มีที่ปิด)
   useEffect(() => {
-    if (!active || !prefs.wake) { setBgStatus({ wakeLock: false }); return undefined; }
+    if (!active || !prefs.wake || !BG_PANEL_ENABLED) { setBgStatus({ wakeLock: false }); return undefined; }
     const wl = createWakeLock(navigator, document);
     wl.enable().then(() => setBgStatus({ wakeLock: wl.isHeld() }));
     return () => { wl.disable(); setBgStatus({ wakeLock: false }); };

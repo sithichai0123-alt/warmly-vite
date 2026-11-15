@@ -15,7 +15,7 @@ import { DM_UNREAD_ENABLED, DmUnreadProvider, useDmUnread, UnreadBadge, UnreadDo
 import { FRIENDS_ENABLED, makeFriendsApi, FriendsProvider, useFriends, FriendButton, FriendsPanel } from "./friends/index.js"; // ระบบเพื่อน — ปิดได้ที่ friends/config.js
 import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from "./roomInvite/index.js"; // เชิญเพื่อนเข้าห้องเสียง — ปิดได้ที่ roomInvite/config.js
 import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds, PLUS_MODELS } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
-import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession, detectPlatform } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
+import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession, detectPlatform, BG_PANEL_ENABLED } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
 import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, useRoomMusicKeeper } from "./roomMusic/index.js"; // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
 import { BannerStack, MemberMenu } from "./social/index.js"; // แถบแจ้งเตือน + เมนูแตะรูปสมาชิก (ชุดกลางของเฟส C)
@@ -1388,7 +1388,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
             </div>
           )}
           {giftTo&&<GiftPicker user={user} to={giftTo} ctx={{type:"room",roomId:inRoomId}} onClose={()=>setGiftTo(null)}/>}
-          {bgOpen&&BACKGROUND_AUDIO_ENABLED&&<BackgroundAudioPanel onClose={()=>setBgOpen(false)}/>}
+          {bgOpen&&BACKGROUND_AUDIO_ENABLED&&BG_PANEL_ENABLED&&<BackgroundAudioPanel onClose={()=>setBgOpen(false)}/>}
           {inviteOpen&&ROOM_INVITE_ENABLED&&<InvitePanel roomId={inRoomId} roomName={inRoom.name} friends={friendsCtx.friends} memberUids={new Set(memberList.map(m=>m.uid).filter(Boolean))} Avatar={UAv} Name={TEXTFX_ENABLED?UNameLite:undefined} nameOf={id=>(_users[id]&&_users[id].name)||"ผู้ใช้"} isOnline={PRESENCE_ENABLED?onlineFn:undefined} onInvite={uid=>inviteApi.send(myUid,{fromName:user.name,to:uid,roomId:inRoomId,roomName:inRoom.name})} onClose={()=>setInviteOpen(false)}/>}
           {memberMenu&&<MemberMenu title={memberMenu.name||"สมาชิก"} subtitle="เลือกสิ่งที่จะทำกับผู้ใช้นี้" onClose={()=>setMemberMenu(null)} items={(()=>{const t=memberMenu.uid;const rel=friendsCtx.relation(t);const tg=!!(_users[t]&&_users[t].isGuest);return[
             {key:"profile",label:"👤 ดูโปรไฟล์",onClick:()=>openProfileFromRoom&&openProfileFromRoom(t)},
@@ -1425,7 +1425,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
               {[
                 {k:"snd",on:soundOn,warn:!soundOn,ic:soundOn?"🔊":"🔇",l:soundOn?"เสียงเอฟเฟกต์":"ปิดเสียงอยู่",fn:()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);if(v)sfx.preload();},show:true},
                 {k:"mix",on:audioOpen,ic:"🎚️",l:"ระดับเสียง",fn:()=>setAudioOpen(o=>!o),show:AUDIO_CONTROLS_ENABLED},
-                {k:"bg",on:false,ic:"🌙",l:"เสียงพื้นหลัง",fn:()=>setBgOpen(true),show:BACKGROUND_AUDIO_ENABLED,bg:true},
+                {k:"bg",on:false,ic:"🌙",l:"เสียงพื้นหลัง",fn:()=>setBgOpen(true),show:BACKGROUND_AUDIO_ENABLED&&BG_PANEL_ENABLED,bg:true}, // ซ่อนไว้ (ซ้ำกับ 🔆 ใต้ตัวเล่นเพลง) — เปิดคืนที่ backgroundAudio/config.js
                 {k:"aura",on:false,ic:"✨",l:"ออร่าเสียง",fn:()=>setAuraOpen(true),show:VOICE_AURA_ENABLED&&!user.isGuest},
               ].filter(x=>x.show).map(x=>(
                 <button key={x.k} onClick={x.fn} {...(x.bg?{"data-bg-open":true}:{})} style={{flex:1,minWidth:0,padding:"5px 2px",borderRadius:10,border:"1px solid "+(x.warn?T.red:x.on?T.brand:T.border),background:x.warn?T.redBg:x.on?T.brandA33:"transparent",color:x.warn?T.red:x.on?T.brand2:T.sub,cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
