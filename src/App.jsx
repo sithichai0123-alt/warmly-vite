@@ -17,7 +17,8 @@ import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from 
 import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds, PLUS_MODELS } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
 import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession, detectPlatform, BG_PANEL_ENABLED } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
 import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, useRoomMusicKeeper } from "./roomMusic/index.js";
-import { ROOM_ACTIONS_GRID_ENABLED, ROOM_MEMBERS_COLLAPSE_ENABLED, MEMBERS_VISIBLE_ROWS, RoomActions, CollapsibleMembers } from "./roomUi/index.js"; // ห้องคุยกระชับ: ปุ่มแถวเดียว + รายชื่อพับได้ — ปิดได้ที่ roomUi/config.js // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
+import { ROOM_ACTIONS_GRID_ENABLED, ROOM_MEMBERS_COLLAPSE_ENABLED, MEMBERS_VISIBLE_ROWS, RoomActions, CollapsibleMembers } from "./roomUi/index.js";
+import { ROOM_STAGE_ENABLED, STAGE_MAX, COHOST_MAX, keyOf as stageKey, roleOf as stageRole, cohostsOf, stageView, canModerate, canManageCohosts, joinEntry, takeSeat, leaveSeat, setHand, setMicAllowed, setCohost, RoleBadge, StageHeader, EmptySeat, RequestsPanel, ListenerStatus } from "./roomStage/index.js"; // ห้องแบบเวที 7 คน + เจ้าของ👑/รอง🛡️ + ผู้ฟังขอพูด — ปิดได้ที่ roomStage/config.js // ห้องคุยกระชับ: ปุ่มแถวเดียว + รายชื่อพับได้ — ปิดได้ที่ roomUi/config.js // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
 import { BannerStack, MemberMenu } from "./social/index.js"; // แถบแจ้งเตือน + เมนูแตะรูปสมาชิก (ชุดกลางของเฟส C)
 import { GIFT_SHOW_ENABLED, GIFT_DEMO_ENABLED, ENTRANCE_DRAGON_FROM_GIFT, GIFT_SOUND_FILE, SHOW_IDS, showFor, sampleShow, makeShowSounds, entranceDragonScene, GiftShowDemo } from "./giftShow/index.js"; // จังหวะการเคลื่อนไหวของของขวัญใหญ่ให้ตรงกับเสียง (ปิดได้ที่ giftShow/config.js)
@@ -1199,6 +1200,13 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
   const memberList=inRoom&&Array.isArray(inRoom.members)?inRoom.members:[];
   const isMeM=m=>m.uid?m.uid===myUid:m.init===user.init;
   const me=memberList.find(isMeM);
+  // ห้องแบบเวที (roomStage): ผู้พูดบนเวที / ผู้ฟัง / คำขอ + บทบาทของเรา
+  const stage=ROOM_STAGE_ENABLED&&inRoom?stageView(inRoom):null;
+  const meOnStage=!stage||!me||stage.speakers.some(isMeM);
+  const myRole=stage&&me?stageRole(inRoom,me):null;
+  const isMod=myRole==="host"||myRole==="cohost";
+  const [stageNote,setStageNote]=useState("");
+  const prevOnStageRef=useRef(null); // null = ยังไม่เคยเห็นสถานะ (เพิ่งเข้าห้อง) → ไม่แจ้ง
   const isHost=!!inRoom&&(inRoom.hostUid?inRoom.hostUid===myUid:inRoom.hostInit===user.init);
   const hostDoc=inRoom&&inRoom.hostUid?_users[inRoom.hostUid]:null; // ธีมของห้อง = ธีม "ห้องเสียง" ของโฮสต์ (ทุกคนในห้องเห็นเหมือนกัน)
   const hostThemed=!!resolveOwnerTheme(hostDoc,"voice");
@@ -1241,7 +1249,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
     if(me){seenRef.current=true;return;}
     if(seenRef.current){
       seenRef.current=false;
-      if(inRoom&&Array.isArray(inRoom.kicked)&&inRoom.kicked.includes(myUid))alert("คุณถูกเจ้าของห้องเตะออกจากห้อง");
+      if(inRoom&&Array.isArray(inRoom.kicked)&&inRoom.kicked.includes(myUid))alert(ROOM_STAGE_ENABLED?"คุณถูกเตะออกจากห้อง":"คุณถูกเจ้าของห้องเตะออกจากห้อง");
       else if(!inRoom&&ROOM_AUTOCLOSE_ENABLED){setClosedNote("ห้องที่คุณอยู่ถูกปิดแล้ว (โฮสต์ไม่อยู่ในห้องเกิน 5 นาที หรือโฮสต์ปิดห้อง)");setTimeout(()=>setClosedNote(""),12000);}
       voice.disconnect();setInRoomId(null);setShowPL(false);
     }
@@ -1252,13 +1260,28 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
     if(connected&&me&&me.mic===false&&micOn)voice.setMic(false);
   },[connected,me&&me.mic,micOn]); // eslint-disable-line
 
+  // ห้องแบบเวที: ผู้ฟังเปิดไมค์ไม่ได้ (ปิดให้ทันที) + บอกเมื่อได้ขึ้นเวที / ลงจากเวที
+  useEffect(()=>{
+    if(!ROOM_STAGE_ENABLED)return;
+    if(connected&&me&&!meOnStage&&micOn)voice.setMic(false);
+  },[connected,!!me,meOnStage,micOn]); // eslint-disable-line
+  useEffect(()=>{
+    if(!ROOM_STAGE_ENABLED||!me){prevOnStageRef.current=null;setStageNote("");return;}
+    const was=prevOnStageRef.current;prevOnStageRef.current=meOnStage;
+    if(was===null||was===meOnStage)return;
+    if(!meOnStage){setStageNote("");return;} // ลงเวที: กล่องสถานะผู้ฟังบอกอยู่แล้ว ไม่ต้องแจ้งซ้ำ
+    setStageNote("🎉 คุณได้ขึ้นเวทีแล้ว · กด 🎙️ ไมค์ เพื่อพูด");
+    const t=setTimeout(()=>setStageNote(""),9000);return()=>clearTimeout(t);
+  },[meOnStage,!!me]); // eslint-disable-line
+
   // มีเพลงเริ่มเล่น → เปิดแผงเพลงให้ทุกคนเห็นอัตโนมัติ (รวม Guest)
   const nowPlayingId=inRoom?inRoom.nowPlaying:null;
   useEffect(()=>{ if(nowPlayingId)setShowPL(true); },[nowPlayingId]);
 
   function onMicClick(){
+    if(ROOM_STAGE_ENABLED&&me&&!meOnStage){audienceMicAction();return;}
     if(duckActive){alert("กำลังคุยสายส่วนตัวอยู่ — ไมค์ห้องปิดไว้ วางสายก่อนแล้วค่อยเปิดไมค์ห้อง");return;}
-    if(me&&me.mic===false&&!micOn){alert("โฮสต์ปิดไมค์ของคุณอยู่");return;}
+    if(me&&me.mic===false&&!micOn){alert(ROOM_STAGE_ENABLED?"เจ้าของห้องหรือรองปิดไมค์ของคุณอยู่":"โฮสต์ปิดไมค์ของคุณอยู่");return;}
     toggleMic();
   }
 
@@ -1279,12 +1302,17 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
     // เชื่อมต่อเสียงทันทีในจังหวะที่กดปุ่ม (ต้องมี user gesture ถึงจะได้ยินเสียงและขอไมค์ได้)
     seenRef.current=false;
     setInRoomId(r.id);setInRoomName(r.name);setShowPL(true);
-    voice.connect(r.id,myUid,user.name);
     const members=Array.isArray(r.members)?r.members:[];
-    if(!members.find(m=>m.uid===myUid)){
+    const already=members.find(m=>m.uid===myUid);
+    // ห้องแบบเวที: เวทีว่าง = พูดได้เลย · เต็ม = เข้ามาเป็นผู้ฟัง (ไม่เปิดไมค์)
+    const meObj={uid:myUid,init:user.init,name:user.name};
+    const j=ROOM_STAGE_ENABLED?joinEntry(r,meObj):{entry:{...meObj,mic:true},onStage:true};
+    const startOnStage=ROOM_STAGE_ENABLED&&already?stageView(r).speakers.some(m=>m.uid===myUid):j.onStage;
+    voice.connect(r.id,myUid,user.name,startOnStage?undefined:{mic:false});
+    if(!already){
       try{
         await updateDoc(doc(db,"voiceRooms",r.id),{
-          members:[...members.filter(m=>m.uid||m.init!==user.init),{uid:myUid,init:user.init,name:user.name,mic:true}]
+          members:[...members.filter(m=>m.uid||m.init!==user.init),j.entry]
         });
       }catch(e){console.error(e);}
     }
@@ -1313,20 +1341,83 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
     }catch(e){console.error(e);}
   }
 
+  // สิทธิ์จัดการคนนี้: ห้องแบบเวที = เจ้าของห้องหรือรอง (ตาม roomStage) · ปิดระบบเวที = เจ้าของห้องอย่างเดียวแบบเดิม
+  const mayModerate=key=>{const t=memberList.find(m=>(m.uid||m.init)===key);return ROOM_STAGE_ENABLED?canModerate(inRoom,me,t):isHost;};
   async function hostToggleMic(key){
-    if(!isHost)return;
-    const members=memberList.map(m=>(m.uid||m.init)===key?{...m,mic:m.mic===false}:m);
+    if(!mayModerate(key))return;
+    const members=ROOM_STAGE_ENABLED?setMicAllowed(inRoom,key,(memberList.find(m=>(m.uid||m.init)===key)||{}).mic===false):memberList.map(m=>(m.uid||m.init)===key?{...m,mic:m.mic===false}:m);
     await updateDoc(doc(db,"voiceRooms",inRoomId),{members});
   }
 
   async function kick(key){
-    if(!isHost||key===myUid)return;
+    if(!mayModerate(key)||key===myUid)return;
     const target=memberList.find(m=>(m.uid||m.init)===key);
     if(!window.confirm("เตะ "+((target&&target.name)||"คนนี้")+" ออกจากห้อง? (เข้าห้องนี้ใหม่ไม่ได้)"))return;
     const members=memberList.filter(m=>(m.uid||m.init)!==key);
     try{
-      await updateDoc(doc(db,"voiceRooms",inRoomId),{members,kicked:arrayUnion(key)});
+      const co=ROOM_STAGE_ENABLED&&cohostsOf(inRoom).includes(key)?{cohosts:cohostsOf(inRoom).filter(x=>x!==key)}:{}; // เตะรอง = ถอดรองด้วย
+      await updateDoc(doc(db,"voiceRooms",inRoomId),{members,kicked:arrayUnion(key),...co});
     }catch(e){console.error(e);alert("เตะไม่สำเร็จ: "+(e.code||e.message));}
+  }
+
+  // ── ห้องแบบเวที: ขึ้น/ลงเวที · ยกมือ · อนุมัติ · ตั้งรอง ──
+  async function stageUpdate(patch){
+    try{await updateDoc(doc(db,"voiceRooms",inRoomId),patch);}catch(e){console.error(e);alert("ทำไม่สำเร็จ: "+(e.code||e.message));}
+  }
+  function moveToStage(key,byMod){
+    if(byMod&&!mayModerate(key))return;
+    const r=takeSeat(inRoom,key,{byModerator:!!byMod});
+    if(!r.ok){alert("เวทีเต็มแล้ว ("+STAGE_MAX+"/"+STAGE_MAX+") — ต้องมีคนลงจากเวทีก่อน");return;}
+    if(!r.already)stageUpdate({members:r.members});
+  }
+  function moveToAudience(key){
+    if(key!==(me&&(me.uid||me.init))&&!mayModerate(key))return;
+    const r=leaveSeat(inRoom,key);
+    if(r.ok)stageUpdate({members:r.members});
+  }
+  function audienceMicAction(){
+    if(!me||!stage)return;
+    const k=me.uid||me.init;
+    if(stage.free>0){moveToStage(k,false);return;}
+    stageUpdate({members:setHand(inRoom,k,typeof me.hand!=="number")});
+  }
+  function denyHand(key){if(mayModerate(key))stageUpdate({members:setHand(inRoom,key,false)});}
+  function toggleCohost(uid,on){
+    if(!canManageCohosts(inRoom,me))return;
+    const r=setCohost(inRoom,uid,on);
+    if(!r.ok){alert(r.reason==="full"?"ตั้งรองได้ไม่เกิน "+COHOST_MAX+" คน — ถอดรองคนเดิมก่อน":"ทำไม่ได้");return;}
+    stageUpdate({cohosts:r.cohosts});
+  }
+  // เมนูแตะรูป (ส่วนของเวที): ตัวเอง = ขึ้น/ลงเวที/ยกมือ · เจ้าของ/รอง = ปิดไมค์ · ขึ้น/ลงเวที · ตั้งรอง (เจ้าของ) · เตะ
+  function stageMenuItems(mm){
+    if(!stage||!mm)return[];
+    const target=memberList.find(m=>(m.uid||m.init)===mm.key);
+    if(!target)return[];
+    const onSt=stage.speakers.includes(target);
+    if(mm.self){
+      if(stageRole(inRoom,target)==="host")return[];
+      if(onSt)return[{key:"stage-down",label:"⬇️ ลงจากเวที (เป็นผู้ฟัง)",onClick:()=>moveToAudience(mm.key)}];
+      if(stage.free>0)return[{key:"stage-up",label:"⬆️ ขึ้นเวทีพูด (ว่าง "+stage.free+" ที่)",onClick:()=>moveToStage(mm.key,false)}];
+      return[{key:"hand",label:typeof target.hand==="number"?"✋ เอามือลง (ยกเลิกคำขอ)":"✋ ขอขึ้นพูด",onClick:()=>stageUpdate({members:setHand(inRoom,mm.key,typeof target.hand!=="number")})}];
+    }
+    if(!canModerate(inRoom,me,target))return[];
+    const items=[];
+    if(onSt)items.push({key:"mute",label:target.mic!==false?"🔇 ปิดไมค์คนนี้":"🎙️ อนุญาตให้เปิดไมค์",onClick:()=>hostToggleMic(mm.key)});
+    if(onSt&&stageRole(inRoom,target)!=="host")items.push({key:"stage-down",label:"⬇️ ให้ลงจากเวที (เป็นผู้ฟัง)",onClick:()=>moveToAudience(mm.key)});
+    if(!onSt)items.push({key:"stage-up",label:stage.free>0?"⬆️ เชิญขึ้นเวที":"⬆️ เชิญขึ้นเวที (เวทีเต็ม "+STAGE_MAX+"/"+STAGE_MAX+")",disabled:stage.free<=0,onClick:()=>moveToStage(mm.key,true)});
+    if(!onSt&&typeof target.hand==="number")items.push({key:"deny",label:"✖️ ปฏิเสธคำขอพูด",onClick:()=>denyHand(mm.key)});
+    if(canManageCohosts(inRoom,me)&&target.uid){const isCo=stageRole(inRoom,target)==="cohost";const full=cohostsOf(inRoom).length>=COHOST_MAX;items.push({key:"cohost",label:isCo?"🛡️ ถอดจากรองเจ้าของห้อง":full?"🛡️ ตั้งเป็นรอง (ครบ "+COHOST_MAX+" คนแล้ว)":"🛡️ ตั้งเป็นรองเจ้าของห้อง",disabled:!isCo&&full,onClick:()=>toggleCohost(target.uid,!isCo)});}
+    items.push({key:"kick",label:"🚫 เตะออกจากห้อง",onClick:()=>kick(mm.key)});
+    return items;
+  }
+  // แตะรูปสมาชิก → เปิดอะไร (null = แตะไม่ได้)
+  function memberTap(m,isMe,key){
+    if(stage){
+      if(isMe)return stageRole(inRoom,m)==="host"?null:()=>setMemberMenu({self:true,key,name:"คุณ",uid:m.uid});
+      if(canModerate(inRoom,me,m)||(socialOn&&m.uid))return()=>setMemberMenu({uid:m.uid,name:m.name,key});
+    }
+    if(!isMe&&!user.isGuest&&m.uid)return()=>{if(socialOn)setMemberMenu({uid:m.uid,name:m.name,key});else setGiftTo({uid:m.uid,name:m.name});};
+    return null;
   }
 
   async function create(){
@@ -1336,7 +1427,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
     try{
       const r=await addDoc(collection(db,"voiceRooms"),{
         name:nm,vibe:"🎵",hostInit:user.init,hostUid:myUid,hostName:user.name,
-        members:[{uid:myUid,init:user.init,name:user.name,mic:true}],
+        members:[{uid:myUid,init:user.init,name:user.name,mic:true,...(ROOM_STAGE_ENABLED?{stage:true}:{})}],
         playlist:[],nowPlaying:null,songStartedAt:null,
         createdAt:serverTimestamp(),hostSeen:serverTimestamp()
       });
@@ -1391,12 +1482,12 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
           {giftTo&&<GiftPicker user={user} to={giftTo} ctx={{type:"room",roomId:inRoomId}} onClose={()=>setGiftTo(null)}/>}
           {bgOpen&&BACKGROUND_AUDIO_ENABLED&&BG_PANEL_ENABLED&&<BackgroundAudioPanel onClose={()=>setBgOpen(false)}/>}
           {inviteOpen&&ROOM_INVITE_ENABLED&&<InvitePanel roomId={inRoomId} roomName={inRoom.name} friends={friendsCtx.friends} memberUids={new Set(memberList.map(m=>m.uid).filter(Boolean))} Avatar={UAv} Name={TEXTFX_ENABLED?UNameLite:undefined} nameOf={id=>(_users[id]&&_users[id].name)||"ผู้ใช้"} isOnline={PRESENCE_ENABLED?onlineFn:undefined} onInvite={uid=>inviteApi.send(myUid,{fromName:user.name,to:uid,roomId:inRoomId,roomName:inRoom.name})} onClose={()=>setInviteOpen(false)}/>}
-          {memberMenu&&<MemberMenu title={memberMenu.name||"สมาชิก"} subtitle="เลือกสิ่งที่จะทำกับผู้ใช้นี้" onClose={()=>setMemberMenu(null)} items={(()=>{const t=memberMenu.uid;const rel=friendsCtx.relation(t);const tg=!!(_users[t]&&_users[t].isGuest);return[
+          {memberMenu&&<MemberMenu title={memberMenu.name||"สมาชิก"} subtitle={(()=>{if(!stage)return "เลือกสิ่งที่จะทำกับผู้ใช้นี้";const tm=memberList.find(m=>(m.uid||m.init)===memberMenu.key);const rl=tm?stageRole(inRoom,tm):"";const on=tm&&stage.speakers.includes(tm);return (rl==="host"?"👑 เจ้าของห้อง":rl==="cohost"?"🛡️ รองเจ้าของห้อง":on?"🎙️ ผู้พูดบนเวที":"👥 ผู้ฟัง")+(memberMenu.self?"":(rl==="host"&&myRole==="cohost"?" — รองจัดการเจ้าของห้องไม่ได้":rl==="cohost"&&myRole==="cohost"?" — รองจัดการรองด้วยกันไม่ได้":""));})()} onClose={()=>setMemberMenu(null)} items={(()=>{const t=memberMenu.uid;const rel=t?friendsCtx.relation(t):null;const tg=!!(t&&_users[t]&&_users[t].isGuest);const social=(memberMenu.self||!t)?[]:user.isGuest?[{key:"profile",label:"👤 ดูโปรไฟล์",onClick:()=>openProfileFromRoom&&openProfileFromRoom(t)}]:[
             {key:"profile",label:"👤 ดูโปรไฟล์",onClick:()=>openProfileFromRoom&&openProfileFromRoom(t)},
             {key:"gift",label:"🎁 ส่งของขวัญ",onClick:()=>setGiftTo({uid:t,name:memberMenu.name})},
             {key:"friend",hidden:!FRIENDS_ENABLED||tg,label:rel==="friends"?"✅ เป็นเพื่อนกันแล้ว":rel==="outgoing"?"⏳ ส่งคำขอเป็นเพื่อนแล้ว":rel==="incoming"?"✅ ตอบรับเป็นเพื่อน":"➕ เพิ่มเพื่อน",disabled:rel==="friends"||rel==="outgoing",onClick:()=>{friendsCtx.request(t).then(r=>{if(r&&r.ok===false&&r.reason==="blocked")alert("คุณบล็อกผู้ใช้นี้อยู่ — เลิกบล็อกก่อนจึงจะเพิ่มเพื่อนได้");}).catch(e=>alert("ทำไม่สำเร็จ: "+(e.code||e.message)));}},
             {key:"call",hidden:!PRIVATE_CALL_ENABLED||tg,label:"📞 โทรส่วนตัว (แยกจากห้อง)",onClick:()=>callCtx.requestCall(t,{sameRoom:true,isFriend:friendsCtx.friendSet.has(t)})},
-          ];})()}/>}
+          ];return[...social,...stageMenuItems(memberMenu)];})()}/>}
           <div style={{background:"linear-gradient(135deg,"+T.card+","+T.surface+")",padding:"16px 16px 0"}}>
             <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12,gap:10}}>
               <div style={{minWidth:0,flex:1}}>
@@ -1417,7 +1508,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
             {ROOM_ACTIONS_GRID_ENABLED?(
               /* ปุ่มทั้งหมดของห้อง: แถวเดียว ทุกช่องขนาดเท่ากัน ชื่อคงที่ สถานะบอกด้วยไอคอน+สี (roomUi/RoomActions.jsx) */
               <RoomActions T={T} items={[
-                {k:"mic",ic:micOn?"🎙️":"🔇",l:"ไมค์",al:micOn?"ไมค์ (เปิดอยู่)":"ไมค์ (ปิดอยู่)",tone:micOn?"primary":"warn",fn:onMicClick},
+                (stage&&me&&!meOnStage)?{k:"mic",ic:typeof me.hand==="number"?"⏳":stage.free>0?"⬆️":"✋",l:typeof me.hand==="number"?"รออนุมัติ":stage.free>0?"ขึ้นพูด":"ขอพูด",al:typeof me.hand==="number"?"ยกมือแล้ว รออนุมัติ (แตะเพื่อยกเลิก)":stage.free>0?"ขึ้นเวทีพูด":"ขอขึ้นพูด",tone:typeof me.hand==="number"?"on":"idle",fn:onMicClick}:{k:"mic",ic:micOn?"🎙️":"🔇",l:"ไมค์",al:micOn?"ไมค์ (เปิดอยู่)":"ไมค์ (ปิดอยู่)",tone:micOn?"primary":"warn",fn:onMicClick},
                 {k:"music",ic:"🎵",l:"เพลง",tone:showPL?"on":"idle",dot:!!inRoom.nowPlaying,fn:()=>setShowPL(!showPL)},
                 {k:"invite",ic:"➕",l:"เชิญ",tone:"idle",fn:()=>setInviteOpen(true),show:ROOM_INVITE_ENABLED&&FRIENDS_ENABLED&&!user.isGuest},
                 {k:"snd",ic:soundOn?"🔊":"🔇",l:"เอฟเฟกต์",al:soundOn?"เสียงเอฟเฟกต์ (เปิดอยู่)":"เสียงเอฟเฟกต์ (ปิดอยู่)",tone:soundOn?"idle":"warn",fn:()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);if(v)sfx.preload();}},
@@ -1428,7 +1519,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
             ):(<>
             {/* ปุ่มหลัก: เท่ากันทุกปุ่ม */}
             <div style={{display:"flex",gap:8,marginBottom:10}}>
-              <Btn onClick={onMicClick} v={micOn?"primary":"danger"} sz="sm" style={{flex:1,padding:"8px 4px",fontSize:13,whiteSpace:"nowrap"}}>{micOn?"🎙️ ไมค์":"🔇 ไมค์"}</Btn>
+              <Btn onClick={onMicClick} v={micOn?"primary":"danger"} sz="sm" style={{flex:1,padding:"8px 4px",fontSize:13,whiteSpace:"nowrap"}}>{stage&&me&&!meOnStage?(stage.free>0?"⬆️ ขึ้นพูด":"✋ ขอพูด"):micOn?"🎙️ ไมค์":"🔇 ไมค์"}</Btn>
               <Btn onClick={()=>setShowPL(!showPL)} v={showPL?"primary":"ghost"} sz="sm" style={{flex:1,padding:"8px 4px",fontSize:13,whiteSpace:"nowrap"}}>🎵 เพลง</Btn>
               {ROOM_INVITE_ENABLED&&FRIENDS_ENABLED&&!user.isGuest&&<Btn onClick={()=>setInviteOpen(true)} v="ghost" sz="sm" style={{flex:1,padding:"8px 4px",fontSize:13,whiteSpace:"nowrap"}}>➕ เชิญ</Btn>}
             </div>
@@ -1451,19 +1542,20 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
             </>)}
 
             {(inRoom.members||[]).length>1&&<div style={{fontSize:12,color:T.muted,marginBottom:12,lineHeight:1.6}}>
-              👆 {user.isGuest?"แตะรูปสมาชิกเพื่อส่งของขวัญ":"แตะรูปสมาชิกเพื่อดูเมนู"}{isHost?" • 🚫 = เตะออก":""}
+              👆 {stage?(isMod?"แตะรูปเพื่อจัดการ: ปิดไมค์ · ขึ้น/ลงเวที · เตะ":"แตะรูปสมาชิกเพื่อดูเมนู"):user.isGuest?"แตะรูปสมาชิกเพื่อส่งของขวัญ":"แตะรูปสมาชิกเพื่อดูเมนู"}{!stage&&isHost?" • 🚫 = เตะออก":""}
             </div>}
 
             {/* Members — คนเยอะ: แสดงไม่เกิน 2 แถว + ปุ่มดูทั้งหมด (roomUi/CollapsibleMembers.jsx) */}
-            {(()=>{const tiles=memberList.map((m,i)=>{
+            {(()=>{const renderTile=(m,i)=>{
                 const isMe=isMeM(m);
                 const key=m.uid||m.init;
                 const isSpeaking=!!speaking[isMe?myUid:key];
                 const lkMic=mics[isMe?myUid:key];
                 const showMicOn=isMe?micOn:(lkMic===undefined?m.mic!==false:(lkMic&&m.mic!==false));
                 const auraId=resolveAura(m.uid?_users[m.uid]:null,auraMode); // เอฟเฟกต์เสียงที่สมาชิกคนนี้สวมใส่ (null = วงเขียวเดิม)
+                const tap=memberTap(m,isMe,key);
                 const avatarBtn=(
-                    <div data-member-avatar={key} onClick={()=>{if(!isMe&&!user.isGuest&&m.uid){if(socialOn)setMemberMenu({uid:m.uid,name:m.name});else setGiftTo({uid:m.uid,name:m.name});}}} style={{cursor:(!isMe&&!user.isGuest&&m.uid)?"pointer":"default",padding:3,borderRadius:"50%",
+                    <div data-member-avatar={key} onClick={tap||undefined} style={{cursor:tap?"pointer":"default",padding:3,borderRadius:"50%",
                       border:"2.5px solid "+(isSpeaking&&!auraId?T.green:T.border),
                       boxShadow:isSpeaking&&!auraId?"0 0 16px rgba(16,185,129,.5)":"none",
                       transition:"all .2s"}}>
@@ -1471,8 +1563,9 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                     </div>
                 );
                 return(
-                  <div key={key+i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,position:"relative"}}>
-                    {isHost&&!isMe&&(
+                  <div key={key+i} data-seat={key} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,position:"relative"}}>
+                    {stage&&<RoleBadge role={stageRole(inRoom,m)} T={T}/>}
+                    {!stage&&isHost&&!isMe&&(
                       <div style={{position:"absolute",top:-10,right:-12,display:"flex",gap:3,zIndex:2}}>
                         <button onClick={()=>hostToggleMic(key)} style={{width:26,height:26,borderRadius:"50%",background:m.mic!==false?T.greenA33:T.yellowA22,border:"1px solid "+T.border,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>{m.mic!==false?"🎙":"🔇"}</button>
                         <button onClick={()=>kick(key)} style={{width:26,height:26,borderRadius:"50%",background:T.redBg,border:"1px solid rgba(244,63,94,.5)",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",color:T.red,fontFamily:"inherit"}}>🚫</button>
@@ -1496,7 +1589,38 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                     )}
                   </div>
                 );
-              });
+              };
+              const tiles=memberList.map(renderTile);
+              // ห้องแบบเวที: ผู้พูดบนเวที (รูปเดิมครบ ออร่า/กรอบ/ฟอนต์) + คำขอ + ผู้ฟังรูปเล็กด้านล่าง
+              if(stage){
+                const amListener=!!me&&!meOnStage;
+                const listener=(m,i)=>{const isMe2=isMeM(m);const key=m.uid||m.init;const tap=memberTap(m,isMe2,key);const rl=stageRole(inRoom,m);return(
+                  <div key={"l"+key+i} data-listener={key} onClick={tap||undefined} style={{width:48,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:tap?"pointer":"default"}}>
+                    <div style={{position:"relative"}}>
+                      <Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} grad={isMe2} isSelf={isMe2} size={38}/>
+                      {typeof m.hand==="number"&&<span data-hand style={{position:"absolute",top:-7,right:-7,fontSize:15,lineHeight:1}}>✋</span>}
+                    </div>
+                    <div style={{fontSize:11,color:isMe2?T.brand2:T.sub,fontWeight:isMe2?700:400,maxWidth:48,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{rl==="cohost"?"🛡️":""}{isMe2?"คุณ":(m.name||"ผู้ใช้")}</div>
+                  </div>);};
+                return(
+                  <div data-stage style={{paddingBottom:4}}>
+                    {amListener&&<ListenerStatus hand={typeof me.hand==="number"} free={stage.free} T={T}/>}
+                    {stageNote&&<div data-stage-note style={{fontSize:12,color:T.green,background:T.greenA33,borderRadius:10,padding:"7px 10px",marginBottom:10}}>{stageNote}</div>}
+                    <StageHeader count={stage.speakers.length} max={STAGE_MAX} T={T}/>
+                    <div data-stage-seats style={{display:"flex",flexWrap:"wrap",justifyContent:"center",gap:"14px 16px",padding:"10px 0 14px"}}>
+                      {stage.speakers.map(renderTile)}
+                      <EmptySeat free={stage.free} canTake={amListener} onTake={()=>moveToStage(me.uid||me.init,false)} T={T}/>
+                    </div>
+                    {isMod&&<RequestsPanel requests={stage.requests} free={stage.free} max={STAGE_MAX} T={T} avatar={m=><Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} size={30}/>} onApprove={m=>moveToStage(m.uid||m.init,true)} onDeny={m=>denyHand(m.uid||m.init)}/>}
+                    {stage.audience.length>0&&<div data-audience style={{borderTop:"1px solid "+T.border,paddingTop:10}}>
+                      <div style={{fontSize:13,fontWeight:800,color:T.sub,marginBottom:8}}>👥 ผู้ฟัง {stage.audience.length} คน <span style={{fontWeight:400,color:T.muted,fontSize:12}}>· พิมพ์แชทได้</span></div>
+                      {ROOM_MEMBERS_COLLAPSE_ENABLED
+                        ?<CollapsibleMembers count={stage.audience.length} rows={MEMBERS_VISIBLE_ROWS} T={T}>{stage.audience.map(listener)}</CollapsibleMembers>
+                        :<div style={{display:"flex",gap:12,flexWrap:"wrap",paddingBottom:16}}>{stage.audience.map(listener)}</div>}
+                    </div>}
+                  </div>
+                );
+              }
               return ROOM_MEMBERS_COLLAPSE_ENABLED
                 ?<CollapsibleMembers count={memberList.length} rows={MEMBERS_VISIBLE_ROWS} T={T}>{tiles}</CollapsibleMembers>
                 :<div style={{display:"flex",gap:12,flexWrap:"wrap",paddingBottom:16}}>{tiles}</div>;
