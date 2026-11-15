@@ -17,7 +17,7 @@ import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from 
 import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds, PLUS_MODELS } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
 import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession, detectPlatform, BG_PANEL_ENABLED } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
 import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, useRoomMusicKeeper } from "./roomMusic/index.js";
-import { ROOM_ACTIONS_GRID_ENABLED, RoomActions } from "./roomUi/index.js"; // ปุ่มห้องคุยแบบตารางเท่ากันทุกช่อง — ปิดได้ที่ roomUi/config.js // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
+import { ROOM_ACTIONS_GRID_ENABLED, ROOM_MEMBERS_COLLAPSE_ENABLED, MEMBERS_VISIBLE_ROWS, RoomActions, CollapsibleMembers } from "./roomUi/index.js"; // ห้องคุยกระชับ: ปุ่มแถวเดียว + รายชื่อพับได้ — ปิดได้ที่ roomUi/config.js // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
 import { BannerStack, MemberMenu } from "./social/index.js"; // แถบแจ้งเตือน + เมนูแตะรูปสมาชิก (ชุดกลางของเฟส C)
 import { GIFT_SHOW_ENABLED, GIFT_DEMO_ENABLED, ENTRANCE_DRAGON_FROM_GIFT, GIFT_SOUND_FILE, SHOW_IDS, showFor, sampleShow, makeShowSounds, entranceDragonScene, GiftShowDemo } from "./giftShow/index.js"; // จังหวะการเคลื่อนไหวของของขวัญใหญ่ให้ตรงกับเสียง (ปิดได้ที่ giftShow/config.js)
@@ -1415,15 +1415,15 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
             </div>
 
             {ROOM_ACTIONS_GRID_ENABLED?(
-              /* ปุ่มทั้งหมดของห้อง: ตารางเดียว ทุกช่องขนาดเท่ากัน (roomUi/RoomActions.jsx) */
+              /* ปุ่มทั้งหมดของห้อง: แถวเดียว ทุกช่องขนาดเท่ากัน ชื่อคงที่ สถานะบอกด้วยไอคอน+สี (roomUi/RoomActions.jsx) */
               <RoomActions T={T} items={[
-                {k:"mic",ic:micOn?"🎙️":"🔇",l:micOn?"ไมค์":"ไมค์ปิด",tone:micOn?"primary":"warn",fn:onMicClick},
+                {k:"mic",ic:micOn?"🎙️":"🔇",l:"ไมค์",al:micOn?"ไมค์ (เปิดอยู่)":"ไมค์ (ปิดอยู่)",tone:micOn?"primary":"warn",fn:onMicClick},
                 {k:"music",ic:"🎵",l:"เพลง",tone:showPL?"on":"idle",dot:!!inRoom.nowPlaying,fn:()=>setShowPL(!showPL)},
                 {k:"invite",ic:"➕",l:"เชิญ",tone:"idle",fn:()=>setInviteOpen(true),show:ROOM_INVITE_ENABLED&&FRIENDS_ENABLED&&!user.isGuest},
-                {k:"snd",ic:soundOn?"🔊":"🔇",l:soundOn?"เสียงเอฟเฟกต์":"ปิดเสียงอยู่",tone:soundOn?"idle":"warn",fn:()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);if(v)sfx.preload();}},
-                {k:"mix",ic:"🎚️",l:"ระดับเสียง",tone:audioOpen?"on":"idle",fn:()=>setAudioOpen(o=>!o),show:AUDIO_CONTROLS_ENABLED},
+                {k:"snd",ic:soundOn?"🔊":"🔇",l:"เอฟเฟกต์",al:soundOn?"เสียงเอฟเฟกต์ (เปิดอยู่)":"เสียงเอฟเฟกต์ (ปิดอยู่)",tone:soundOn?"idle":"warn",fn:()=>{const v=!soundOn;sfx.set(v);setSoundOn(v);if(v)sfx.preload();}},
+                {k:"mix",ic:"🎚️",l:"ปรับเสียง",al:"ปรับระดับเสียง",tone:audioOpen?"on":"idle",fn:()=>setAudioOpen(o=>!o),show:AUDIO_CONTROLS_ENABLED},
                 {k:"bg",ic:"🌙",l:"เสียงพื้นหลัง",tone:"idle",fn:()=>setBgOpen(true),show:BACKGROUND_AUDIO_ENABLED&&BG_PANEL_ENABLED,attrs:{"data-bg-open":true}},
-                {k:"aura",ic:"✨",l:"ออร่าเสียง",tone:"idle",fn:()=>setAuraOpen(true),show:VOICE_AURA_ENABLED&&!user.isGuest},
+                {k:"aura",ic:"✨",l:"ออร่า",al:"ออร่าเสียง",tone:"idle",fn:()=>setAuraOpen(true),show:VOICE_AURA_ENABLED&&!user.isGuest},
               ]}/>
             ):(<>
             {/* ปุ่มหลัก: เท่ากันทุกปุ่ม */}
@@ -1454,9 +1454,8 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
               👆 {user.isGuest?"แตะรูปสมาชิกเพื่อส่งของขวัญ":"แตะรูปสมาชิกเพื่อดูเมนู"}{isHost?" • 🚫 = เตะออก":""}
             </div>}
 
-            {/* Members */}
-            <div style={{display:"flex",gap:12,flexWrap:"wrap",paddingBottom:16}}>
-              {memberList.map((m,i)=>{
+            {/* Members — คนเยอะ: แสดงไม่เกิน 2 แถว + ปุ่มดูทั้งหมด (roomUi/CollapsibleMembers.jsx) */}
+            {(()=>{const tiles=memberList.map((m,i)=>{
                 const isMe=isMeM(m);
                 const key=m.uid||m.init;
                 const isSpeaking=!!speaking[isMe?myUid:key];
@@ -1497,8 +1496,11 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                     )}
                   </div>
                 );
-              })}
-            </div>
+              });
+              return ROOM_MEMBERS_COLLAPSE_ENABLED
+                ?<CollapsibleMembers count={memberList.length} rows={MEMBERS_VISIBLE_ROWS} T={T}>{tiles}</CollapsibleMembers>
+                :<div style={{display:"flex",gap:12,flexWrap:"wrap",paddingBottom:16}}>{tiles}</div>;
+            })()}
           </div>
           {AUDIO_CONTROLS_ENABLED&&audioOpen&&<div style={{padding:"0 16px 12px"}}><AudioControls micOn={micOn} onToggleMic={duckActive?()=>{}:toggleMic} connected={connected} hasMusic={!!inRoom.nowPlaying}/></div>}
           {/* ซ่อนแผงเพลงแล้วตัวเล่นยังอยู่ (เพลงเล่นต่อ) และแสดงแถบเล็กแทน — ปิดได้ที่ roomMusic/config.js */}
