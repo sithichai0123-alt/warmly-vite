@@ -121,6 +121,8 @@ await NO("แอบอ่านรายชื่อที่คนอื่น�
 await OK("ผู้ใช้ Google ตั้งธีมร่วม", ()=>setDoc(doc(google(A),"appConfig","theme"),{id:"x"},{merge:true}));
 await NO("ผู้เยี่ยมชมตั้งธีมร่วม", ()=>setDoc(doc(anon(G),"appConfig","theme"),{id:"x"},{merge:true}));
 await OK("ทุกคนที่ล็อกอินอ่านธีมร่วม", ()=>getDoc(doc(anon(G),"appConfig","theme")));
+await NO("อ่านบันทึกแอดมิน (adminLog) — เฉพาะเซิร์ฟเวอร์", async()=>{ await seed(d=>setDoc(doc(d,"adminLog","x"),{by:"a"})); await getDoc(doc(google(A),"adminLog","x")); });
+await NO("เขียนบันทึกแอดมิน (adminLog) จากเครื่องผู้ใช้", ()=>addDoc(collection(google(A),"adminLog"),{by:A}));
 await NO("คอลเลกชันที่ไม่รู้จัก", ()=>setDoc(doc(google(A),"hack","x"),{a:1}));
 
 console.log(`\nผ่าน ${pass} / ${pass+fail}`); if(bad.length) console.log("ไม่ผ่าน:\n - "+bad.join("\n - "));
