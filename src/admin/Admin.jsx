@@ -1,7 +1,8 @@
-// Admin — หน้าค้นหารูปในฐานข้อมูล (อ่านอย่างเดียว ไม่ลบอะไรเลย)
+// Admin — หน้าค้นหารูปในฐานข้อมูล + ลบ/ระงับผู้ใช้ (เฉพาะแอดมิน ทำที่เซิร์ฟเวอร์ ดู DeleteUser.jsx)
 // บอกว่ารูปแต่ละรูปอยู่เอกสารไหน ฟิลด์อะไร แล้วคัดลอกเส้นทางไปลบเองใน Firebase Console
 import { useEffect, useState } from "react";
 import { watchAuth, login, logout, loadUsers, loadUserImages, loadPosts, loadGroupChat } from "./fb.js";
+import DeleteUser from "./DeleteUser.jsx";
 import { userImages, postImages, locate, srcKind, isVideo, srcBytes, fmtBytes } from "./paths.js";
 
 const C = { bg: "#0F0E17", card: "#221F33", surface: "#1A1825", border: "#2E2A45", borderHi: "#4F46A8",
@@ -23,7 +24,7 @@ export default function Admin() {
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: "1px solid " + C.border }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 800 }}>🔎 ค้นหารูปในฐานข้อมูล</div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>อ่านอย่างเดียว · หน้านี้ลบอะไรไม่ได้</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>ดูรูป · ลบผู้ใช้ได้เฉพาะแอดมิน (ลบที่เซิร์ฟเวอร์ ไม่ใช่จากหน้านี้ตรงๆ)</div>
         </div>
         {user
           ? <button onClick={() => logout()} style={btn(C.border, "transparent", C.sub)}>ออก</button>
@@ -31,7 +32,7 @@ export default function Admin() {
       </div>
 
       <div style={{ padding: "10px 14px", background: "rgba(251,191,36,.1)", borderBottom: "1px solid rgba(251,191,36,.3)", fontSize: 12, color: C.yellow, lineHeight: 1.6 }}>
-        ⚠️ การลบใน Firebase Console <b>กู้คืนไม่ได้</b> และคนที่เปิดแอปอยู่จะเห็นหายทันที — คัดลอกค่าเก็บไว้ก่อนถ้าอาจต้องใช้เป็นหลักฐาน
+        ⚠️ การลบใน Firebase Console <b>กู้คืนไม่ได้</b> และคนที่เปิดแอปอยู่จะเห็นหายทันที — คัดลอกค่าเก็บไว้ก่อนถ้าอาจต้องใช้เป็นหลักฐาน · ปุ่ม 🗑️ ลบผู้ใช้ ก็กู้คืนไม่ได้เช่นกัน
       </div>
 
       <div style={{ display: "flex", borderBottom: "1px solid " + C.border }}>
@@ -110,7 +111,9 @@ function ImgCard({ it, owner }) {
 // ── แท็บผู้ใช้: เลือกคน แล้วค่อยโหลดรูปของคนนั้น (ไม่โหลดรูปทุกคนพร้อมกัน) ──
 function UsersTab() {
   const [list, setList] = useState(null), [e, setE] = useState(null), [q, setQ] = useState(""), [open, setOpen] = useState(null), [imgs, setImgs] = useState(null);
-  useEffect(() => { loadUsers().then(setList).catch(setE); }, []);
+  const [del, setDel] = useState(null), [uidBox, setUidBox] = useState("");   // del = { uid, name } ที่กำลังจะลบ
+  const reload = () => loadUsers().then(setList).catch(setE);
+  useEffect(() => { reload(); }, []);
   const pick = async u => {
     if (open === u.id) { setOpen(null); setImgs(null); return; }
     setOpen(u.id); setImgs(null);
@@ -127,6 +130,11 @@ function UsersTab() {
         <input data-search value={q} onChange={e2 => setQ(e2.target.value)} placeholder="ค้นหาชื่อ หรือ uid..."
           style={{ width: "100%", boxSizing: "border-box", border: "1px solid " + C.border, borderRadius: 20, padding: "9px 15px", fontSize: 14, background: C.card, color: C.text, outline: "none", fontFamily: "inherit" }} />
         <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>แตะชื่อเพื่อดูรูปทั้งหมดของคนนั้น ({rows.length} คน)</div>
+        <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+          <input data-uid-box value={uidBox} onChange={e2 => setUidBox(e2.target.value.trim())} placeholder="ลบด้วย uid (กรณีไม่มีในรายชื่อ เช่นเหลือแต่ห้องแชท)"
+            style={{ flex: 1, minWidth: 0, boxSizing: "border-box", border: "1px solid " + C.border, borderRadius: 20, padding: "8px 14px", fontSize: 13, background: C.card, color: C.text, outline: "none", fontFamily: "inherit" }} />
+          <button data-uid-go disabled={uidBox.length < 6} onClick={() => setDel({ uid: uidBox, name: "" })} style={{ ...btn(C.red, "transparent", C.red), opacity: uidBox.length < 6 ? .4 : 1 }}>🗑️ ลบ</button>
+        </div>
       </div>
       {rows.map(u => (
         <div key={u.id} style={{ borderTop: "1px solid " + C.border }}>
@@ -140,12 +148,14 @@ function UsersTab() {
             </div>
             <span style={{ color: C.brand2, fontSize: 13 }}>{open === u.id ? "▴" : "▾"}</span>
           </div>
+          {open === u.id && <div style={{ padding: "0 14px 8px" }}><button data-del-user={u.id} onClick={() => setDel({ uid: u.id, name: u.name || "" })} style={btn(C.red, "transparent", C.red)}>🗑️ ลบผู้ใช้นี้</button></div>}
           {open === u.id && (imgs === null
             ? <div style={{ padding: "10px 14px", color: C.muted, fontSize: 13 }}>กำลังโหลดรูป...</div>
             : imgs.length === 0 ? <div style={{ padding: "10px 14px", color: C.muted, fontSize: 13 }}>คนนี้ไม่มีรูป</div>
               : imgs.map(it => <ImgCard key={it.key} it={it} />))}
         </div>
       ))}
+      {del && <DeleteUser uid={del.uid} name={del.name} onClose={() => setDel(null)} onDeleted={() => { reload(); setOpen(null); }} />}
     </Loading>
   );
 }
