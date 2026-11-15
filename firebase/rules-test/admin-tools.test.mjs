@@ -3,7 +3,8 @@
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { makeHandler, planDelete, deleteUserData } from "../../src/adminTools/server.js";
-import { isAdmin, isConfigured, validUid, targetIsAdmin, confirmWord, parseEmails } from "../../src/adminTools/logic.js";
+import { isAdmin, isConfigured, validUid, targetIsAdmin, confirmWord, parseEmails, cloudinaryPublicId, collectVideos } from "../../src/adminTools/logic.js";
+import { deleteVideos } from "../../src/adminTools/cloudinary.js";
 
 const app = initializeApp({ projectId: "demo-warmly" });
 const db = getFirestore(app);
@@ -130,6 +131,76 @@ r = await call(mk(), { body: { action: "delete", uid: U, confirm: confirmWord(U)
 ok(r.status === 200 && r.json.authAction === "deleted" && calls.some(c => c[0] === "deleteUser" && c[1] === U), "ติ๊กลบบัญชีล็อกอินด้วย → ลบทั้งข้อมูลและบัญชี");
 r = await call(mk(), { body: { action: "delete", uid: V, confirm: confirmWord(V), deleteAuth: true } });
 ok(r.status === 200 && !calls.some(c => c[0] === "deleteUser" && c[1] === V), "uid ที่ไม่มีบัญชีล็อกอิน (เช่นเหลือแต่ห้องแชท) ลบข้อมูลได้ ไม่ error");
+
+
+// ── วิดีโอบน Cloudinary ──
+console.log("\n── อ่านลิงก์วิดีโอ → public_id ──");
+const CL = "ochjk9uo", base = "https://res.cloudinary.com/" + CL + "/video/upload/";
+ok(cloudinaryPublicId(base + "v1699999999/abcd1234.mp4", CL) === "abcd1234", "ลิงก์ปกติ → abcd1234");
+ok(cloudinaryPublicId(base + "so_0,eo_30/v1699999999/abcd1234.mp4", CL) === "abcd1234", "ลิงก์ที่แทรกตัวตัด so_0,eo_30 (แบบที่แอปเก็บ) → abcd1234");
+ok(cloudinaryPublicId(base + "so_0,eo_30/abcd1234.mp4", CL) === "abcd1234", "มีตัวตัดแต่ไม่มีเลขเวอร์ชัน → abcd1234");
+ok(cloudinaryPublicId(base + "v12/warmly/clips/ab%20cd.mov", CL) === "warmly/clips/ab cd", "อยู่ในโฟลเดอร์ + ชื่อมีช่องว่าง/นามสกุลอื่น");
+ok(cloudinaryPublicId(base + "v12/abcd1234.mp4?x=1#y", CL) === "abcd1234", "มี query/hash ท้ายลิงก์");
+ok(cloudinaryPublicId("https://res.cloudinary.com/otheracct/video/upload/v1/abcd.mp4", CL) === null, "ลิงก์ของบัญชี Cloudinary อื่น → ไม่ลบ");
+ok(cloudinaryPublicId("https://res.cloudinary.com/" + CL + "/image/upload/v1/abcd.jpg", CL) === null, "ไม่ใช่วิดีโอ (image/upload) → ไม่ลบ");
+ok(cloudinaryPublicId("https://evil.example.com/" + CL + "/video/upload/v1/abcd.mp4", CL) === null, "โดเมนอื่นแอบอ้างชื่อบัญชี → ไม่ลบ");
+ok(cloudinaryPublicId("data:image/png;base64,AAAA", CL) === null && cloudinaryPublicId("", CL) === null && cloudinaryPublicId(null, CL) === null && cloudinaryPublicId(base + "v1/a.mp4", "") === null, "รูป base64 / ว่าง / ไม่รู้ชื่อบัญชี → ไม่ลบ");
+ok(cloudinaryPublicId(base + "v1/%2e%2e/secret.mp4", CL) === null && cloudinaryPublicId(base + "v1/../secret.mp4", CL) === null, "พยายามแทรก ../ → ไม่ลบ");
+ok(collectVideos([{ images: [base + "v1/aa.mp4", base + "so_0,eo_30/v1/aa.mp4", "data:image/png;base64,AA", base + "v1/bb.mp4"] }, { images: "ไม่ใช่อาร์เรย์" }, {}], CL).map(v => v.publicId).join() === "aa,bb", "รวมลิงก์จากหลายโพสต์: ตัดซ้ำ (ลิงก์เดิมกับแบบตัด) และข้ามรูป base64");
+
+console.log("\n── ตัวเรียก Cloudinary ──");
+const reqs = [];
+const okFetch = async (url, init) => { reqs.push({ url, init }); const ids = new URLSearchParams(init.body).getAll("public_ids[]"); return { ok: true, status: 200, json: async () => ({ deleted: Object.fromEntries(ids.map((i, n) => [i, i.startsWith("gone") ? "not_found" : "deleted"])) }) }; };
+let dv = await deleteVideos({ cloud: CL, key: "K", secret: "S", fetchFn: okFetch }, ["aa", "gone1"]);
+ok(reqs.length === 1 && reqs[0].init.method === "DELETE" && reqs[0].url === "https://api.cloudinary.com/v1_1/ochjk9uo/resources/video/upload", "ส่ง DELETE ไปที่ /resources/video/upload ของบัญชีที่ถูกต้อง");
+ok(reqs[0].init.headers.Authorization === "Basic " + Buffer.from("K:S").toString("base64"), "ยืนยันตัวตนแบบ Basic (key:secret)");
+ok(new URLSearchParams(reqs[0].init.body).getAll("public_ids[]").join() === "aa,gone1" && new URLSearchParams(reqs[0].init.body).get("invalidate") === "true", "ส่ง public_ids[] ครบ และสั่งล้างแคช CDN");
+ok(dv.deleted === 1 && dv.notFound === 1, "นับ ลบแล้ว 1 · ไม่พบ 1 (ไม่พบ = ไม่ถือว่าล้มเหลว)");
+reqs.length = 0;
+dv = await deleteVideos({ cloud: CL, key: "K", secret: "S", fetchFn: okFetch }, Array.from({ length: 205 }, (_, i) => "v" + i));
+ok(reqs.length === 3 && dv.deleted === 205 && new URLSearchParams(reqs[0].init.body).getAll("public_ids[]").length === 100 && new URLSearchParams(reqs[2].init.body).getAll("public_ids[]").length === 5, "205 ไฟล์ → แบ่งส่ง 3 ครั้ง (100/100/5)");
+let threw = ""; try { await deleteVideos({ cloud: CL, key: "K", secret: "S", fetchFn: async () => ({ ok: false, status: 401, json: async () => ({ error: { message: "Invalid credentials" } }) }) }, ["aa"]); } catch (e) { threw = e.message; }
+ok(/401/.test(threw) && /Invalid credentials/.test(threw), "Cloudinary ปฏิเสธ → โยน error ที่อ่านเข้าใจ");
+
+console.log("\n── ลบผู้ใช้ + วิดีโอ ──");
+const vids = [CL, "x"].map(() => null);
+async function seedVideos() {
+  await seed();
+  await db.collection("posts").add({ authorUid: U, content: "คลิป", images: [base + "so_0,eo_30/v1/clipU1.mp4", "data:image/png;base64,AA", base + "v2/clipU2.mp4"] });
+  await db.collection("posts").add({ authorUid: V, content: "คลิปของ V", images: [base + "v3/clipV.mp4"] });
+}
+const fetchLog = []; const spyFetch = async (u, i) => { fetchLog.push(new URLSearchParams(i.body).getAll("public_ids[]")); return okFetch(u, i); };
+const cl = { cloud: CL, key: "K", secret: "S", fetchFn: spyFetch };
+await seedVideos();
+let pl = await planDelete({ db }, U, CL);
+ok(pl.videos.map(v => v.publicId).sort().join() === "clipU1,clipU2", "แผนแสดงลิงก์วิดีโอของ U เท่านั้น (ไม่รวมของ V และข้ามรูป base64)");
+await deleteUserData({ db }, U, { cloudinary: cl, deleteVideos: false });
+ok(fetchLog.length === 0 && !(await exists("users/" + U)), "ไม่ติ๊กลบวิดีโอ → ไม่เรียก Cloudinary เลย แต่ลบข้อมูลตามปกติ");
+await seedVideos(); fetchLog.length = 0;
+let dr = await deleteUserData({ db }, U, { cloudinary: cl, deleteVideos: true });
+ok(fetchLog.length === 1 && fetchLog[0].sort().join() === "clipU1,clipU2", "ติ๊กลบวิดีโอ → ส่งเฉพาะ clipU1, clipU2 (ไม่แตะ clipV ของ V)");
+ok(dr.videoResult.deleted === 2 && !(await exists("users/" + U)) && (await db.collection("posts").where("authorUid", "==", U).count().get()).data().count === 0, "ลบวิดีโอสำเร็จ แล้วลบข้อมูลใน Firestore ตามหลัง");
+ok((await db.collection("posts").where("content", "==", "คลิปของ V").count().get()).data().count === 1 && (await db.collection("posts").where("authorUid", "==", V).count().get()).data().count === 2, "โพสต์วิดีโอของ V (และโพสต์เดิมของ V) ยังอยู่ครบ");
+await seedVideos();
+let failed = ""; try { await deleteUserData({ db }, U, { cloudinary: { ...cl, fetchFn: async () => ({ ok: false, status: 500, json: async () => ({}) }) }, deleteVideos: true }); } catch (e) { failed = e.message; }
+ok(/500/.test(failed) && /ยังไม่ได้ลบข้อมูลใดๆ/.test(failed) && await exists("users/" + U) && (await db.collection("posts").where("authorUid", "==", U).count().get()).data().count === 3, "Cloudinary ล้มเหลว → หยุดทั้งหมด ข้อมูลและลิงก์ใน Firestore ยังอยู่ครบ (ลองใหม่ได้)");
+
+console.log("\n── handler: วิดีโอ ──");
+const mkc = c => makeHandler(async () => ({ auth: fakeAuth(tokens, authUsers), db, FieldValue }), () => cfg, () => c);
+await seedVideos();
+r = await call(mkc({ cloud: CL }), { body: { action: "plan", uid: U } });
+ok(r.status === 200 && r.json.cloudinary.configured === false && r.json.videos.length === 2 && r.json.videos.every(v => /^https:\/\/res\.cloudinary\.com\//.test(v.url)), "ยังไม่ตั้ง key → plan ยังแสดงลิงก์วิดีโอให้คัดลอก และบอกว่า configured = false");
+r = await call(mkc({ cloud: CL }), { body: { action: "delete", uid: U, confirm: confirmWord(U), deleteVideos: true } });
+ok(r.status === 400 && /CLOUDINARY_API_KEY/.test(r.json.error) && await exists("users/" + U), "ติ๊กลบวิดีโอแต่ยังไม่ตั้ง key → 400 ไม่ลบอะไร");
+r = await call(mkc({ cloud: CL }), { body: { action: "delete", uid: U, confirm: confirmWord(U) } });
+ok(r.status === 200 && r.json.videos.length === 2 && r.json.videoResult === null && !(await exists("users/" + U)), "ไม่ติ๊กลบวิดีโอ → ลบข้อมูล และตอบลิงก์วิดีโอกลับมาให้จดไปลบเอง");
+await seedVideos(); fetchLog.length = 0;
+r = await call(mkc(cl), { body: { action: "plan", uid: U } });
+ok(r.json.cloudinary.configured === true, "ตั้ง key แล้ว → configured = true");
+r = await call(mkc(cl), { body: { action: "delete", uid: U, confirm: confirmWord(U), deleteVideos: true } });
+ok(r.status === 200 && r.json.videoResult.deleted === 2 && fetchLog.length === 1, "ตั้ง key + ติ๊ก → ลบวิดีโอบน Cloudinary ผ่าน handler สำเร็จ");
+const lg = (await db.collection("adminLog").get()).docs.map(d => d.data()).find(d => d.videos && d.videos.deleted === 2);
+ok(!!lg && !JSON.stringify(lg).includes("res.cloudinary.com"), "บันทึก adminLog จำนวนวิดีโอที่ลบ (ไม่เก็บลิงก์)");
 
 console.log(`\nผ่าน ${pass} / ${pass + fail}`); if (bad.length) console.log("ไม่ผ่าน:\n - " + bad.join("\n - "));
 process.exit(fail ? 1 : 0);
