@@ -1,7 +1,7 @@
 // Admin — หน้าค้นหารูปในฐานข้อมูล + ลบ/ระงับผู้ใช้ (เฉพาะแอดมิน ทำที่เซิร์ฟเวอร์ ดู DeleteUser.jsx)
 // บอกว่ารูปแต่ละรูปอยู่เอกสารไหน ฟิลด์อะไร แล้วคัดลอกเส้นทางไปลบเองใน Firebase Console
 import { useEffect, useState } from "react";
-import { watchAuth, login, logout, loadUsers, loadUserImages, loadPosts, loadGroupChat } from "./fb.js";
+import { watchAuth, login, logout, loadUsers, loadUserImages, loadPosts, loadGroupChat, callAiReview } from "./fb.js";
 import DeleteUser from "./DeleteUser.jsx";
 import { userImages, postImages, locate, srcKind, isVideo, srcBytes, fmtBytes } from "./paths.js";
 
@@ -36,7 +36,7 @@ export default function Admin() {
       </div>
 
       <div style={{ display: "flex", borderBottom: "1px solid " + C.border }}>
-        {[["users", "👤 ผู้ใช้"], ["posts", "📝 โพสต์"], ["chat", "💬 แชทห้องรวม"]].map(([k, l]) => (
+        {[["users", "👤 ผู้ใช้"], ["posts", "📝 โพสต์"], ["chat", "💬 แชทห้องรวม"], ["ai", "🤖 AI โพสต์"]].map(([k, l]) => (
           <button key={k} data-tab={k} onClick={() => setTab(k)} style={{ flex: 1, padding: "11px 4px", border: "none", borderBottom: "2px solid " + (tab === k ? C.brand : "transparent"),
             background: "transparent", color: tab === k ? C.brand2 : C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>{l}</button>
         ))}
@@ -46,6 +46,7 @@ export default function Admin() {
       {tab === "users" && <UsersTab />}
       {tab === "posts" && <PostsTab />}
       {tab === "chat" && <ChatTab />}
+      {tab === "ai" && <AiPostsTab />}
     </Shell>
   );
 }
@@ -175,6 +176,40 @@ function PostsTab() {
             {p.content ? <div style={{ color: C.sub, fontSize: 12, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>“{p.content}”</div> : null}
           </div>
           {imgs.map(it => <ImgCard key={it.key} it={it} />)}
+        </div>
+      ))}
+    </Loading>
+  );
+}
+
+// ── แท็บ AI โพสต์: ดูคอนเทนต์ที่ AI แต่งไว้รออนุมัติ แล้วกดอนุมัติ/ปฏิเสธ ──
+function AiPostsTab() {
+  const [list, setList] = useState(null), [e, setE] = useState(null), [busy, setBusy] = useState(null);
+  const reload = () => { setE(null); callAiReview("list").then(r => setList(r.drafts)).catch(setE); };
+  useEffect(() => { reload(); }, []);
+
+  async function act(id, action, reason) {
+    setBusy(id);
+    try { await callAiReview(action, { draftId: id, reason }); setList(l => l.filter(d => d.id !== id)); }
+    catch (x) { setE(x); }
+    setBusy(null);
+  }
+
+  if (e) return <><Err e={e} /><div style={{ padding: "0 14px 14px" }}><button onClick={reload} style={btn(C.border, "transparent", C.sub)}>โหลดใหม่</button></div></>;
+  return (
+    <Loading on={!list} empty={list && list.length === 0}>
+      <div style={{ padding: "10px 14px", fontSize: 12, color: C.muted, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>คอนเทนต์ที่ AI แต่งไว้ รออนุมัติก่อนขึ้นฟีดจริง ({(list || []).length} รายการ)</span>
+        <button onClick={reload} style={btn(C.border, "transparent", C.sub)}>↻ โหลดใหม่</button>
+      </div>
+      {(list || []).map(d => (
+        <div key={d.id} data-ai-draft={d.id} style={{ borderTop: "1px solid " + C.border, padding: "12px 14px" }}>
+          {d.topic && <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>หัวข้อ: {d.topic}</div>}
+          <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", background: C.surface, borderRadius: 10, padding: "10px 12px" }}>{d.content}</div>
+          <div style={{ display: "flex", gap: 8, marginTop: 9 }}>
+            <button data-ai-approve disabled={busy === d.id} onClick={() => act(d.id, "approve")} style={{ ...btn(C.green, "transparent", C.green), opacity: busy === d.id ? .5 : 1 }}>✅ อนุมัติ โพสต์เลย</button>
+            <button data-ai-reject disabled={busy === d.id} onClick={() => act(d.id, "reject")} style={{ ...btn(C.red, "transparent", C.red), opacity: busy === d.id ? .5 : 1 }}>✕ ปฏิเสธ</button>
+          </div>
         </div>
       ))}
     </Loading>
