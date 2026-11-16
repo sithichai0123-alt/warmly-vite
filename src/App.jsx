@@ -9,7 +9,7 @@ import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useShar
 import { makeChatCleanup } from "./chatCleanup/index.js"; // ลบข้อความเก่าเกิน 100 ในแชทรวม/แชทห้องเสียง (แยกไฟล์ — ปิดได้ที่ chatCleanup/config.js)
 import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, createMicGainController, applyYtVolume, applyYtVolumeWhenReady, setMusicMuted } from "./audioControls/index.js"; // ปรับเสียงไมค์/เพลงแยกกัน (แยกไฟล์ — ปิดได้ที่ audioControls/config.js)
 import { ImageViewerProvider, useImageViewer } from "./imageViewer/index.js"; // ดูรูปเต็มจอ (แยกไฟล์ — ปิดได้ที่ imageViewer/config.js)
-import { PRESENCE_ENABLED, DOT_MIN_SIZE, PresenceProvider, PresenceDot, PresenceText, makePresenceApi, usePresencePrefs, setPresencePrefs, useIsOnline } from "./presence/index.js"; // สถานะออนไลน์ จุดเขียว/เทา (แยกไฟล์ — ปิดได้ที่ presence/config.js)
+import { PRESENCE_ENABLED, PRESENCE_WINDOW_ENABLED, useOnlineCount, DOT_MIN_SIZE, PresenceProvider, PresenceDot, PresenceText, makePresenceApi, usePresencePrefs, setPresencePrefs, useIsOnline } from "./presence/index.js"; // สถานะออนไลน์ จุดเขียว/เทา (แยกไฟล์ — ปิดได้ที่ presence/config.js)
 import { CHAT_DELETE_ENABLED, makeChatDeleteApi, makeClientFallback, MessageDeleteControl } from "./chatDelete/index.js"; // ลบข้อความแชทส่วนตัว (ทีละข้อความ/ทั้งหมด) ผ่าน Backend — ปิดได้ที่ chatDelete/config.js
 import { DM_UNREAD_ENABLED, DmUnreadProvider, useDmUnread, UnreadBadge, UnreadDot } from "./dmUnread/index.js"; // จุด/ตัวเลขข้อความใหม่ในแชทส่วนตัว — ปิดได้ที่ dmUnread/config.js
 import { FRIENDS_ENABLED, makeFriendsApi, FriendsProvider, useFriends, FriendButton, FriendsPanel } from "./friends/index.js"; // ระบบเพื่อน — ปิดได้ที่ friends/config.js
@@ -2069,6 +2069,7 @@ function NotifCard({items,onRead,onOpenPost}){
 function HomeStrip({onJoinRoom,onGo}){
   const users=useContext(UsersCtx);
   const isOnline=useIsOnline();
+  const onlineCount=useOnlineCount(); // นับจากสถานะออนไลน์ที่ฟังอยู่ ไม่ต้องใช้รายชื่อผู้ใช้ทั้งหมด
   const [rooms,setRooms]=useState(null);
   const [inv,setInv]=useState(false);
   const [copied,setCopied]=useState(false);
@@ -2076,7 +2077,7 @@ function HomeStrip({onJoinRoom,onGo}){
     const q=query(collection(db,"voiceRooms"),orderBy("createdAt","desc"));
     return onSnapshot(q,snap=>setRooms(snap.docs.map(d=>({id:d.id,...d.data()}))),()=>setRooms([]));
   },[]);
-  const online=PRESENCE_ENABLED?Object.keys(users).filter(id=>isOnline(id)).length:0;
+  const online=PRESENCE_ENABLED?(PRESENCE_WINDOW_ENABLED?onlineCount:Object.keys(users).filter(id=>isOnline(id)).length):0;
   const live=(rooms||[]).map(r=>({...r,n:Array.isArray(r.members)?r.members.length:0})).filter(r=>r.n>0).sort((a,b)=>b.n-a.n).slice(0,5);
   const url=(typeof window!=="undefined"&&window.location.origin)||"https://warmly-vite.vercel.app";
   const text="มาคุยกันที่ Warmly 💜 พื้นที่อบอุ่น หาเพื่อน คุยเล่น ไม่เหงา\n"+url;
@@ -4098,7 +4099,7 @@ const friendsApi=makeFriendsApi({db,doc,setDoc,deleteDoc,getDoc,onSnapshot,colle
 const inviteApi=makeInviteApi({db,doc,setDoc,deleteDoc,onSnapshot,collection,serverTimestamp});
 const callApi=makePrivateCallApi({db,doc,collection,setDoc,updateDoc,deleteDoc,getDoc,onSnapshot,serverTimestamp});
 const photosApi=makePhotosApi({db,doc,setDoc,onSnapshot}); // เก็บรูปโปรไฟล์ที่ profilePhotos/{uid} (แยกจาก users)
-const presenceApi=makePresenceApi({db,doc,setDoc,collection,onSnapshot,serverTimestamp}); // เก็บสถานะออนไลน์ที่ presence/{uid} (แยกจาก users)
+const presenceApi=makePresenceApi({db,doc,setDoc,collection,onSnapshot,serverTimestamp,query,where,getDoc}); // เก็บสถานะออนไลน์ที่ presence/{uid} (แยกจาก users)
 const SCALE_FB={db,collection,query,orderBy,limit,where,onSnapshot}; // ส่งให้โมดูล scale (เหมือนโมดูลอื่นที่รับฟังก์ชัน Firebase จากที่นี่)
 const chatCleanup=makeChatCleanup({db,collection,query,orderBy,limit,where,getDocs,getCountFromServer,writeBatch}); // ลบได้เฉพาะ groupChat และ voiceRooms/*/chat เท่านั้น
 const textFxApi=makeTextFxApi({db,getUid,setDoc,doc,runTransaction,collection,serverTimestamp,serverMode:TEXTFX_SERVER_PURCHASE,getToken:()=>realUserToken("ต้องล็อกอินด้วย Google ก่อน")}); // บันทึกสไตล์ตัวอักษร (users/{uid}.textFx)

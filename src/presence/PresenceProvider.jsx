@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { HEARTBEAT_MS, STALE_MS, PRESENCE_ENABLED } from "./config.js";
-import { computeStatus, statusLabel } from "./logic.js";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { HEARTBEAT_MS, STALE_MS, PRESENCE_ENABLED, PRESENCE_WINDOW_ENABLED, PRESENCE_WINDOW_MS } from "./config.js";
+import { computeStatus, statusLabel, windowStart, countOnline } from "./logic.js";
 import { createPresenceController } from "./controller.js";
 import { getPresencePrefs, adoptRemotePrefs, usePresencePrefs } from "./store.js";
 
@@ -14,13 +14,35 @@ export function PresenceProvider({ api, uid, children }) {
   const prefs = usePresencePrefs();
   const ctrl = useRef(null);
   const active = PRESENCE_ENABLED && !!uid && !!api;
+  // โหมดหน้าต่าง: ฟังเฉพาะคนที่เพิ่ง active + ดึงทีละคนเมื่อจำเป็น (ปิดที่ config.js = ฟังทุกคนแบบเดิม)
+  const windowed = PRESENCE_WINDOW_ENABLED && !!(api && api.getOne);
+  const [extra, setExtra] = useState({});   // สถานะที่ดึงทีละคน (คนที่เงียบนานจนไม่อยู่ในหน้าต่าง)
+  const [seed, setSeed] = useState(null);   // สถานะเดิมของ "เรา" (เผื่อเก่าจนไม่อยู่ในหน้าต่าง) ไว้รับค่าตั้งค่าซ่อนสถานะจากบัญชี
+  const asked = useRef(new Set());
 
-  // ฟังสถานะทุกคน
+  // ฟังสถานะ (ทุกคน หรือเฉพาะคนที่เพิ่ง active)
   useEffect(() => {
     if (!active) return undefined;
-    const unsub = api.subscribe(setDocs, e => console.error("presence", e));
+    const since = windowed ? windowStart(Date.now(), PRESENCE_WINDOW_MS) : undefined;
+    const unsub = api.subscribe(setDocs, e => console.error("presence", e), since);
     return () => { try { unsub && unsub(); } catch (e) { /* ignore */ } };
-  }, [active, api]);
+  }, [active, api, windowed]);
+
+  // โหมดหน้าต่าง: อ่านสถานะเดิมของเราครั้งเดียว + ล้างของที่ดึงไว้เมื่อเปลี่ยนบัญชี
+  useEffect(() => {
+    asked.current = new Set(); setExtra({}); setSeed(null);
+    if (!active || !windowed) return undefined;
+    let dead = false;
+    api.getOne(uid).then(d => { if (!dead && d) setSeed(d); }).catch(() => { /* ignore */ });
+    return () => { dead = true; };
+  }, [active, windowed, api, uid]);
+
+  // ขอดึงสถานะของคนที่ไม่อยู่ในหน้าต่าง (ครั้งเดียวต่อคน)
+  const request = useCallback(id => {
+    if (!windowed || !id || asked.current.has(id)) return;
+    asked.current.add(id);
+    api.getOne(id).then(d => setExtra(x => ({ ...x, [id]: d || null }))).catch(() => { asked.current.delete(id); });
+  }, [api, windowed]);
 
   // นาฬิกา: ให้ "ค้างเกิน STALE_MS = ออฟไลน์" และข้อความ "กี่นาทีที่แล้ว" อัปเดตเอง
   useEffect(() => {
@@ -47,21 +69,25 @@ export function PresenceProvider({ api, uid, children }) {
   useEffect(() => { ctrl.current && ctrl.current.refresh(); }, [prefs.showOnline, prefs.showLast]);
 
   // อุปกรณ์ใหม่ที่ยังไม่เคยตั้งค่า → รับค่าที่เคยตั้งไว้จากบัญชี
-  const mine = uid ? docs[uid] : null;
+  const mine = uid ? (docs[uid] || seed) : null;
   useEffect(() => { if (mine) adoptRemotePrefs(mine); }, [mine]);
 
-  const value = useMemo(() => (active ? { docs, now } : null), [active, docs, now]);
+  const value = useMemo(() => (active ? { docs, now, extra, request, windowed } : null), [active, docs, now, extra, request, windowed]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export function usePresence(uid) {
   const v = useContext(Ctx);
   if (!v || !uid) return OFFLINE;
-  return computeStatus(v.docs[uid], v.now, STALE_MS);
+  return computeStatus(docOf(v, uid), v.now, STALE_MS);
 }
+// เอกสารสถานะของคนนี้: จากที่ฟังอยู่ก่อน ไม่มีค่อยดูที่ดึงทีละคน
+const docOf = (v, uid) => v.docs[uid] || (v.extra && v.extra[uid]) || undefined;
 export function usePresenceLabel(uid) {
   const v = useContext(Ctx);
   const st = usePresence(uid);
+  const need = !!(v && v.windowed && uid && !v.docs[uid]);   // ไม่อยู่ในหน้าต่าง = เงียบนาน → ดึงเวลา "ออนไลน์ล่าสุด" มาครั้งเดียว
+  useEffect(() => { if (need) v.request(uid); }, [need, uid]); // eslint-disable-line
   if (!v || !uid) return "";
   return statusLabel(st, v.now);
 }
@@ -69,7 +95,12 @@ export function usePresenceEnabled() { return !!useContext(Ctx); }
 // ฟังก์ชันเช็กออนไลน์ของใครก็ได้ (ใช้กับรายชื่อ: เพื่อน/เชิญเข้าห้อง) — ตามค่าที่เจ้าตัวตั้งซ่อนสถานะไว้ด้วย
 export function useIsOnline() {
   const v = useContext(Ctx);
-  return (uid) => !!v && !!uid && computeStatus(v.docs[uid], v.now, STALE_MS).state === "online";
+  return (uid) => !!v && !!uid && computeStatus(docOf(v, uid), v.now, STALE_MS).state === "online";
+}
+// จำนวนคนที่ออนไลน์ตอนนี้ (นับจากสถานะที่ฟังอยู่ ไม่ต้องใช้รายชื่อผู้ใช้ทั้งหมด)
+export function useOnlineCount() {
+  const v = useContext(Ctx);
+  return useMemo(() => (v ? countOnline(v.docs, v.now, STALE_MS) : 0), [v]);
 }
 
 // จุดสถานะมุมขวาล่างของรูปโปรไฟล์ (วางใน wrapper ที่เป็น position:relative)
