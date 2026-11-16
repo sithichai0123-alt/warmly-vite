@@ -1,6 +1,6 @@
 // AI Content — ฝั่งเซิร์ฟเวอร์: เรียก Claude + อ่าน/เขียน Firestore ผ่าน firebase-admin (ข้ามกฎ Firestore)
 // ฉีด admin ({db, FieldValue}) เข้ามาเพื่อทดสอบได้ · ไม่ถูก import จากฝั่งแอป
-import { AI_DRAFTS_COLLECTION, AI_BOT_UID, AI_BOT_NAME, AI_BOT_INIT, AI_BOT_AVATAR, AI_MASCOT_IMAGE, AI_SYSTEM_PROMPT, AI_MODEL, AI_MAX_TOKENS } from "./config.js";
+import { AI_DRAFTS_COLLECTION, AI_BOT_UID, AI_BOT_NAME, AI_BOT_INIT, AI_BOT_AVATAR, AI_MASCOT_IMAGES, AI_MOODS, AI_SYSTEM_PROMPT, AI_MODEL, AI_MAX_TOKENS } from "./config.js";
 import { parseAiReply, fallbackPosterLines, buildPosterSvg, buildDraft, buildPublishedPost, isAutoPublishOn } from "./logic.js";
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
@@ -41,10 +41,11 @@ const svgToDataUri = svg => "data:image/svg+xml;base64," + Buffer.from(svg).toSt
 // สร้างคอนเทนต์ 1 อัน แล้วเขียนลงฐานข้อมูล — autoPublish=true โพสต์เข้า "posts" จริงทันที, false เขียนเป็น draft รออนุมัติ
 export async function generateAndStore({ db, FieldValue }, apiKey, { autoPublish = false, fetchFn } = {}) {
   const raw = await callClaude(apiKey, { fetchFn });
-  const parsed = parseAiReply(raw);
+  const parsed = parseAiReply(raw, AI_MOODS);
   if (!parsed) throw httpError(502, "Claude ตอบกลับไม่ใช่รูปแบบที่ใช้ได้ ลองใหม่อีกครั้ง — raw: " + JSON.stringify(raw).slice(0, 500));
   const lines = parsed.posterLines.length ? parsed.posterLines : fallbackPosterLines(parsed.content);
-  const poster = svgToDataUri(buildPosterSvg({ lines, mascotImage: AI_MASCOT_IMAGE }));
+  const mascotImage = AI_MASCOT_IMAGES[parsed.mood] || AI_MASCOT_IMAGES[AI_MOODS[0]];
+  const poster = svgToDataUri(buildPosterSvg({ lines, mascotImage }));
   const images = [poster], mediaTypes = ["image"];
   const now = FieldValue.serverTimestamp();
   if (autoPublish) {

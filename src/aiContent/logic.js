@@ -1,8 +1,9 @@
 // AI Content — ตรรกะล้วน (ไม่แตะ Firebase/เครือข่าย) จึงทดสอบได้ง่าย
 
-// ตัด ```json ... ``` หรือข้อความเกินรอบ ๆ ออก แล้ว parse เอาแค่ {content, posterLines, topic}
+// ตัด ```json ... ``` หรือข้อความเกินรอบ ๆ ออก แล้ว parse เอาแค่ {content, posterLines, mood, topic}
 // คำตอบไม่ใช่ JSON ที่ใช้ได้ / content ว่าง → คืน null (ผู้เรียกต้องไม่เขียนอะไรต่อ)
-export function parseAiReply(text) {
+// validMoods: รายชื่อ mood ที่ยอมรับ (ส่งมาจาก AI_MOODS ใน config.js) — ไม่ตรง/ไม่ส่งมา = ใช้ตัวแรกของลิสต์เป็นค่าเริ่มต้น
+export function parseAiReply(text, validMoods = ["happy", "tired", "angry"]) {
   if (typeof text !== "string") return null;
   const m = text.match(/\{[\s\S]*\}/);
   if (!m) return null;
@@ -15,7 +16,8 @@ export function parseAiReply(text) {
   const posterLines = Array.isArray(obj.posterLines)
     ? obj.posterLines.map(l => String(l || "").trim()).filter(Boolean).slice(0, 5).map(l => l.slice(0, 40))
     : [];
-  return { content: content.slice(0, 1200), topic, posterLines };
+  const mood = typeof obj.mood === "string" && validMoods.includes(obj.mood) ? obj.mood : validMoods[0];
+  return { content: content.slice(0, 1200), topic, posterLines, mood };
 }
 
 // สำรองไว้เผื่อ AI ไม่ได้ให้ posterLines มา — ตัดบรรทัดแบบหยาบๆ ตามความยาวตัวอักษร (ภาษาไทยไม่มีช่องว่างระหว่างคำเสมอไป)
