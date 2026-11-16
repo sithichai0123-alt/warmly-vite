@@ -1,5 +1,5 @@
 // Presence — จุดเข้าเดียวที่ App.jsx นำเข้า
-export { PRESENCE_ENABLED, DOT_MIN_SIZE, HEARTBEAT_MS, STALE_MS, PRESENCE_WINDOW_ENABLED, PRESENCE_WINDOW_MS } from "./config.js";
+export { PRESENCE_ENABLED, DOT_MIN_SIZE, HEARTBEAT_MS, STALE_MS, PRESENCE_WINDOW_ENABLED, PRESENCE_WINDOW_MS, PRESENCE_START_WAIT_MS } from "./config.js";
 export { computeStatus, formatLastSeen, statusLabel, buildPresenceWrite, windowStart, countOnline } from "./logic.js";
 export { makePresenceApi } from "./api.js";
 export { createPresenceController } from "./controller.js";
