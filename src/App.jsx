@@ -17,6 +17,7 @@ import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from 
 import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds, PLUS_MODELS } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
 import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession, detectPlatform, BG_PANEL_ENABLED } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
 import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, AUTO_JOIN_MUSIC, useRoomMusicKeeper } from "./roomMusic/index.js";
+import { VOICE_IDLE_PAUSE_ENABLED, useVoiceSaver, ResumeChip } from "./voiceSaver/index.js"; // พักเสียงห้องของผู้ฟังเมื่อห้องเงียบ เพื่อประหยัดนาที LiveKit (ปิดได้ที่ voiceSaver/config.js)
 import { makeAuthedFetch } from "./voiceToken/client.js"; // แนบบัตรผ่านผู้ใช้ไปกับคำขอโทเคนห้องเสียง (ตัวออกโทเคนตรวจสิทธิ์แล้ว)
 import { FEED_PAGING_ENABLED, withFocus, mergePosts, usePostsFeed, useUserPosts, LoadMore, USERS_LAZY_ENABLED, useUsersStore, usePeopleList, useMemberCount, UsersApiCtx } from "./scale/index.js"; // ฟีดโหลดทีละส่วน ไม่ดึงโพสต์ทั้งหมด (ปิดได้ที่ scale/config.js)
 import { ROOM_ACTIONS_GRID_ENABLED, ROOM_MEMBERS_COLLAPSE_ENABLED, MEMBERS_VISIBLE_ROWS, RoomActions, CollapsibleMembers, ROOM_CLASS, fullBleedCss } from "./roomUi/index.js";
@@ -1037,6 +1038,7 @@ function useVoice(){
   const [mics,setMics]=useState({});
   const [micOn,setMicOn]=useState(false);
   const [needAudio,setNeedAudio]=useState(false);
+  const pausedRef=useRef(false); const [paused,setPaused]=useState(false); // พักเสียง (ตัด LiveKit ชั่วคราวเพื่อประหยัด แต่ยังอยู่ในห้อง)
   const [error,setError]=useState("");
 
   const refreshMics=useCallback(()=>{
@@ -1049,7 +1051,7 @@ function useVoice(){
   },[]);
 
   const disconnect=useCallback(()=>{
-    leftRef.current=true;
+    leftRef.current=true;pausedRef.current=false;setPaused(false);
     const room=roomRef.current; roomRef.current=null;
     if(micGainRef.current)micGainRef.current.unbind();
     if(room){try{room.removeAllListeners();room.disconnect();}catch(e){}}
@@ -1059,7 +1061,7 @@ function useVoice(){
 
   const connect=useCallback(async(roomId,identity,name,opts)=>{
     disconnect();
-    leftRef.current=false;connectingRef.current=true;lastConnRef.current={roomId,identity,name};wantMicRef.current=!(opts&&opts.mic===false);
+    leftRef.current=false;pausedRef.current=false;setPaused(false);connectingRef.current=true;lastConnRef.current={roomId,identity,name};wantMicRef.current=!(opts&&opts.mic===false);
     setError("");
     const room=new Room({
       adaptiveStream:true,dynacast:true,
@@ -1126,6 +1128,23 @@ function useVoice(){
     return setMic(!room.localParticipant.isMicrophoneEnabled);
   },[setMic]);
 
+  // พักเสียง: ตัดการเชื่อมต่อ LiveKit ชั่วคราว (ไม่ถือว่าออกจากห้อง — ยังอยู่ใน members และเพลง YouTube เล่นต่อ)
+  const pause=useCallback(()=>{
+    if(pausedRef.current)return;
+    const room=roomRef.current; roomRef.current=null;
+    if(micGainRef.current)micGainRef.current.unbind();
+    if(room){try{room.removeAllListeners();room.disconnect();}catch(e){}}
+    document.querySelectorAll("audio[data-lk]").forEach(el=>{try{el.srcObject=null;}catch(e){} el.remove();});
+    pausedRef.current=true;setPaused(true);
+    setConnected(false);setSpeaking({});setMics({});setMicOn(false);setNeedAudio(false);
+  },[]);
+  const resumeFromPause=useCallback(()=>{
+    if(!pausedRef.current)return Promise.resolve();
+    const c=lastConnRef.current; if(!c||leftRef.current){pausedRef.current=false;setPaused(false);return Promise.resolve();}
+    pausedRef.current=false;setPaused(false);
+    return connect(c.roomId,c.identity,c.name,{mic:false}); // ผู้ฟังกลับเข้าเสียงโดยไม่เปิดไมค์
+  },[connect]);
+
   const enableAudio=useCallback(async()=>{
     const room=roomRef.current; if(!room)return;
     try{await room.startAudio();}catch(e){}
@@ -1134,6 +1153,7 @@ function useVoice(){
 
   // สถานะการเชื่อมต่อ (ให้โมดูลเสียงเบื้องหลังตัดสินใจ): "left" = เราออกจากห้องเอง → ห้ามเชื่อมต่อใหม่
   const getRoomState=useCallback(()=>{
+    if(pausedRef.current)return "paused";
     if(connectingRef.current)return "connecting";
     if(leftRef.current||!roomRef.current)return "left";
     return roomRef.current.state||"connected";
@@ -1146,7 +1166,7 @@ function useVoice(){
 
   useEffect(()=>()=>disconnect(),[disconnect]);
 
-  return{connected,micOn,speaking,mics,needAudio,error,connect,disconnect,toggleMic,setMic,enableAudio,getRoomState,rejoin};
+  return{connected,micOn,speaking,mics,needAudio,error,connect,disconnect,toggleMic,setMic,enableAudio,getRoomState,rejoin,pause,resumeFromPause,paused};
 }
 
 // ── Error Boundary (class จริง จับ error ตอน render ได้) ────────
@@ -1190,7 +1210,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
   const prevKeysRef=useRef(null);
   const seenRef=useRef(false);
   const voice=useVoice();
-  const {connected,micOn,speaking,mics,needAudio,error:voiceError,toggleMic,enableAudio}=voice;
+  const {connected,micOn,speaking,mics,needAudio,error:voiceError,toggleMic,enableAudio,paused:voicePaused}=voice;
   const [auraMode]=useAuraMode();
   const [auraOpen,setAuraOpen]=useState(false);
   const friendsCtx=useFriends();const callCtx=useCall();const onlineFn=useIsOnline();const openProfileFromRoom=useContext(ProfileCtx);
@@ -1213,6 +1233,10 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
   const meOnStage=!stage||!me||stage.speakers.some(isMeM);
   const myRole=stage&&me?stageRole(inRoom,me):null;
   const isMod=myRole==="host"||myRole==="cohost";
+  // ประหยัดนาที LiveKit: ผู้ฟังในห้องที่เงียบ (ไม่มีใครพูด) จะถูกพักเสียงอัตโนมัติ · เพลง YouTube เล่นต่อ · มีคนพูดเมื่อไรกลับเข้าเสียงเอง
+  const iAmListener=!!stage&&!!me&&!meOnStage&&!isHost;
+  const voiceSaver=useVoiceSaver({inRoomId,voiceActiveAt:inRoom&&inRoom.voiceActiveAt,listener:iAmListener,isHost,connected,paused:voicePaused,speaking,voice,
+    stamp:()=>{ if(inRoomId)updateDoc(doc(db,"voiceRooms",inRoomId),{voiceActiveAt:serverTimestamp()}).catch(()=>{}); }});
   const [stageNote,setStageNote]=useState("");
   const prevOnStageRef=useRef(null); // null = ยังไม่เคยเห็นสถานะ (เพิ่งเข้าห้อง) → ไม่แจ้ง
   const isHost=!!inRoom&&(inRoom.hostUid?inRoom.hostUid===myUid:inRoom.hostInit===user.init);
@@ -1501,11 +1525,11 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
             <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12,gap:10}}>
               <div style={{minWidth:0,flex:1}}>
                 <div style={{fontSize:16,fontWeight:700,color:T.text,display:"flex",alignItems:"center",gap:8}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",flexShrink:0,background:connected?T.green:T.yellow,boxShadow:"0 0 8px "+(connected?T.green:T.yellow)}}/>
+                  <div style={{width:8,height:8,borderRadius:"50%",flexShrink:0,background:connected?T.green:(voicePaused?T.muted:T.yellow),boxShadow:"0 0 8px "+(connected?T.green:(voicePaused?T.muted:T.yellow))}}/>
                   <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{inRoom.vibe} <FxT uid={inRoom.hostUid} area="roomName">{inRoom.name}</FxT></span>
                 </div>
                 <div style={{fontSize:12,color:T.muted,marginTop:3}}>
-                  {connected?(micOn?"🎙️ ไมค์เปิด":"🔇 ไมค์ปิด"):"⏳ กำลังเชื่อมต่อ..."}
+                  {voicePaused?"💤 พักเสียงห้อง (ประหยัด)":connected?(micOn?"🎙️ ไมค์เปิด":"🔇 ไมค์ปิด"):"⏳ กำลังเชื่อมต่อ..."}
                   {" • "}{(inRoom.members||[]).length} คน
                 </div>
                 {voiceError&&<div style={{fontSize:12,color:T.red,marginTop:3}}>⚠️ {voiceError}</div>}
@@ -1613,6 +1637,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                   </div>);};
                 return(
                   <div data-stage style={{paddingBottom:4}}>
+                    {voicePaused&&iAmListener&&<ResumeChip T={T} onResume={voiceSaver.resume}/>}
                     {amListener&&<ListenerStatus hand={typeof me.hand==="number"} free={stage.free} T={T}/>}
                     {stageNote&&<div data-stage-note style={{fontSize:12,color:T.green,background:T.greenA33,borderRadius:10,padding:"7px 10px",marginBottom:10}}>{stageNote}</div>}
                     <StageHeader count={stage.speakers.length} max={STAGE_MAX} T={T}/>
