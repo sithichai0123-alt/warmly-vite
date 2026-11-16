@@ -205,6 +205,7 @@ function AiPostsTab() {
       {(list || []).map(d => (
         <div key={d.id} data-ai-draft={d.id} style={{ borderTop: "1px solid " + C.border, padding: "12px 14px" }}>
           {d.topic && <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>หัวข้อ: {d.topic}</div>}
+          {Array.isArray(d.images) && d.images[0] && <img src={d.images[0]} alt="" style={{ width: "100%", maxWidth: 260, borderRadius: 12, display: "block", marginBottom: 8 }} />}
           <div style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap", background: C.surface, borderRadius: 10, padding: "10px 12px" }}>{d.content}</div>
           <div style={{ display: "flex", gap: 8, marginTop: 9 }}>
             <button data-ai-approve disabled={busy === d.id} onClick={() => act(d.id, "approve")} style={{ ...btn(C.green, "transparent", C.green), opacity: busy === d.id ? .5 : 1 }}>✅ อนุมัติ โพสต์เลย</button>
