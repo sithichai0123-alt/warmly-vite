@@ -3,3 +3,8 @@
 export const ROOM_ACTIONS_GRID_ENABLED = true;    // ปุ่มทั้งหมดในแถวเดียว ขนาดเท่ากัน (false = ปุ่ม 2 แถวแบบเดิม)
 export const ROOM_MEMBERS_COLLAPSE_ENABLED = true; // รายชื่อสมาชิกแสดงไม่เกิน MEMBERS_VISIBLE_ROWS แถว + ปุ่มดูทั้งหมด (false = แสดงทุกคนแบบเดิม)
 export const MEMBERS_VISIBLE_ROWS = 2;
+// มือถือ: ห้องคุยเต็มความกว้างจอ (ตัดกรอบที่ซ้อนกัน 3 ชั้น: ขอบหน้า 12 + กรอบธีม 8 + เส้นการ์ด 1 → เหลือ 0)
+// และขยายแถวผู้พูดบนเวทีทั้งก้อน (รูป ออร่า ชื่อ ป้าย ขยายพร้อมกัน สัดส่วนเดิม) · จอคอม/แท็บเล็ตกว้างเกิน FULL_BLEED_MAX_W = แบบเดิม
+export const ROOM_FULL_BLEED_ENABLED = true;      // false = กลับเป็นการ์ดมีกรอบแบบเดิม 100%
+export const FULL_BLEED_MAX_W = 600;              // ใช้กับจอที่กว้างไม่เกินนี้ (px)
+export const STAGE_SEAT_ZOOM = 1.18;              // ขยายแถวผู้พูดบนจอมือถือ (1 = เท่าเดิม)
