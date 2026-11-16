@@ -139,13 +139,14 @@ export function buildDraft({ content, topic, model, now, images, mediaTypes }) {
 }
 
 // สร้างเอกสาร post จริง (schema เดียวกับที่ NewPostBox ใช้) จาก draft ที่อนุมัติแล้ว
-export function buildPublishedPost({ content, bot, now, images, mediaTypes }) {
+// topic เก็บไว้เงียบๆ ท้ายเอกสาร (ไม่โชว์ผู้ใช้) ใช้เป็น log ให้รอบถัดไปรู้ว่าเพิ่งพูดเรื่องอะไรไปแล้ว กันธีมซ้ำ
+export function buildPublishedPost({ content, bot, now, images, mediaTypes, topic }) {
   return {
     author: bot.name, authorInit: bot.init, authorUid: bot.uid,
     content, mood: "", privacy: "public",
     images: images || [], mediaTypes: mediaTypes || [],
     likes: 0, liked: false, likers: [], comments: [],
-    createdAt: now,
+    createdAt: now, topic: topic || "",
   };
 }
 
