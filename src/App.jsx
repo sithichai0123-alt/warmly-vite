@@ -17,6 +17,7 @@ import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from 
 import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds, PLUS_MODELS } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
 import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession, detectPlatform, BG_PANEL_ENABLED } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
 import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, AUTO_JOIN_MUSIC, useRoomMusicKeeper } from "./roomMusic/index.js";
+import { makeAuthedFetch } from "./voiceToken/client.js"; // แนบบัตรผ่านผู้ใช้ไปกับคำขอโทเคนห้องเสียง (ตัวออกโทเคนตรวจสิทธิ์แล้ว)
 import { FEED_PAGING_ENABLED, withFocus, mergePosts, usePostsFeed, useUserPosts, LoadMore, USERS_LAZY_ENABLED, useUsersStore, usePeopleList, useMemberCount, UsersApiCtx } from "./scale/index.js"; // ฟีดโหลดทีละส่วน ไม่ดึงโพสต์ทั้งหมด (ปิดได้ที่ scale/config.js)
 import { ROOM_ACTIONS_GRID_ENABLED, ROOM_MEMBERS_COLLAPSE_ENABLED, MEMBERS_VISIBLE_ROWS, RoomActions, CollapsibleMembers, ROOM_CLASS, fullBleedCss } from "./roomUi/index.js";
 import { ROOM_STAGE_ENABLED, STAGE_MAX, COHOST_MAX, keyOf as stageKey, roleOf as stageRole, cohostsOf, stageView, canModerate, canManageCohosts, joinEntry, takeSeat, leaveSeat, setHand, setMicAllowed, setCohost, RoleBadge, StageHeader, EmptySeat, RequestsPanel, ListenerStatus } from "./roomStage/index.js"; // ห้องแบบเวที 7 คน + เจ้าของ👑/รอง🛡️ + ผู้ฟังขอพูด — ปิดได้ที่ roomStage/config.js // ห้องคุยกระชับ: ปุ่มแถวเดียว + รายชื่อพับได้ — ปิดได้ที่ roomUi/config.js // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
@@ -444,6 +445,7 @@ async function sendGiftLogged(gift,fromUser,toUid,toName,ctx){
 // </WALLET-CORE>
 
 // โทเคนสำหรับเรียก /api/* — เฉพาะผู้ใช้ Google จริง (บัญชีนิรนามของผู้เยี่ยมชมถือว่า "ไม่มีโทเคน" เหมือนเดิมทุกอย่าง)
+const voiceFetch=makeAuthedFetch({getIdToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("no user")),fetchFn:(...a)=>fetch(...a)}); // ใช้กับ /api/token ของห้องเสียงและสายโทร
 const realUserToken=msg=>{const u=auth.currentUser;return u&&!u.isAnonymous?u.getIdToken():Promise.reject(new Error(msg));};
 
 // Voice Aura: ซื้อ/สวมใส่เอฟเฟกต์เสียง (ตรรกะอยู่ใน voiceAura/wallet.js — ใช้ transaction + ledger แบบเดียวกับกระเป๋าเดิม)
@@ -1083,7 +1085,7 @@ function useVoice(){
 
     try{
       const url=`/api/token?room=${encodeURIComponent(roomId)}&identity=${encodeURIComponent(identity)}&name=${encodeURIComponent(name)}`;
-      const r=await fetch(url);
+      const r=await voiceFetch(url);
       let data={};try{data=await r.json();}catch(e){}
       if(!r.ok||!data.token||!data.url)throw new Error(data.error||("token "+r.status));
       await room.connect(data.url,data.token);
@@ -4121,7 +4123,7 @@ function SocialProviders({user,onOpenFriends,onJoinRoom,children}){
   const nameOf=useCallback(id=>(users[id]&&users[id].name)||"ผู้ใช้",[users]);
   const isUserGuest=useCallback(id=>!!(users[id]&&users[id].isGuest),[users]);
   let tree=children;
-  if(PRIVATE_CALL_ENABLED)tree=<CallProvider api={callApi} uid={guest?null:myUid} myName={user.name} guest={guest} nameOf={nameOf} Name={TEXTFX_ENABLED?UName:undefined} isUserGuest={isUserGuest} Avatar={UAv} blocked={blocks.set} lk={{Room,RoomEvent,Track}}>{tree}</CallProvider>;
+  if(PRIVATE_CALL_ENABLED)tree=<CallProvider api={callApi} uid={guest?null:myUid} myName={user.name} guest={guest} nameOf={nameOf} Name={TEXTFX_ENABLED?UName:undefined} isUserGuest={isUserGuest} Avatar={UAv} blocked={blocks.set} lk={{Room,RoomEvent,Track}} fetchFn={voiceFetch}>{tree}</CallProvider>;
   if(DM_UNREAD_ENABLED)tree=<DmUnreadProvider api={dmApi} uid={guest?null:myUid} blocked={blocks.set}>{tree}</DmUnreadProvider>;
   if(FRIENDS_ENABLED)tree=<FriendsProvider api={friendsApi} uid={guest?null:myUid} blocked={blocks.set} nameOf={nameOf} Name={TEXTFX_ENABLED?UName:undefined} onOpenFriends={onOpenFriends}>{tree}</FriendsProvider>;
   return(<>{tree}

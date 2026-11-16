@@ -1,31 +1,24 @@
-// Vercel Serverless Function — สร้าง LiveKit token สำหรับเข้าห้องเสียง
-import { AccessToken } from "livekit-server-sdk";
+// Vercel Serverless Function — สร้าง LiveKit token สำหรับเข้าห้องเสียง / สายโทรส่วนตัว
+// ตรวจสิทธิ์ผู้ใช้ก่อนออกโทเคนทุกครั้ง — ดู src/voiceToken/server.js (ต้องมี FIREBASE_SERVICE_ACCOUNT ในสภาพแวดล้อมนั้น ๆ ของ Vercel)
+// ย้อนกลับฉุกเฉิน: ตั้งตัวแปร Vercel VOICE_TOKEN_LEGACY=1 แล้ว Redeploy = กลับเป็นแบบเดิม (ไม่ตรวจสิทธิ์)
+import { makeTokenHandler } from "../src/voiceToken/server.js";
 
-export default async function handler(req, res) {
-  const { room, identity, name } = req.query;
-  if (!room || !identity) {
-    return res.status(400).json({ error: "room and identity required" });
-  }
-  const { LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL } = process.env;
-  if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET || !LIVEKIT_URL) {
-    return res.status(500).json({ error: "LIVEKIT env vars missing on server" });
-  }
+let adminCache = null;
+async function getAdmin() {
+  if (adminCache) return adminCache;
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (!raw) throw Object.assign(new Error("เซิร์ฟเวอร์ยังไม่ได้ตั้งค่า FIREBASE_SERVICE_ACCOUNT (ต้องตั้งในสภาพแวดล้อมนี้ด้วย)"), { code: 501 });
+  let initializeApp, cert, getApps, getAuth, getFirestore;
   try {
-    const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
-      identity: String(identity).slice(0, 64),
-      name: String(name || identity).slice(0, 64),
-      ttl: "10h",
-    });
-    at.addGrant({
-      roomJoin: true,
-      room: String(room).slice(0, 128),
-      canPublish: true,
-      canSubscribe: true,
-    });
-    const token = await at.toJwt();
-    res.setHeader("Cache-Control", "no-store");
-    return res.status(200).json({ token, url: LIVEKIT_URL });
+    ({ initializeApp, cert, getApps } = await import("firebase-admin/app"));
+    ({ getAuth } = await import("firebase-admin/auth"));
+    ({ getFirestore } = await import("firebase-admin/firestore"));
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    throw Object.assign(new Error("เซิร์ฟเวอร์ยังไม่ได้ติดตั้ง firebase-admin"), { code: 501 });
   }
+  if (!getApps().length) initializeApp({ credential: cert(JSON.parse(raw)) });
+  adminCache = { auth: getAuth(), db: getFirestore() };
+  return adminCache;
 }
+
+export default makeTokenHandler({ getAdmin });
