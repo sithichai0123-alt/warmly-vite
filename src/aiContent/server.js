@@ -1,7 +1,7 @@
 // AI Content — ฝั่งเซิร์ฟเวอร์: เรียก Claude + อ่าน/เขียน Firestore ผ่าน firebase-admin (ข้ามกฎ Firestore)
 // ฉีด admin ({db, FieldValue}) เข้ามาเพื่อทดสอบได้ · ไม่ถูก import จากฝั่งแอป
-import { AI_DRAFTS_COLLECTION, AI_BOT_UID, AI_BOT_NAME, AI_BOT_INIT, AI_BOT_AVATAR, AI_SYSTEM_PROMPT, AI_MODEL, AI_MAX_TOKENS } from "./config.js";
-import { parseAiReply, buildDraft, buildPublishedPost, isAutoPublishOn } from "./logic.js";
+import { AI_DRAFTS_COLLECTION, AI_BOT_UID, AI_BOT_NAME, AI_BOT_INIT, AI_BOT_AVATAR, AI_MASCOT_IMAGE, AI_SYSTEM_PROMPT, AI_MODEL, AI_MAX_TOKENS } from "./config.js";
+import { parseAiReply, fallbackPosterLines, buildPosterSvg, buildDraft, buildPublishedPost, isAutoPublishOn } from "./logic.js";
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 
@@ -36,19 +36,24 @@ async function ensureBotProfile({ db }) {
   await db.collection("users").doc(AI_BOT_UID).set({ name: AI_BOT_NAME, avatar: AI_BOT_AVATAR }, { merge: true });
 }
 
+const svgToDataUri = svg => "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64");
+
 // สร้างคอนเทนต์ 1 อัน แล้วเขียนลงฐานข้อมูล — autoPublish=true โพสต์เข้า "posts" จริงทันที, false เขียนเป็น draft รออนุมัติ
 export async function generateAndStore({ db, FieldValue }, apiKey, { autoPublish = false, fetchFn } = {}) {
   const raw = await callClaude(apiKey, { fetchFn });
   const parsed = parseAiReply(raw);
   if (!parsed) throw httpError(502, "Claude ตอบกลับไม่ใช่รูปแบบที่ใช้ได้ ลองใหม่อีกครั้ง — raw: " + JSON.stringify(raw).slice(0, 500));
+  const lines = parsed.posterLines.length ? parsed.posterLines : fallbackPosterLines(parsed.content);
+  const poster = svgToDataUri(buildPosterSvg({ lines, mascotImage: AI_MASCOT_IMAGE }));
+  const images = [poster], mediaTypes = ["image"];
   const now = FieldValue.serverTimestamp();
   if (autoPublish) {
     await ensureBotProfile({ db });
-    const post = buildPublishedPost({ content: parsed.content, bot: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT }, now });
+    const post = buildPublishedPost({ content: parsed.content, bot: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT }, now, images, mediaTypes });
     const ref = await db.collection("posts").add(post);
     return { mode: "published", postId: ref.id, content: parsed.content, topic: parsed.topic };
   }
-  const draft = buildDraft({ content: parsed.content, topic: parsed.topic, model: AI_MODEL, now });
+  const draft = buildDraft({ content: parsed.content, topic: parsed.topic, model: AI_MODEL, now, images, mediaTypes });
   const ref = await db.collection(AI_DRAFTS_COLLECTION).add(draft);
   return { mode: "pending", draftId: ref.id, content: parsed.content, topic: parsed.topic };
 }
@@ -70,7 +75,7 @@ export async function approveDraft({ db, FieldValue }, draftId, reviewerUid) {
   if (d.status !== "pending") throw httpError(400, "draft นี้ถูกจัดการไปแล้ว (" + d.status + ")");
   await ensureBotProfile({ db });
   const now = FieldValue.serverTimestamp();
-  const post = buildPublishedPost({ content: d.content, bot: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT }, now });
+  const post = buildPublishedPost({ content: d.content, bot: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT }, now, images: d.images, mediaTypes: d.mediaTypes });
   const postRef = db.collection("posts").doc();
   const batch = db.batch();
   batch.set(postRef, post);
