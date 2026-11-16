@@ -24,6 +24,17 @@ export function computeStatus(d, now, staleMs = STALE_MS) {
   return { state: online ? "online" : "offline", lastSeen: d.hideLast === true ? null : t };
 }
 
+// เวลาเริ่มของ "หน้าต่างคนที่เพิ่ง active" (ms) — เอกสารที่ t เก่ากว่านี้ไม่ต้องฟัง (ออฟไลน์อยู่แล้ว)
+export const windowStart = (now, windowMs) => now - windowMs;
+
+// นับคนที่ออนไลน์จริง ๆ จากเอกสารสถานะ (แทนการเอารายชื่อผู้ใช้ทั้งหมดมานับ)
+export function countOnline(docs, now, staleMs = STALE_MS) {
+  let n = 0;
+  if (!docs) return 0;
+  for (const k of Object.keys(docs)) if (computeStatus(docs[k], now, staleMs).state === "online") n++;
+  return n;
+}
+
 export function formatLastSeen(ms, now) {
   if (ms == null) return "";
   const s = Math.max(0, Math.floor((now - ms) / 1000));
