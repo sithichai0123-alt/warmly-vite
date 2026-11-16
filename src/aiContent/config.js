@@ -19,7 +19,8 @@ export const AI_BOT_AVATAR = "";
 
 // โมเดลที่ใช้ (ข้อความล้วน ราคาประหยัด เหมาะกับโพสสั้นวันละไม่กี่ครั้ง)
 export const AI_MODEL = "claude-haiku-5-5";
-export const AI_MAX_TOKENS = 600;
+// ให้พื้นที่เผื่อไว้มาก เพราะโมเดลนี้เปิด extended thinking ไว้โดยปริยาย (กินโควตา max_tokens ไปด้วย)
+export const AI_MAX_TOKENS = 2048;
 
 // เสียง/กรอบของแบรนด์ — ปรับคำสั่งให้ AI ที่นี่ไฟล์เดียว ไม่ต้องแก้ logic
 export const AI_SYSTEM_PROMPT = `คุณคือ "หัมน้อย" มาสคอต/แอดมินเพจตัวแทนแบรนด์ "Oriental Aroma" แบรนด์น้ำหอมและผลิตภัณฑ์ดูแลตัวเองสัญชาติไทย

@@ -13,6 +13,7 @@ export async function callClaude(apiKey, { model = AI_MODEL, maxTokens = AI_MAX_
     headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model, max_tokens: maxTokens,
+      thinking: { type: "disabled" },   // โพสต์สั้น ๆ ไม่จำเป็นต้องคิดยาว ตัดออกให้ตอบเร็ว/ถูกลง และกันโควตาโดน thinking กินจนไม่เหลือที่เขียนข้อความ
       system: AI_SYSTEM_PROMPT,
       messages: [{ role: "user", content: "เขียนโพสต์ 1 อัน ตามกฎที่ให้ไว้" }],
     }),
@@ -31,7 +32,7 @@ export async function callClaude(apiKey, { model = AI_MODEL, maxTokens = AI_MAX_
 export async function generateAndStore({ db, FieldValue }, apiKey, { autoPublish = false, fetchFn } = {}) {
   const raw = await callClaude(apiKey, { fetchFn });
   const parsed = parseAiReply(raw);
-  if (!parsed) throw httpError(502, "Claude ตอบกลับไม่ใช่รูปแบบที่ใช้ได้ ลองใหม่อีกครั้ง");
+  if (!parsed) throw httpError(502, "Claude ตอบกลับไม่ใช่รูปแบบที่ใช้ได้ ลองใหม่อีกครั้ง — raw: " + JSON.stringify(raw).slice(0, 500));
   const now = FieldValue.serverTimestamp();
   if (autoPublish) {
     const post = buildPublishedPost({ content: parsed.content, bot: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT }, now });
