@@ -4,7 +4,7 @@
   "type": "module",
   "description": "ทดสอบ Firestore Rules กับตัวจำลองในเครื่อง — แยกจากแอป ไม่กระทบ build",
   "scripts": {
-    "test": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-warmly \"node rules.test.mjs && node admin-tools.test.mjs && node scale-posts.test.mjs && node presence-window.test.mjs && node users-lazy.test.mjs && node voice-token.test.mjs\""
+    "test": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-warmly \"node rules.test.mjs && node admin-tools.test.mjs && node scale-posts.test.mjs && node presence-window.test.mjs && node users-lazy.test.mjs && node voice-token.test.mjs && node voice-saver.test.mjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.4",
