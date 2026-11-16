@@ -40,28 +40,32 @@ export function fallbackPosterLines(content, maxCharsPerLine = 14) {
 // ขนาดตัวอักษรของการ์ดโปสเตอร์ ให้พอดีกับบรรทัดที่ยาวที่สุด
 export function posterFontSize(lines) {
   const longest = Math.max(...lines.map(l => l.length), 1);
-  if (longest <= 8) return 58;
-  if (longest <= 11) return 50;
-  if (longest <= 14) return 42;
-  if (longest <= 18) return 36;
-  if (longest <= 24) return 30;
-  return 24;
+  if (longest <= 8) return 50;
+  if (longest <= 11) return 44;
+  if (longest <= 14) return 38;
+  if (longest <= 18) return 32;
+  if (longest <= 24) return 27;
+  return 22;
 }
 
 const escXml = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const POSTER_FONT_STACK = "'Kanit','Prompt','Noto Sans Thai','Segoe UI',sans-serif";
 
-// การ์ดโปสเตอร์ (SVG, 600x600) — ข้อความสไตล์มีมตัวหนา ขอบเข้ม + มาสคอตหัมน้อยมุมล่างขวา/ป้ายมุมซ้ายบน
+// การ์ดโปสเตอร์ (SVG, 600x600) — การ์ดขาวโปร่งแสงลอยกลางพื้นไล่สี อ่านง่าย ดูเรียบหรู + มาสคอตหัมน้อยมุมล่างขวา/ป้ายมุมซ้ายบน
 // mascotImage = data URI รูปมาสคอต (ส่งมาจาก AI_MASCOT_IMAGE ใน config.js เพื่อให้ไฟล์นี้ยังเป็น pure logic ไม่ import config ตรงๆ)
 export function buildPosterSvg({ lines, mascotImage }) {
   const fontSize = posterFontSize(lines);
-  const lineHeight = fontSize * 1.28;
-  const totalH = lines.length * lineHeight;
-  const startY = 280 - totalH / 2 + fontSize * 0.75;
-  const textEls = lines.map((l, i) => {
-    const y = startY + i * lineHeight;
-    return `<text x="300" y="${y}" text-anchor="middle" font-family="${POSTER_FONT_STACK}" font-weight="900" font-size="${fontSize}" fill="#FFFFFF" stroke="#3A2E2A" stroke-width="${(fontSize * 0.1).toFixed(1)}" stroke-linejoin="round" paint-order="stroke">${escXml(l)}</text>`;
-  }).join("\n  ");
+  const lineHeight = fontSize * 1.35;
+  const padY = 38;
+  const cardW = 520;
+  const cardH = lines.length * lineHeight + padY * 2;
+  const cardX = (600 - cardW) / 2;
+  const cardY = 300 - cardH / 2 - 10;
+  const firstLineY = cardY + padY + fontSize * 0.78;
+
+  const textEls = lines.map((l, i) =>
+    `<text x="300" y="${(firstLineY + i * lineHeight).toFixed(1)}" text-anchor="middle" font-family="${POSTER_FONT_STACK}" font-weight="800" font-size="${fontSize}" fill="#3A2E2A">${escXml(l)}</text>`
+  ).join("\n  ");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
   <defs>
@@ -69,14 +73,21 @@ export function buildPosterSvg({ lines, mascotImage }) {
       <stop offset="0%" stop-color="#FFE3C2"/>
       <stop offset="100%" stop-color="#D8C8FF"/>
     </linearGradient>
+    <filter id="cardShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#7C5CFC" flood-opacity="0.25"/>
+    </filter>
   </defs>
   <rect width="600" height="600" fill="url(#bgGrad)"/>
+  <circle cx="60" cy="520" r="90" fill="#FFFFFF" opacity="0.18"/>
+  <circle cx="560" cy="80" r="60" fill="#FFFFFF" opacity="0.18"/>
   <g transform="translate(18,18)">
-    <image href="${mascotImage}" x="0" y="0" width="60" height="60"/>
-    <text x="68" y="38" font-family="${POSTER_FONT_STACK}" font-weight="800" font-size="22" fill="#5B3A8C">หัมน้อย</text>
+    <image href="${mascotImage}" x="0" y="0" width="56" height="56"/>
+    <text x="64" y="36" font-family="${POSTER_FONT_STACK}" font-weight="800" font-size="21" fill="#5B3A8C">หัมน้อย</text>
   </g>
+  <rect x="${cardX}" y="${cardY}" width="${cardW}" height="${cardH.toFixed(1)}" rx="28" fill="#FFFFFF" opacity="0.92" filter="url(#cardShadow)"/>
+  <rect x="${cardX}" y="${cardY}" width="${cardW}" height="6" rx="3" fill="#F3867A" opacity="0.8"/>
   ${textEls}
-  <image href="${mascotImage}" x="320" y="330" width="260" height="260"/>
+  <image href="${mascotImage}" x="330" y="340" width="250" height="250"/>
 </svg>`;
 }
 
