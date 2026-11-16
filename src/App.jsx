@@ -17,6 +17,7 @@ import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from 
 import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds, PLUS_MODELS } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
 import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession, detectPlatform, BG_PANEL_ENABLED } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
 import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, AUTO_JOIN_MUSIC, useRoomMusicKeeper } from "./roomMusic/index.js";
+import { FEED_PAGING_ENABLED, withFocus, mergePosts, usePostsFeed, useUserPosts, LoadMore } from "./scale/index.js"; // ฟีดโหลดทีละส่วน ไม่ดึงโพสต์ทั้งหมด (ปิดได้ที่ scale/config.js)
 import { ROOM_ACTIONS_GRID_ENABLED, ROOM_MEMBERS_COLLAPSE_ENABLED, MEMBERS_VISIBLE_ROWS, RoomActions, CollapsibleMembers, ROOM_CLASS, fullBleedCss } from "./roomUi/index.js";
 import { ROOM_STAGE_ENABLED, STAGE_MAX, COHOST_MAX, keyOf as stageKey, roleOf as stageRole, cohostsOf, stageView, canModerate, canManageCohosts, joinEntry, takeSeat, leaveSeat, setHand, setMicAllowed, setCohost, RoleBadge, StageHeader, EmptySeat, RequestsPanel, ListenerStatus } from "./roomStage/index.js"; // ห้องแบบเวที 7 คน + เจ้าของ👑/รอง🛡️ + ผู้ฟังขอพูด — ปิดได้ที่ roomStage/config.js // ห้องคุยกระชับ: ปุ่มแถวเดียว + รายชื่อพับได้ — ปิดได้ที่ roomUi/config.js // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
@@ -2125,19 +2126,22 @@ function StartGuide({onGo,isGuest}){
   );
 }
 
-function FeedPage({user,onGo,notifs,onReadNotif,onOpenPost,focusPostId,onFocusDone,onJoinRoom}){
+function FeedPage({user,onGo,notifs,onReadNotif,onOpenPost,focusPostId,onFocusDone,onJoinRoom,shared}){
   const users=useContext(UsersCtx);
-  const [posts,setPosts]=useState([]);
-  const [loading,setLoading]=useState(true);
+  const [ownPosts,setPosts]=useState([]);
+  const [ownLoading,setLoading]=useState(true);
 
   useEffect(()=>{
+    if(shared)return; // โหมดโหลดทีละส่วน: ใช้ข้อมูลที่ App ดึงไว้แล้ว ไม่ดึงซ้ำ
     const q=query(collection(db,"posts"),orderBy("createdAt","desc"));
     const unsub=onSnapshot(q,snap=>{
       setPosts(snap.docs.map(d=>({id:d.id,...d.data()})));
       setLoading(false);
     });
     return unsub;
-  },[]);
+  },[!!shared]); // eslint-disable-line
+  const posts=shared?shared.feed:ownPosts;
+  const loading=shared?!shared.ready:ownLoading;
 
   return(
     <div>
@@ -2148,6 +2152,7 @@ function FeedPage({user,onGo,notifs,onReadNotif,onOpenPost,focusPostId,onFocusDo
       {loading&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>⏳ กำลังโหลด...</div>}
       {!loading&&posts.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:T.muted,fontSize:14}}>ยังไม่มีโพสต์ — โพสต์แรกได้เลย! ✨</div>}
       {posts.map(p=><OwnerScope key={p.id} ownerDoc={p.authorUid?users[p.authorUid]:null} section="feed"><PostCard p={p} user={user} autoOpen={focusPostId===p.id} onAutoOpened={onFocusDone}/></OwnerScope>)} {/* โพสต์ใครโพสต์มัน: ใช้ธีม "ฟีด" ของคนโพสต์ */}
+      {shared&&shared.hasMore&&<LoadMore T={T} onClick={shared.loadMore}/>}
     </div>
   );
 }
@@ -4004,7 +4009,9 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
     setCover("");
     return onSnapshot(doc(db,"covers",uid),sn=>{setCover(sn.exists()?(sn.data().cover||""):"");},()=>{});
   },[uid]);
-  const list=posts.filter(p=>p.authorUid===uid&&(p.privacy||"public")==="public");
+  const userPosts=useUserPosts({uid:FEED_PAGING_ENABLED?uid:null,fb:SCALE_FB}); // โพสต์ของคนนี้ (ที่เก่ากว่าหน้าต่างฟีด) โหลดเฉพาะตอนเปิดโปรไฟล์
+  const allPosts=FEED_PAGING_ENABLED?mergePosts(posts,userPosts):posts;
+  const list=allPosts.filter(p=>p.authorUid===uid&&(p.privacy||"public")==="public");
   return(
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",zIndex:60,display:"flex",alignItems:"flex-start",justifyContent:"center",overflowY:"auto",padding:"20px 12px"}}>
       <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:440,background:T.card,border:"1px solid "+T.borderHi,borderRadius:20,overflow:"hidden"}}>
@@ -4046,7 +4053,7 @@ function ProfileModal({uid,posts,user,onClose,onChat}){
           </div>
         </div>
       </div>
-      {viewPost&&<PostViewer postId={viewPost} posts={posts} user={user} onClose={()=>setViewPost(null)}/>}
+      {viewPost&&<PostViewer postId={viewPost} posts={allPosts} user={user} onClose={()=>setViewPost(null)}/>}
     </div>
   );
 }
@@ -4092,6 +4099,7 @@ const inviteApi=makeInviteApi({db,doc,setDoc,deleteDoc,onSnapshot,collection,ser
 const callApi=makePrivateCallApi({db,doc,collection,setDoc,updateDoc,deleteDoc,getDoc,onSnapshot,serverTimestamp});
 const photosApi=makePhotosApi({db,doc,setDoc,onSnapshot}); // เก็บรูปโปรไฟล์ที่ profilePhotos/{uid} (แยกจาก users)
 const presenceApi=makePresenceApi({db,doc,setDoc,collection,onSnapshot,serverTimestamp}); // เก็บสถานะออนไลน์ที่ presence/{uid} (แยกจาก users)
+const SCALE_FB={db,collection,query,orderBy,limit,where,onSnapshot}; // ส่งให้โมดูล scale (เหมือนโมดูลอื่นที่รับฟังก์ชัน Firebase จากที่นี่)
 const chatCleanup=makeChatCleanup({db,collection,query,orderBy,limit,where,getDocs,getCountFromServer,writeBatch}); // ลบได้เฉพาะ groupChat และ voiceRooms/*/chat เท่านั้น
 const textFxApi=makeTextFxApi({db,getUid,setDoc,doc,runTransaction,collection,serverTimestamp,serverMode:TEXTFX_SERVER_PURCHASE,getToken:()=>realUserToken("ต้องล็อกอินด้วย Google ก่อน")}); // บันทึกสไตล์ตัวอักษร (users/{uid}.textFx)
 const themeApi=makeThemeApi({db,getUid,setDoc,doc,onSnapshot,runTransaction,collection,serverTimestamp,serverMode:THEME_SERVER_PURCHASE,getToken:()=>realUserToken("ต้องล็อกอินด้วย Google ก่อน")});
@@ -4123,7 +4131,7 @@ export default function App(){
   const [user,setUser]=useState(null);
   const [authReady,setAuthReady]=useState(false);
   const [page,setPage]=useState("feed");
-  const [posts,setPosts]=useState([]);
+  const [legacyPosts,setPosts]=useState([]); // แบบเดิม (ใช้เมื่อปิด FEED_PAGING_ENABLED)
   const [focusPostId,setFocusPostId]=useState(null); // โพสต์ที่จะเปิดความเห็นให้ (มาจากการกดแจ้งเตือน)
   const [users,setUsers]=useState({});
   const [viewUid,setViewUid]=useState(null);
@@ -4219,11 +4227,15 @@ export default function App(){
   },[user&&user.name]); // eslint-disable-line
 
   useEffect(()=>{
-    if(!user)return;
+    if(!user||FEED_PAGING_ENABLED)return;
     const q=query(collection(db,"posts"),orderBy("createdAt","desc"));
     const unsub=onSnapshot(q,snap=>{setPosts(snap.docs.map(d=>({id:d.id,...d.data()})));});
     return unsub;
   },[user&&user.name]); // eslint-disable-line
+
+  // โพสต์แบบโหลดทีละส่วน: ฟีด (ล่าสุด + กดดูเพิ่ม) + โพสต์ของตัวเอง → ดึงครั้งเดียวทั้งแอป ใช้ร่วมกับแจ้งเตือน/โปรไฟล์/หน้าฟีด
+  const postsFeed=usePostsFeed({enabled:FEED_PAGING_ENABLED&&!!user,uid:user?getUid():null,fb:SCALE_FB});
+  const posts=FEED_PAGING_ENABLED?postsFeed.all:legacyPosts;
 
   async function handleLogout(){
     const uid=getUid();
@@ -4271,7 +4283,7 @@ export default function App(){
       <ThemeScope section={THEME_PAGE[page]||null}>
       <div style={{flex:1,overflowY:page==="chat"?"hidden":"auto",display:"flex",flexDirection:"column",background:T.pageBg}}>
         <div style={{flex:1,padding:page==="chat"?"0":"14px 12px 80px"}}>
-          {page==="feed"    &&<FeedPage user={user} onGo={setPage} notifs={notif.unread} onReadNotif={notif.markRead} onOpenPost={id=>{setPage("feed");setFocusPostId(id);}} focusPostId={focusPostId} onFocusDone={()=>setFocusPostId(null)} onJoinRoom={r=>{setJoinReq(r);setPage("voice");}}/>}
+          {page==="feed"    &&<FeedPage shared={FEED_PAGING_ENABLED?{feed:withFocus(postsFeed.feed,postsFeed.all,focusPostId),ready:postsFeed.ready,hasMore:postsFeed.hasMore,loadMore:postsFeed.loadMore}:null} user={user} onGo={setPage} notifs={notif.unread} onReadNotif={notif.markRead} onOpenPost={id=>{setPage("feed");setFocusPostId(id);}} focusPostId={focusPostId} onFocusDone={()=>setFocusPostId(null)} onJoinRoom={r=>{setJoinReq(r);setPage("voice");}}/>}
           {page==="chat"    &&<ChatPage user={user} openPeer={dmTarget} onPeerOpened={()=>setDmTarget(null)} openTab={chatTabReq} onTabOpened={()=>setChatTabReq(null)}/>}
           <div style={{display:page==="voice"?"block":"none"}}><VoiceErrorBoundary><VoiceRoomsPage user={user} onAppearance={()=>openAppearance("voice")} joinReq={joinReq} onJoinReqHandled={()=>setJoinReq(null)}/></VoiceErrorBoundary></div>
           {page==="profile" &&<ProfilePage user={user} posts={posts} onAppearance={()=>openAppearance("profile")} onUpdateName={n=>{const u={...user,name:n,init:n.slice(0,2).toUpperCase()};ls.set("user",u);setUser(u);}}/>}
