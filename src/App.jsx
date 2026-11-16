@@ -1233,13 +1233,13 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
   const meOnStage=!stage||!me||stage.speakers.some(isMeM);
   const myRole=stage&&me?stageRole(inRoom,me):null;
   const isMod=myRole==="host"||myRole==="cohost";
-  // ประหยัดนาที LiveKit: ผู้ฟังในห้องที่เงียบ (ไม่มีใครพูด) จะถูกพักเสียงอัตโนมัติ · เพลง YouTube เล่นต่อ · มีคนพูดเมื่อไรกลับเข้าเสียงเอง
-  const iAmListener=!!stage&&!!me&&!meOnStage&&!isHost;
-  const voiceSaver=useVoiceSaver({inRoomId,voiceActiveAt:inRoom&&inRoom.voiceActiveAt,listener:iAmListener,isHost,connected,paused:voicePaused,speaking,voice,
-    stamp:()=>{ if(inRoomId)updateDoc(doc(db,"voiceRooms",inRoomId),{voiceActiveAt:serverTimestamp()}).catch(()=>{}); }});
   const [stageNote,setStageNote]=useState("");
   const prevOnStageRef=useRef(null); // null = ยังไม่เคยเห็นสถานะ (เพิ่งเข้าห้อง) → ไม่แจ้ง
   const isHost=!!inRoom&&(inRoom.hostUid?inRoom.hostUid===myUid:inRoom.hostInit===user.init);
+  // ประหยัดนาที LiveKit: ผู้ฟังในห้องที่เงียบ (ไม่มีใครพูด) จะถูกพักเสียงอัตโนมัติ · เพลง YouTube เล่นต่อ · มีคนพูดเมื่อไรกลับเข้าเสียงเอง (ต้องอยู่หลัง isHost)
+  const iAmListener=!!stage&&!!me&&!meOnStage&&!isHost;
+  const voiceSaver=useVoiceSaver({inRoomId,voiceActiveAt:inRoom&&inRoom.voiceActiveAt,listener:iAmListener,isHost,connected,paused:voicePaused,speaking,voice,
+    stamp:()=>{ if(inRoomId)updateDoc(doc(db,"voiceRooms",inRoomId),{voiceActiveAt:serverTimestamp()}).catch(()=>{}); }});
   const hostDoc=inRoom&&inRoom.hostUid?_users[inRoom.hostUid]:null; // ธีมของห้อง = ธีม "ห้องเสียง" ของโฮสต์ (ทุกคนในห้องเห็นเหมือนกัน)
   const hostThemed=!!resolveOwnerTheme(hostDoc,"voice");
   // ── ห้องปิดเองเมื่อโฮสต์ไม่อยู่เกิน 5 นาที ──
