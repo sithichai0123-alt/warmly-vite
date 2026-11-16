@@ -6,8 +6,11 @@ import { parseAiReply, fallbackPosterLines, buildPosterSvg, buildDraft, buildPub
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 
 // เรียก Claude ให้แต่งโพสต์ 1 อัน — คืนข้อความดิบ (ยัง parse ไม่สำเร็จก็ได้ ผู้เรียก parse เอง)
-export async function callClaude(apiKey, { model = AI_MODEL, maxTokens = AI_MAX_TOKENS, fetchFn = fetch } = {}) {
+// recentTopics: หัวข้อโพสต์ล่าสุดของหัมน้อย (มาจาก getRecentTopics) — แนบไปกันเลือกธีมซ้ำของเดิม
+export async function callClaude(apiKey, { model = AI_MODEL, maxTokens = AI_MAX_TOKENS, fetchFn = fetch, recentTopics = [] } = {}) {
   if (!apiKey) throw httpError(501, "เซิร์ฟเวอร์ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY");
+  let userContent = "ค้นหากระแสโซเชียลตอนนี้ก่อน แล้วเขียนโพสต์ 1 อัน ตามกฎที่ให้ไว้";
+  if (recentTopics.length) userContent += `\n\nหัวข้อโพสต์ล่าสุดที่หัมน้อยเพิ่งพูดถึงไปแล้ว (ห้ามซ้ำหรือคล้ายกันเกินไป): ${recentTopics.join(" / ")}`;
   const r = await fetchFn("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
@@ -17,7 +20,7 @@ export async function callClaude(apiKey, { model = AI_MODEL, maxTokens = AI_MAX_
       tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],  // ให้ไปดูกระแสโซเชียลตอนนี้ก่อนแต่งโพสต์ (จำกัดจำนวนครั้งกันค่าใช้จ่ายบาน) — Haiku 5.5 ใช้รุ่น 20260209 ไม่ได้ ต้องใช้รุ่นพื้นฐานนี้
       // บังคับ tool_choice ไม่ได้ (บัญชีนี้ไม่อนุญาตให้บังคับเรียก web_search ตรง ๆ) ปล่อยเป็น auto แล้วสั่งผ่าน prompt แทน
       system: AI_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: "ค้นหากระแสโซเชียลตอนนี้ก่อน แล้วเขียนโพสต์ 1 อัน ตามกฎที่ให้ไว้" }],
+      messages: [{ role: "user", content: userContent }],
     }),
   });
   if (!r.ok) {
@@ -61,9 +64,25 @@ export async function callClaudeReply(apiKey, { postContent, commentText, model 
 
 const svgToDataUri = svg => "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64");
 
+// หัวข้อโพสต์ (ทั้งที่โพสต์จริงแล้วและ draft รออนุมัติ) ล่าสุด N อัน เรียงใหม่สุดก่อน — ใช้กันเลือกธีมซ้ำของเดิม
+// where เดี่ยว ๆ ต่อ collection (ตามแพทเทิร์นเดียวกับฟังก์ชันอื่นในไฟล์นี้) แล้วรวม/เรียง/ตัดเองในนี้
+async function getRecentTopics({ db }, limit = 5) {
+  const [postsSnap, draftsSnap] = await Promise.all([
+    db.collection("posts").where("authorUid", "==", AI_BOT_UID).get(),
+    db.collection(AI_DRAFTS_COLLECTION).get(),
+  ]);
+  const rows = [...postsSnap.docs, ...draftsSnap.docs].map(d => d.data())
+    .filter(d => d.topic)
+    .map(d => ({ topic: d.topic, ms: d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : 0 }));
+  rows.sort((a, b) => b.ms - a.ms);
+  return rows.slice(0, limit).map(r => r.topic);
+}
+
 // สร้างคอนเทนต์ 1 อัน แล้วเขียนลงฐานข้อมูล — autoPublish=true โพสต์เข้า "posts" จริงทันที, false เขียนเป็น draft รออนุมัติ
 export async function generateAndStore({ db, FieldValue }, apiKey, { autoPublish = false, fetchFn } = {}) {
-  const raw = await callClaude(apiKey, { fetchFn });
+  let recentTopics = [];
+  try { recentTopics = await getRecentTopics({ db }); } catch (e) { /* best-effort: อย่าให้ล้มรอบสร้างคอนเทนต์หลัก */ }
+  const raw = await callClaude(apiKey, { fetchFn, recentTopics });
   const parsed = parseAiReply(raw, AI_MOODS);
   if (!parsed) throw httpError(502, "Claude ตอบกลับไม่ใช่รูปแบบที่ใช้ได้ ลองใหม่อีกครั้ง — raw: " + JSON.stringify(raw).slice(0, 500));
   const lines = parsed.posterLines.length ? parsed.posterLines : fallbackPosterLines(parsed.content);
@@ -73,7 +92,7 @@ export async function generateAndStore({ db, FieldValue }, apiKey, { autoPublish
   const now = FieldValue.serverTimestamp();
   if (autoPublish) {
     await ensureBotProfile({ db });
-    const post = buildPublishedPost({ content: parsed.content, bot: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT }, now, images, mediaTypes });
+    const post = buildPublishedPost({ content: parsed.content, bot: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT }, now, images, mediaTypes, topic: parsed.topic });
     const ref = await db.collection("posts").add(post);
     return { mode: "published", postId: ref.id, content: parsed.content, topic: parsed.topic };
   }
@@ -99,7 +118,7 @@ export async function approveDraft({ db, FieldValue }, draftId, reviewerUid) {
   if (d.status !== "pending") throw httpError(400, "draft นี้ถูกจัดการไปแล้ว (" + d.status + ")");
   await ensureBotProfile({ db });
   const now = FieldValue.serverTimestamp();
-  const post = buildPublishedPost({ content: d.content, bot: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT }, now, images: d.images, mediaTypes: d.mediaTypes });
+  const post = buildPublishedPost({ content: d.content, bot: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT }, now, images: d.images, mediaTypes: d.mediaTypes, topic: d.topic });
   const postRef = db.collection("posts").doc();
   const batch = db.batch();
   batch.set(postRef, post);
