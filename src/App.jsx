@@ -17,7 +17,7 @@ import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from 
 import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds, PLUS_MODELS } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
 import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession, detectPlatform, BG_PANEL_ENABLED } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
 import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, AUTO_JOIN_MUSIC, useRoomMusicKeeper } from "./roomMusic/index.js";
-import { ROOM_ACTIONS_GRID_ENABLED, ROOM_MEMBERS_COLLAPSE_ENABLED, MEMBERS_VISIBLE_ROWS, RoomActions, CollapsibleMembers } from "./roomUi/index.js";
+import { ROOM_ACTIONS_GRID_ENABLED, ROOM_MEMBERS_COLLAPSE_ENABLED, MEMBERS_VISIBLE_ROWS, RoomActions, CollapsibleMembers, ROOM_CLASS, fullBleedCss } from "./roomUi/index.js";
 import { ROOM_STAGE_ENABLED, STAGE_MAX, COHOST_MAX, keyOf as stageKey, roleOf as stageRole, cohostsOf, stageView, canModerate, canManageCohosts, joinEntry, takeSeat, leaveSeat, setHand, setMicAllowed, setCohost, RoleBadge, StageHeader, EmptySeat, RequestsPanel, ListenerStatus } from "./roomStage/index.js"; // ห้องแบบเวที 7 คน + เจ้าของ👑/รอง🛡️ + ผู้ฟังขอพูด — ปิดได้ที่ roomStage/config.js // ห้องคุยกระชับ: ปุ่มแถวเดียว + รายชื่อพับได้ — ปิดได้ที่ roomUi/config.js // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
 import { BannerStack, MemberMenu } from "./social/index.js"; // แถบแจ้งเตือน + เมนูแตะรูปสมาชิก (ชุดกลางของเฟส C)
@@ -1472,7 +1472,8 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
       {auraOpen&&VOICE_AURA_ENABLED&&!user.isGuest&&<AuraShop me={_users[myUid]||{}} user={user} onClose={()=>setAuraOpen(false)} api={auraApi}/>}
       {inRoom&&(
         <OwnerScope ownerDoc={hostDoc} section="voice">
-        <div style={hostThemed?{background:T.pageBg,borderRadius:22,padding:8,marginBottom:16}:undefined}>
+        {ROOM_CLASS&&<style>{fullBleedCss()}</style>}
+        <div className={ROOM_CLASS} style={hostThemed?{background:T.pageBg,borderRadius:22,padding:8,marginBottom:16}:undefined}>
         <Card style={{marginBottom:hostThemed?0:16,border:"1px solid "+T.borderHi,position:"relative"}}>
           <GiftFx fx={roomFx}/>
           {closeIn!==null&&<div role="status" style={{margin:"12px 16px 0",padding:"8px 12px",borderRadius:12,background:T.yellowA22,color:T.yellow,fontSize:12,fontWeight:700,lineHeight:1.5}}>⏳ โฮสต์ไม่อยู่ในห้อง — ห้องจะปิดอัตโนมัติใน {fmtCountdown(closeIn)}</div>}
