@@ -20,6 +20,28 @@ export function parseAiReply(text, validMoods = ["happy", "tired", "angry"]) {
   return { content: content.slice(0, 1200), topic, posterLines, mood };
 }
 
+// parse คำตอบของ Claude ตอนตอบคอมเมนต์ (แค่ {reply}) — parse ไม่ได้/ว่าง → คืน null
+export function parseReplyJson(text) {
+  if (typeof text !== "string") return null;
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  let obj;
+  try { obj = JSON.parse(m[0]); } catch (e) { return null; }
+  if (!obj || typeof obj !== "object") return null;
+  const reply = typeof obj.reply === "string" ? obj.reply.trim() : "";
+  return reply ? reply.slice(0, 300) : null;
+}
+
+// สร้าง comment object ของบอทให้ตรงกับ schema เดียวกับที่ submitComment ใน App.jsx ใช้ (id/author/init/text/time/t/replyTo)
+export function buildBotReplyComment({ text, bot, now, replyToUid, replyToName }) {
+  return {
+    id: "c" + now + Math.random().toString(36).slice(2, 8),
+    uid: bot.uid, author: bot.name, init: bot.init,
+    text, time: "เมื่อกี้", t: now,
+    ...(replyToUid ? { replyTo: { uid: replyToUid, name: replyToName || "" } } : {}),
+  };
+}
+
 // สำรองไว้เผื่อ AI ไม่ได้ให้ posterLines มา — ตัดบรรทัดแบบหยาบๆ ตามความยาวตัวอักษร (ภาษาไทยไม่มีช่องว่างระหว่างคำเสมอไป)
 export function fallbackPosterLines(content, maxCharsPerLine = 14) {
   const text = String(content || "").trim();

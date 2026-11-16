@@ -1,0 +1,27 @@
+# ยิง api/ai-reply-comments.js ทุก 15 นาที ให้ "หัมน้อย" ตอบคอมเมนต์ใหม่ใต้โพสต์ของตัวเอง (polling — แอปนี้ไม่มี Firebase Cloud Functions)
+#
+# ต้องตั้งก่อนใช้งานได้จริง — Settings → Secrets and variables → Actions → New repository secret:
+#   AI_REPLY_CRON_ENDPOINT = https://<โดเมนแอปจริงบน Vercel>/api/ai-reply-comments
+#   AI_CRON_SECRET         = ใช้ secret ตัวเดียวกับที่ตั้งไว้แล้วสำหรับ ai-content-post.yml / Vercel → AI_CRON_SECRET
+name: AI reply comments
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}    # กดรันเองได้จาก Actions tab (ไว้ทดสอบ)
+
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call AI reply-comments endpoint
+        run: |
+          code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+            -X POST "$AI_REPLY_CRON_ENDPOINT" \
+            -H "x-cron-secret: $AI_CRON_SECRET")
+          echo "HTTP $code"
+          cat /tmp/resp.json
+          if [ "$code" -ge 300 ]; then exit 1; fi
+        env:
+          AI_REPLY_CRON_ENDPOINT: ${{ secrets.AI_REPLY_CRON_ENDPOINT }}
+          AI_CRON_SECRET: ${{ secrets.AI_CRON_SECRET }}

@@ -1,7 +1,7 @@
 // AI Content — ฝั่งเซิร์ฟเวอร์: เรียก Claude + อ่าน/เขียน Firestore ผ่าน firebase-admin (ข้ามกฎ Firestore)
 // ฉีด admin ({db, FieldValue}) เข้ามาเพื่อทดสอบได้ · ไม่ถูก import จากฝั่งแอป
-import { AI_DRAFTS_COLLECTION, AI_BOT_UID, AI_BOT_NAME, AI_BOT_INIT, AI_BOT_AVATAR, AI_MASCOT_IMAGES, AI_MOODS, AI_SYSTEM_PROMPT, AI_MODEL, AI_MAX_TOKENS, AI_STALE_DRAFT_DAYS } from "./config.js";
-import { parseAiReply, fallbackPosterLines, buildPosterSvg, buildDraft, buildPublishedPost, isAutoPublishOn } from "./logic.js";
+import { AI_DRAFTS_COLLECTION, AI_BOT_UID, AI_BOT_NAME, AI_BOT_INIT, AI_BOT_AVATAR, AI_MASCOT_IMAGES, AI_MOODS, AI_SYSTEM_PROMPT, AI_REPLY_SYSTEM_PROMPT, AI_MODEL, AI_MAX_TOKENS, AI_STALE_DRAFT_DAYS, AI_MAX_REPLIES_PER_RUN } from "./config.js";
+import { parseAiReply, fallbackPosterLines, buildPosterSvg, buildDraft, buildPublishedPost, isAutoPublishOn, parseReplyJson, buildBotReplyComment } from "./logic.js";
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 
@@ -32,8 +32,31 @@ export async function callClaude(apiKey, { model = AI_MODEL, maxTokens = AI_MAX_
 }
 
 // สร้าง/อัปเดตโปรไฟล์บอทให้ตรงกับค่าปัจจุบันใน config.js เสมอ (ชื่อ/รูป) — ทำก่อนสร้างโพสต์ทุกครั้ง เบาและ idempotent
-async function ensureBotProfile({ db }) {
+export async function ensureBotProfile({ db }) {
   await db.collection("users").doc(AI_BOT_UID).set({ name: AI_BOT_NAME, avatar: AI_BOT_AVATAR }, { merge: true });
+}
+
+// เรียก Claude ให้แต่งคำตอบ 1 คอมเมนต์ — คืนข้อความดิบ (ยัง parse ไม่สำเร็จก็ได้ ผู้เรียก parse เอง)
+export async function callClaudeReply(apiKey, { postContent, commentText, model = AI_MODEL, maxTokens = 512, fetchFn = fetch } = {}) {
+  if (!apiKey) throw httpError(501, "เซิร์ฟเวอร์ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY");
+  const r = await fetchFn("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model, max_tokens: maxTokens,
+      thinking: { type: "disabled" },
+      system: AI_REPLY_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: `โพสต์ของคุณ: ${String(postContent || "").slice(0, 500)}\n\nคอมเมนต์ที่มีคนมาตอบ: ${String(commentText || "").slice(0, 500)}` }],
+    }),
+  });
+  if (!r.ok) {
+    let msg = "เรียก Claude ไม่สำเร็จ (" + r.status + ")";
+    try { const j = await r.json(); if (j && j.error && j.error.message) msg += ": " + j.error.message; } catch (e) { /* ignore */ }
+    throw httpError(502, msg);
+  }
+  const data = await r.json();
+  const texts = Array.isArray(data.content) ? data.content.filter(b => b.type === "text").map(b => b.text) : [];
+  return texts.join("\n");
 }
 
 const svgToDataUri = svg => "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64");
@@ -125,6 +148,42 @@ export async function sweepStalePublishedPosts({ db }) {
   stale.forEach(d => batch.delete(d.ref));
   await batch.commit();
   return { deleted: stale.length };
+}
+
+// ตอบคอมเมนต์ใหม่ใต้โพสต์ของ "หัมน้อย" — เช็คทุก 15 นาทีจาก cron (ไม่เรียลไทม์ เพราะแอปนี้ไม่มี Firebase Cloud Functions)
+// where เดี่ยว ๆ บน authorUid (ตามแพทเทิร์นเดียวกับ sweepStalePublishedPosts) แล้วกรอง/ตัดจำนวนเองในนี้
+// ติดตามคอมเมนต์ที่ตอบไปแล้วด้วยฟีลด์ aiRepliedCommentIds ต่อโพสต์ กันตอบคอมเมนต์เดิมซ้ำรอบถัดไป
+export async function replyToComments({ db, FieldValue }, apiKey, { fetchFn, maxReplies = AI_MAX_REPLIES_PER_RUN } = {}) {
+  const snap = await db.collection("posts").where("authorUid", "==", AI_BOT_UID).get();
+  let repliesLeft = maxReplies, postsTouched = 0, repliesSent = 0;
+  for (const doc of snap.docs) {
+    if (repliesLeft <= 0) break;
+    const data = doc.data();
+    const comments = Array.isArray(data.comments) ? data.comments : [];
+    const already = new Set(Array.isArray(data.aiRepliedCommentIds) ? data.aiRepliedCommentIds : []);
+    const pending = comments.filter(c => c && c.uid !== AI_BOT_UID && c.id && !already.has(c.id));
+    if (!pending.length) continue;
+    const newComments = [], newIds = [];
+    for (const c of pending) {
+      if (repliesLeft <= 0) break;
+      let raw;
+      try { raw = await callClaudeReply(apiKey, { postContent: data.content, commentText: c.text, fetchFn }); }
+      catch (e) { continue; }
+      const replyText = parseReplyJson(raw);
+      if (!replyText) continue;
+      newComments.push(buildBotReplyComment({ text: replyText, bot: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT }, now: Date.now(), replyToUid: c.uid, replyToName: c.author }));
+      newIds.push(c.id);
+      repliesLeft--;
+    }
+    if (!newComments.length) continue;
+    await doc.ref.update({
+      comments: FieldValue.arrayUnion(...newComments),
+      aiRepliedCommentIds: FieldValue.arrayUnion(...newIds),
+    });
+    postsTouched++;
+    repliesSent += newComments.length;
+  }
+  return { postsTouched, repliesSent };
 }
 
 export { isAutoPublishOn };
