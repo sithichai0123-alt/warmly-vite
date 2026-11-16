@@ -15,7 +15,7 @@ export async function callClaude(apiKey, { model = AI_MODEL, maxTokens = AI_MAX_
       model, max_tokens: maxTokens,
       thinking: { type: "disabled" },   // โพสต์สั้น ๆ ไม่จำเป็นต้องคิดยาว ตัดออกให้ตอบเร็ว/ถูกลง และกันโควตาโดน thinking กินจนไม่เหลือที่เขียนข้อความ
       tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],  // ให้ไปดูกระแสโซเชียลตอนนี้ก่อนแต่งโพสต์ (จำกัดจำนวนครั้งกันค่าใช้จ่ายบาน) — Haiku 5.5 ใช้รุ่น 20260209 ไม่ได้ ต้องใช้รุ่นพื้นฐานนี้
-      tool_choice: { type: "tool", name: "web_search" },  // บังคับให้ค้นก่อนเสมอ (ไม่ปล่อยให้โมเดลเลือกเองว่าจะค้นหรือไม่)
+      // บังคับ tool_choice ไม่ได้ (บัญชีนี้ไม่อนุญาตให้บังคับเรียก web_search ตรง ๆ) ปล่อยเป็น auto แล้วสั่งผ่าน prompt แทน
       system: AI_SYSTEM_PROMPT,
       messages: [{ role: "user", content: "ค้นหากระแสโซเชียลตอนนี้ก่อน แล้วเขียนโพสต์ 1 อัน ตามกฎที่ให้ไว้" }],
     }),
