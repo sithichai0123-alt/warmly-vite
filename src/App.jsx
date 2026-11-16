@@ -11,7 +11,7 @@ import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, cr
 import { ImageViewerProvider, useImageViewer } from "./imageViewer/index.js"; // ดูรูปเต็มจอ (แยกไฟล์ — ปิดได้ที่ imageViewer/config.js)
 import { PRESENCE_ENABLED, PRESENCE_WINDOW_ENABLED, useOnlineCount, DOT_MIN_SIZE, PresenceProvider, PresenceDot, PresenceText, makePresenceApi, usePresencePrefs, setPresencePrefs, useIsOnline } from "./presence/index.js"; // สถานะออนไลน์ จุดเขียว/เทา (แยกไฟล์ — ปิดได้ที่ presence/config.js)
 import { CHAT_DELETE_ENABLED, makeChatDeleteApi, makeClientFallback, MessageDeleteControl } from "./chatDelete/index.js"; // ลบข้อความแชทส่วนตัว (ทีละข้อความ/ทั้งหมด) ผ่าน Backend — ปิดได้ที่ chatDelete/config.js
-import { DM_UNREAD_ENABLED, DmUnreadProvider, useDmUnread, UnreadBadge, UnreadDot } from "./dmUnread/index.js"; // จุด/ตัวเลขข้อความใหม่ในแชทส่วนตัว — ปิดได้ที่ dmUnread/config.js
+import { DM_UNREAD_ENABLED, DM_UNREAD_FOR_GUESTS, DmUnreadProvider, useDmUnread, UnreadBadge, UnreadDot } from "./dmUnread/index.js"; // จุด/ตัวเลขข้อความใหม่ในแชทส่วนตัว — ปิดได้ที่ dmUnread/config.js
 import { FRIENDS_ENABLED, makeFriendsApi, FriendsProvider, useFriends, FriendButton, FriendsPanel } from "./friends/index.js"; // ระบบเพื่อน — ปิดได้ที่ friends/config.js
 import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from "./roomInvite/index.js"; // เชิญเพื่อนเข้าห้องเสียง — ปิดได้ที่ roomInvite/config.js
 import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds, PLUS_MODELS } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
@@ -4149,7 +4149,7 @@ function SocialProviders({user,onOpenFriends,onJoinRoom,children}){
   const isUserGuest=useCallback(id=>!!(users[id]&&users[id].isGuest),[users]);
   let tree=children;
   if(PRIVATE_CALL_ENABLED)tree=<CallProvider api={callApi} uid={guest?null:myUid} myName={user.name} guest={guest} nameOf={nameOf} Name={TEXTFX_ENABLED?UName:undefined} isUserGuest={isUserGuest} Avatar={UAv} blocked={blocks.set} lk={{Room,RoomEvent,Track}} fetchFn={voiceFetch}>{tree}</CallProvider>;
-  if(DM_UNREAD_ENABLED)tree=<DmUnreadProvider api={dmApi} uid={guest?null:myUid} blocked={blocks.set}>{tree}</DmUnreadProvider>;
+  if(DM_UNREAD_ENABLED)tree=<DmUnreadProvider api={dmApi} uid={(guest&&!DM_UNREAD_FOR_GUESTS)?null:myUid} blocked={blocks.set}>{tree}</DmUnreadProvider>;
   if(FRIENDS_ENABLED)tree=<FriendsProvider api={friendsApi} uid={guest?null:myUid} blocked={blocks.set} nameOf={nameOf} Name={TEXTFX_ENABLED?UName:undefined} onOpenFriends={onOpenFriends}>{tree}</FriendsProvider>;
   return(<>{tree}
     {(FRIENDS_ENABLED||ROOM_INVITE_ENABLED||PRIVATE_CALL_ENABLED||BACKGROUND_AUDIO_ENABLED)&&<BannerStack/>}
