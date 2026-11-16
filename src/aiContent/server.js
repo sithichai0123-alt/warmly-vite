@@ -1,6 +1,6 @@
 // AI Content — ฝั่งเซิร์ฟเวอร์: เรียก Claude + อ่าน/เขียน Firestore ผ่าน firebase-admin (ข้ามกฎ Firestore)
 // ฉีด admin ({db, FieldValue}) เข้ามาเพื่อทดสอบได้ · ไม่ถูก import จากฝั่งแอป
-import { AI_DRAFTS_COLLECTION, AI_BOT_UID, AI_BOT_NAME, AI_BOT_INIT, AI_BOT_AVATAR, AI_MASCOT_IMAGES, AI_MOODS, AI_SYSTEM_PROMPT, AI_MODEL, AI_MAX_TOKENS } from "./config.js";
+import { AI_DRAFTS_COLLECTION, AI_BOT_UID, AI_BOT_NAME, AI_BOT_INIT, AI_BOT_AVATAR, AI_MASCOT_IMAGES, AI_MOODS, AI_SYSTEM_PROMPT, AI_MODEL, AI_MAX_TOKENS, AI_STALE_DRAFT_DAYS } from "./config.js";
 import { parseAiReply, fallbackPosterLines, buildPosterSvg, buildDraft, buildPublishedPost, isAutoPublishOn } from "./logic.js";
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
@@ -91,6 +91,23 @@ export async function rejectDraft({ db, FieldValue }, draftId, reviewerUid, reas
   if (!doc.exists) throw httpError(404, "ไม่พบ draft นี้ (อาจถูกจัดการไปแล้ว)");
   if (doc.data().status !== "pending") throw httpError(400, "draft นี้ถูกจัดการไปแล้ว");
   await ref.update({ status: "rejected", reviewedAt: FieldValue.serverTimestamp(), reviewedBy: reviewerUid, rejectReason: (reason || "").slice(0, 300) });
+}
+
+// draft "รออนุมัติ" ที่ค้างเกิน AI_STALE_DRAFT_DAYS วัน (กระแสที่หยิบมาใช้น่าจะหมดอายุไปแล้ว) → ลบทิ้งอัตโนมัติ
+// เรียกจาก api/ai-generate-post.js ทุกครั้งที่ cron ยิงมา (ไม่ใช่งาน cron แยก) ทำแบบ best-effort ไม่ให้ error จุดนี้ล้มการสร้างคอนเทนต์รอบนั้น
+export async function sweepStaleDrafts({ db }) {
+  const cutoff = Date.now() - AI_STALE_DRAFT_DAYS * 24 * 60 * 60 * 1000;
+  const snap = await db.collection(AI_DRAFTS_COLLECTION).where("status", "==", "pending").get();
+  const stale = snap.docs.filter(d => {
+    const t = d.data().createdAt;
+    const ms = t && t.toMillis ? t.toMillis() : 0;
+    return ms > 0 && ms < cutoff;
+  });
+  if (!stale.length) return { deleted: 0 };
+  const batch = db.batch();
+  stale.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+  return { deleted: stale.length };
 }
 
 export { isAutoPublishOn };
