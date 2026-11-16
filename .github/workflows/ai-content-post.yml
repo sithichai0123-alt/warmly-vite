@@ -1,0 +1,29 @@
+# ยิง api/ai-generate-post.js วันละ 3 ครั้ง ให้ AI แต่งคอนเทนต์ลง "AI โพสต์" (อนุมัติเองก่อน จนกว่าจะเปิด AI_AUTO_PUBLISH)
+#
+# ต้องตั้งก่อนใช้งานได้จริง — Settings → Secrets and variables → Actions → New repository secret:
+#   AI_CRON_ENDPOINT = https://<โดเมนแอปจริงบน Vercel>/api/ai-generate-post
+#   AI_CRON_SECRET   = รหัสลับ (สุ่มเอง) ตัวเดียวกับที่ตั้งไว้ใน Vercel → Environment Variables → AI_CRON_SECRET
+name: AI content post
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 09:00 น. เวลาไทย
+    - cron: "0 6 * * *"   # 13:00 น. เวลาไทย
+    - cron: "0 11 * * *"  # 18:00 น. เวลาไทย
+  workflow_dispatch: {}    # กดรันเองได้จาก Actions tab (ไว้ทดสอบ)
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call AI content endpoint
+        run: |
+          code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+            -X POST "$AI_CRON_ENDPOINT" \
+            -H "x-cron-secret: $AI_CRON_SECRET")
+          echo "HTTP $code"
+          cat /tmp/resp.json
+          if [ "$code" -ge 300 ]; then exit 1; fi
+        env:
+          AI_CRON_ENDPOINT: ${{ secrets.AI_CRON_ENDPOINT }}
+          AI_CRON_SECRET: ${{ secrets.AI_CRON_SECRET }}

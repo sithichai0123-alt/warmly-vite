@@ -56,3 +56,18 @@ export async function callAdmin(action, payload = {}) {
   if (!r.ok) throw Object.assign(new Error((j && j.error) || ("ทำไม่สำเร็จ (" + r.status + ")")), { status: r.status });
   return j;
 }
+
+// ── AI โพสต์: ดู/อนุมัติ/ปฏิเสธ draft ที่ AI แต่งไว้ (เฉพาะแอดมิน) ──
+export async function callAiReview(action, payload = {}) {
+  const u = auth.currentUser;
+  if (!u) throw new Error("ต้องเข้าสู่ระบบด้วย Google ก่อน");
+  const token = await u.getIdToken();
+  const r = await fetch("/api/ai-post-review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  let j = null; try { j = await r.json(); } catch (e) { /* ไม่ใช่ JSON */ }
+  if (!r.ok) throw Object.assign(new Error((j && j.error) || ("ทำไม่สำเร็จ (" + r.status + ")")), { status: r.status });
+  return j;
+}
