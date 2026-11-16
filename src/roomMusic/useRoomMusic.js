@@ -27,7 +27,7 @@ const wakeSupported = () => typeof navigator !== "undefined" && !!navigator.wake
 
 // iframeRef = ตัวเล่น · active = เครื่องนี้กำลังเล่นเพลงของห้องอยู่ · songKey เปลี่ยน = ตัวเล่นใหม่ · startedAt = เวลาที่ห้องเริ่มเพลง
 // acceptOrigin ใช้เปลี่ยนเฉพาะตอนทดสอบ (ค่าเริ่มต้นรับเฉพาะข้อความจาก YouTube)
-export function useRoomMusicKeeper(iframeRef, { active, songKey, startedAt, acceptOrigin = isYtOrigin }) {
+export function useRoomMusicKeeper(iframeRef, { active, songKey, startedAt, onEnded, acceptOrigin = isYtOrigin }) {
   const tracker = useRef(null);
   if (!tracker.current) tracker.current = createPlayTracker({ nearHideMs: PAUSE_NEAR_HIDE_MS });
   const [playing, setPlaying] = useState(false);
@@ -38,11 +38,13 @@ export function useRoomMusicKeeper(iframeRef, { active, songKey, startedAt, acce
   const pref = useMusicWakePref();
   const startedRef = useRef(startedAt); startedRef.current = startedAt;
   const needTapRef = useRef(false); needTapRef.current = needTap;
+  const onEndedRef = useRef(onEnded); onEndedRef.current = onEnded;
+  const endedFired = useRef(false);
   const gotMsg = useRef(false), hsTimers = useRef([]), tapTimer = useRef(null), autoTimer = useRef(null);
   const timeRef = useRef(null), syncPending = useRef(true), activeRef = useRef(active); activeRef.current = active;
 
   // ตัวเล่นใหม่ (เพลงเปลี่ยน / กดเข้าฟังใหม่) → เริ่มนับใหม่
-  useEffect(() => { tracker.current.reset(); setPlaying(false); setTapReason(""); gotMsg.current = false; timeRef.current = null; syncPending.current = true; clearTimeout(tapTimer.current); clearTimeout(autoTimer.current); }, [songKey]);
+  useEffect(() => { tracker.current.reset(); setPlaying(false); setTapReason(""); gotMsg.current = false; timeRef.current = null; syncPending.current = true; endedFired.current = false; clearTimeout(tapTimer.current); clearTimeout(autoTimer.current); }, [songKey]);
 
   // ฟังสถานะจากตัวเล่น
   useEffect(() => {
@@ -64,6 +66,10 @@ export function useRoomMusicKeeper(iframeRef, { active, songKey, startedAt, acce
           setTapReason(""); syncPending.current = false;
           const at = liveSeconds(startedRef.current, Date.now());
           if (at != null) cmd(f, "seekTo", [at, true]);
+        }
+        if (m.state === YT.ENDED && !endedFired.current) {   // เพลงจบ → ไปเพลงถัดไปอัตโนมัติ (ครั้งเดียวต่อเพลง)
+          endedFired.current = true;
+          if (onEndedRef.current) onEndedRef.current();
         }
       }
       // เริ่มเล่นครั้งแรก: ช้ากว่าห้องเพราะเวลาโหลด → ข้ามไปตรงที่ห้องเล่นอยู่ (ครั้งเดียว)

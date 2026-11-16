@@ -729,7 +729,14 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
   const currentSong=safeList.find(s=>s.id===nowPlaying);
   // เพลงในห้องเล่นต่อให้ดีที่สุด (ปิดได้ที่ roomMusic/config.js) — เครื่องนี้กำลังเล่นอยู่ = Host หรือคนที่กดเข้าฟังแล้ว
   const playingHere=!!currentSong&&(isHost||(joined&&!!seekSrc));
-  const music=useRoomMusicKeeper(ytRef,{active:ROOM_MUSIC_BG_ENABLED&&playingHere,songKey:isHost?(currentSong&&currentSong.id):seekSrc,startedAt:songStartedAt});
+  // เพลงจบ (เฉพาะ Host) → เล่นเพลงถัดไปใน playlist อัตโนมัติ, ถ้าเป็นเพลงสุดท้ายก็หยุด
+  const handleSongEnded=useCallback(()=>{
+    if(!isHost)return;
+    const i=safeList.findIndex(s=>s.id===nowPlaying);
+    const next=i>=0?safeList[i+1]:null;
+    onPlay(next?next.id:null);
+  },[isHost,safeList,nowPlaying,onPlay]);
+  const music=useRoomMusicKeeper(ytRef,{active:ROOM_MUSIC_BG_ENABLED&&playingHere,songKey:isHost?(currentSong&&currentSong.id):seekSrc,startedAt:songStartedAt,onEnded:isHost?handleSongEnded:undefined});
   const isMobileDev=typeof navigator!=="undefined"&&detectPlatform(navigator.userAgent,navigator.maxTouchPoints)!=="desktop";
 
   // Reset joined state เมื่อเพลงเปลี่ยน
