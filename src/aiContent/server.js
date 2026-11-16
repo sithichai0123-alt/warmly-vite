@@ -110,4 +110,21 @@ export async function sweepStaleDrafts({ db }) {
   return { deleted: stale.length };
 }
 
+// โพสต์ของ "หัมน้อย" ที่ขึ้นฟีดจริงแล้วเกิน AI_STALE_DRAFT_DAYS วัน → ลบทิ้งอัตโนมัติเช่นกัน (เนื้อหาผูกกับกระแสที่หมดอายุไปแล้ว)
+// จำกัดเฉพาะ authorUid === AI_BOT_UID เท่านั้น — ไม่แตะโพสต์ของผู้ใช้จริงคนอื่นเด็ดขาด
+export async function sweepStalePublishedPosts({ db }) {
+  const cutoff = Date.now() - AI_STALE_DRAFT_DAYS * 24 * 60 * 60 * 1000;
+  const snap = await db.collection("posts").where("authorUid", "==", AI_BOT_UID).get();
+  const stale = snap.docs.filter(d => {
+    const t = d.data().createdAt;
+    const ms = t && t.toMillis ? t.toMillis() : 0;
+    return ms > 0 && ms < cutoff;
+  });
+  if (!stale.length) return { deleted: 0 };
+  const batch = db.batch();
+  stale.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+  return { deleted: stale.length };
+}
+
 export { isAutoPublishOn };
