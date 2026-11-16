@@ -57,6 +57,40 @@ console.log("\n── เขียนสถานะตัวเอง แล้
   await sleep(500); un();
   ok(before === false && seen[seen.length - 1] === true, "ก่อนเขียน: ตัวเองไม่อยู่ในหน้าต่าง → เขียนสถานะ (ส่งสัญญาณ) แล้ว ตัวเองเข้ามาในรายการ");
 }
+console.log("\n── ซ่อนสถานะไว้ในบัญชี แล้วเข้าจากเครื่องใหม่ (บั๊กความเป็นส่วนตัวที่แก้แล้ว) ──");
+{
+  const { buildPresenceWrite } = await import("../../src/presence/logic.js");
+  const hiddenDoc = { state: "offline", hidden: true, hideLast: true, lastPrefOff: true, t: Timestamp.fromMillis(Date.now() - 5 * 86400000) };
+  const seedHidden = async () => { await env.clearFirestore(); await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), "presence", ME), hiddenDoc)); };
+  const finalDoc = async () => { let out; await env.withSecurityRulesDisabled(async c => { out = (await getDoc(doc(c.firestore(), "presence", ME))).data(); }); return out; };
+  const defaults = { showOnline: true, showLast: true };
+  // เครื่องใหม่รับค่าจากบัญชี (เหมือน adoptRemotePrefs)
+  const adopt = r => ({ showOnline: !r.hidden, showLast: r.lastPrefOff !== true });
+
+  // ลำดับเดิม: ฟัง + ส่งสถานะค่าตั้งต้นทันที → Firebase ซ้อนค่าที่เขียนทับลงบนเอกสารเดิมก่อนที่เราจะเห็น
+  await seedHidden();
+  { const db = google(ME); const seen = [];
+    const un = onSnapshot(collection(db, "presence"), snap => { const d = snap.docs.find(x => x.id === ME); if (d) seen.push(d.data().hidden); });
+    await setDoc(doc(db, "presence", ME), { ...buildPresenceWrite("online", defaults), t: serverTimestamp() }, { merge: true });
+    await sleep(800); un();
+    ok(seen[0] === false && (await finalDoc()).hidden === false, "ลำดับเดิม (เขียนก่อนอ่าน): ค่า “ซ่อน” ถูกทับเป็น “แสดง” ตั้งแต่ snapshot แรก และในบัญชีด้วย — นี่คือบั๊กที่เจอ"); }
+
+  // ลำดับใหม่: อ่านเอกสารเดิมก่อน → ใช้ค่านั้นส่งสถานะ
+  await seedHidden();
+  { const db = google(ME); const a = makePresenceApi({ db, doc, setDoc, collection, onSnapshot, serverTimestamp, query, where, getDoc });
+    const remote = await a.getOne(ME); const prefs = adopt(remote);
+    await a.write(ME, buildPresenceWrite("online", prefs)); await sleep(300);
+    const d = await finalDoc();
+    ok(d.hidden === true && d.state === "offline" && d.hideLast === true, "ลำดับใหม่ (อ่านก่อนเขียน): ยังซ่อนอยู่ (hidden=true, offline) และซ่อนเวลาล่าสุดอยู่"); }
+
+  // บัญชีที่ซ่อนแค่ “ออนไลน์ล่าสุด”: ยังออนไลน์ แต่ไม่เปิดเผยเวลา
+  await env.clearFirestore(); await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), "presence", ME), { state: "offline", hidden: false, hideLast: true, lastPrefOff: true, t: Timestamp.fromMillis(Date.now() - 86400000) }));
+  { const db = google(ME); const a = makePresenceApi({ db, doc, setDoc, collection, onSnapshot, serverTimestamp, query, where, getDoc });
+    await a.write(ME, buildPresenceWrite("online", adopt(await a.getOne(ME)))); await sleep(300);
+    const d = await finalDoc();
+    ok(d.state === "online" && d.hidden === false && d.hideLast === true, "ซ่อนเฉพาะ “ออนไลน์ล่าสุด”: ออนไลน์ตามปกติ แต่ยังไม่เปิดเผยเวลา"); }
+}
+
 await env.cleanup();
 console.log(`\nผ่าน ${pass} / ${pass + fail}`);
 process.exit(fail ? 1 : 0);

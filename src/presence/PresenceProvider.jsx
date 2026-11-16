@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { HEARTBEAT_MS, STALE_MS, PRESENCE_ENABLED, PRESENCE_WINDOW_ENABLED, PRESENCE_WINDOW_MS } from "./config.js";
+import { HEARTBEAT_MS, STALE_MS, PRESENCE_ENABLED, PRESENCE_WINDOW_ENABLED, PRESENCE_WINDOW_MS, PRESENCE_START_WAIT_MS } from "./config.js";
 import { computeStatus, statusLabel, windowStart, countOnline } from "./logic.js";
 import { createPresenceController } from "./controller.js";
 import { getPresencePrefs, adoptRemotePrefs, usePresencePrefs } from "./store.js";
@@ -28,13 +28,25 @@ export function PresenceProvider({ api, uid, children }) {
     return () => { try { unsub && unsub(); } catch (e) { /* ignore */ } };
   }, [active, api, windowed]);
 
-  // โหมดหน้าต่าง: อ่านสถานะเดิมของเราครั้งเดียว + ล้างของที่ดึงไว้เมื่อเปลี่ยนบัญชี
+  // อ่านสถานะเดิมของเราครั้งเดียว (ล้างของที่ดึงไว้เมื่อเปลี่ยนบัญชี) ใช้ 2 อย่าง:
+  //   1) โหมดหน้าต่าง: เอกสารของเราอาจเก่าจนไม่อยู่ในหน้าต่าง
+  //   2) เครื่องที่ยังไม่เคยตั้งค่าซ่อนสถานะ: รับค่าที่เคยตั้งไว้จากบัญชี "ก่อน" ส่งสถานะครั้งแรก (ready = พร้อมส่งสถานะ)
+  const [ready, setReady] = useState(false);
   useEffect(() => {
     asked.current = new Set(); setExtra({}); setSeed(null);
-    if (!active || !windowed) return undefined;
+    if (!active) { setReady(false); return undefined; }
+    const mustWait = !!api.getOne && !getPresencePrefs().explicit;   // เครื่องใหม่: ต้องรู้ค่าของบัญชีก่อน
+    setReady(!mustWait);
+    if (!api.getOne || (!windowed && !mustWait)) return undefined;
     let dead = false;
-    api.getOne(uid).then(d => { if (!dead && d) setSeed(d); }).catch(() => { /* ignore */ });
-    return () => { dead = true; };
+    const go = () => { if (!dead) setReady(true); };
+    api.getOne(uid).then(d => {
+      if (dead) return;
+      if (d) { if (windowed) setSeed(d); adoptRemotePrefs(d); }
+      setReady(true);
+    }).catch(go);
+    const timer = mustWait ? setTimeout(go, PRESENCE_START_WAIT_MS) : null;
+    return () => { dead = true; if (timer) clearTimeout(timer); };
   }, [active, windowed, api, uid]);
 
   // ขอดึงสถานะของคนที่ไม่อยู่ในหน้าต่าง (ครั้งเดียวต่อคน)
@@ -51,9 +63,9 @@ export function PresenceProvider({ api, uid, children }) {
     return () => clearInterval(id);
   }, [active]);
 
-  // ส่งสถานะของเรา
+  // ส่งสถานะของเรา (เครื่องใหม่รอรับค่าตั้งค่าจากบัญชีก่อน)
   useEffect(() => {
-    if (!active) return undefined;
+    if (!active || !ready) return undefined;
     const c = createPresenceController({
       write: payload => api.write(uid, payload),
       getPrefs: getPresencePrefs,
@@ -63,7 +75,7 @@ export function PresenceProvider({ api, uid, children }) {
     });
     ctrl.current = c; c.start();
     return () => { c.stop(); ctrl.current = null; };
-  }, [active, api, uid]);
+  }, [active, ready, api, uid]);
 
   // เปลี่ยนค่าตั้ง (ซ่อน/แสดง) → ส่งสถานะใหม่ทันที
   useEffect(() => { ctrl.current && ctrl.current.refresh(); }, [prefs.showOnline, prefs.showLast]);
