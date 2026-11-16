@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo, Component, createCon
 import { Room, RoomEvent, Track } from "livekit-client";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signInAnonymously, onAuthStateChanged, signOut } from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, arrayRemove, runTransaction, getCountFromServer, writeBatch } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, arrayRemove, runTransaction, getCountFromServer, writeBatch, documentId } from "firebase/firestore";
 import { useNow, useRoomHeartbeat, useRoomJanitor, roomExpired, roomCloseInMs, fmtCountdown, ROOM_AUTOCLOSE_ENABLED } from "./roomLife/index.js"; // ปิดห้องเสียงอัตโนมัติเมื่อโฮสต์ไม่อยู่เกิน 5 นาที (ปิดได้ที่ roomLife/config.js)
 import { TextFx, FxGallery, FxSettings, MsgFxButton, makeTextFxApi, resolveTextFx, resolveMessageFx, resolveTune, TEXTFX_ENABLED, TEXTFX_SERVER_PURCHASE } from "./textFx/index.js"; // ฟอนต์พิเศษ/เอฟเฟกต์ตัวอักษร (ปิดได้ที่ textFx/config.js)
 import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
@@ -17,7 +17,7 @@ import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from 
 import { GIFTS_PLUS_ENABLED, GIFTS_PLUS_PURPLE_ENABLED, plusGifts, plusFx, sortGifts, planSendGiftPurple, giftBalance, isPurpleGift, makeGiftSounds, PLUS_MODELS } from "./giftsPlus/index.js"; // ของขวัญชุดใหม่ (ทอง+ม่วง) — ปิดได้ที่ giftsPlus/config.js
 import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, registerSession as registerBgSession, detectPlatform, BG_PANEL_ENABLED } from "./backgroundAudio/index.js"; // ฟังห้องเสียงต่อเมื่อพับ/ล็อกจอ — ปิดได้ที่ backgroundAudio/config.js
 import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, AUTO_JOIN_MUSIC, useRoomMusicKeeper } from "./roomMusic/index.js";
-import { FEED_PAGING_ENABLED, withFocus, mergePosts, usePostsFeed, useUserPosts, LoadMore } from "./scale/index.js"; // ฟีดโหลดทีละส่วน ไม่ดึงโพสต์ทั้งหมด (ปิดได้ที่ scale/config.js)
+import { FEED_PAGING_ENABLED, withFocus, mergePosts, usePostsFeed, useUserPosts, LoadMore, USERS_LAZY_ENABLED, useUsersStore, usePeopleList, useMemberCount, UsersApiCtx } from "./scale/index.js"; // ฟีดโหลดทีละส่วน ไม่ดึงโพสต์ทั้งหมด (ปิดได้ที่ scale/config.js)
 import { ROOM_ACTIONS_GRID_ENABLED, ROOM_MEMBERS_COLLAPSE_ENABLED, MEMBERS_VISIBLE_ROWS, RoomActions, CollapsibleMembers, ROOM_CLASS, fullBleedCss } from "./roomUi/index.js";
 import { ROOM_STAGE_ENABLED, STAGE_MAX, COHOST_MAX, keyOf as stageKey, roleOf as stageRole, cohostsOf, stageView, canModerate, canManageCohosts, joinEntry, takeSeat, leaveSeat, setHand, setMicAllowed, setCohost, RoleBadge, StageHeader, EmptySeat, RequestsPanel, ListenerStatus } from "./roomStage/index.js"; // ห้องแบบเวที 7 คน + เจ้าของ👑/รอง🛡️ + ผู้ฟังขอพูด — ปิดได้ที่ roomStage/config.js // ห้องคุยกระชับ: ปุ่มแถวเดียว + รายชื่อพับได้ — ปิดได้ที่ roomUi/config.js // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
 import { PRIVATE_CALL_ENABLED, makePrivateCallApi, CallProvider, useCall, useRoomDuck, useCallActive } from "./privateCall/index.js"; // โทรเสียงส่วนตัว — ปิดได้ที่ privateCall/config.js
@@ -2077,7 +2077,7 @@ function HomeStrip({onJoinRoom,onGo}){
     const q=query(collection(db,"voiceRooms"),orderBy("createdAt","desc"));
     return onSnapshot(q,snap=>setRooms(snap.docs.map(d=>({id:d.id,...d.data()}))),()=>setRooms([]));
   },[]);
-  const online=PRESENCE_ENABLED?(PRESENCE_WINDOW_ENABLED?onlineCount:Object.keys(users).filter(id=>isOnline(id)).length):0;
+  const online=PRESENCE_ENABLED?((PRESENCE_WINDOW_ENABLED||USERS_LAZY_ENABLED)?onlineCount:Object.keys(users).filter(id=>isOnline(id)).length):0; // ผู้ใช้ไม่ได้โหลดทุกคนแล้ว → นับจากสถานะออนไลน์โดยตรง
   const live=(rooms||[]).map(r=>({...r,n:Array.isArray(r.members)?r.members.length:0})).filter(r=>r.n>0).sort((a,b)=>b.n-a.n).slice(0,5);
   const url=(typeof window!=="undefined"&&window.location.origin)||"https://warmly-vite.vercel.app";
   const text="มาคุยกันที่ Warmly 💜 พื้นที่อบอุ่น หาเพื่อน คุยเล่น ไม่เหงา\n"+url;
@@ -2338,10 +2338,13 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
   const pairId=uid=>[myUid,uid].sort().join("_");
   const openPairUnread=!!(peer&&dmu.isUnread(pairId(peer)));
   useEffect(()=>{ if(tab==="dm"&&peer)dmu.markRead(pairId(peer)); },[tab,peer,openPairUnread]); // eslint-disable-line -- เปิดห้องนี้อยู่ = อ่านแล้ว (รวมข้อความที่เข้ามาระหว่างเปิดอยู่)
-  const people=Object.entries(users).filter(([id])=>id!==myUid).map(([id,u])=>({id,...u}))
+  const usersApi=useContext(UsersApiCtx);
+  const peopleQ=usePeopleList({enabled:USERS_LAZY_ENABLED&&tab==="dm"&&!peer,myUid,search,fb:SCALE_FB,seed:usersApi.seed}); // รายชื่อ "เริ่มแชทกับ..." ล่าสุด 50 คน + ค้นหาที่เซิร์ฟเวอร์
+  const memberTotal=useMemberCount({enabled:USERS_LAZY_ENABLED&&tab==="group",fb:SCALE_FB});     // ให้เซิร์ฟเวอร์นับสมาชิก
+  const people=USERS_LAZY_ENABLED?peopleQ.list:Object.entries(users).filter(([id])=>id!==myUid).map(([id,u])=>({id,...u}))
     .filter(u=>!search.trim()||String(u.name||"").toLowerCase().includes(search.trim().toLowerCase()));
   const sortedConvs=[...convs].sort((a,b)=>((b.lastT&&b.lastT.toMillis?b.lastT.toMillis():0)-(a.lastT&&a.lastT.toMillis?a.lastT.toMillis():0)));
-  const memberCount=Object.keys(users).length;
+  const memberCount=USERS_LAZY_ENABLED?(memberTotal==null?"…":memberTotal):Object.keys(users).length;
 
   function onDmSent(txt){
     if(!peer)return;
@@ -2400,7 +2403,7 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
           })}
           <div style={{fontSize:13,fontWeight:700,color:T.sub,margin:"16px 0 8px"}}>เริ่มแชทกับ...</div>
           <Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ค้นหาชื่อ..." style={{marginBottom:8}}/>
-          {people.length===0&&<div style={{fontSize:13,color:T.muted,padding:"10px 0"}}>ยังไม่มีผู้ใช้คนอื่น — ชวนเพื่อนเข้ามาได้เลย 💜</div>}
+          {people.length===0&&!(USERS_LAZY_ENABLED&&peopleQ.loading)&&<div style={{fontSize:13,color:T.muted,padding:"10px 0"}}>ยังไม่มีผู้ใช้คนอื่น — ชวนเพื่อนเข้ามาได้เลย 💜</div>}
           {people.map(u=>(
             <div key={u.id} style={{display:"flex",gap:4,alignItems:"center",borderBottom:"1px solid "+T.border}}>
               {/* รูป + ชื่อ → เปิดโปรไฟล์ · ไอคอน 💬 ด้านขวา → เข้าแชท (เดิมทั้งแถวเป็นทางเข้าแชท) */}
@@ -4100,7 +4103,7 @@ const inviteApi=makeInviteApi({db,doc,setDoc,deleteDoc,onSnapshot,collection,ser
 const callApi=makePrivateCallApi({db,doc,collection,setDoc,updateDoc,deleteDoc,getDoc,onSnapshot,serverTimestamp});
 const photosApi=makePhotosApi({db,doc,setDoc,onSnapshot}); // เก็บรูปโปรไฟล์ที่ profilePhotos/{uid} (แยกจาก users)
 const presenceApi=makePresenceApi({db,doc,setDoc,collection,onSnapshot,serverTimestamp,query,where,getDoc}); // เก็บสถานะออนไลน์ที่ presence/{uid} (แยกจาก users)
-const SCALE_FB={db,collection,query,orderBy,limit,where,onSnapshot}; // ส่งให้โมดูล scale (เหมือนโมดูลอื่นที่รับฟังก์ชัน Firebase จากที่นี่)
+const SCALE_FB={db,collection,query,orderBy,limit,where,onSnapshot,documentId,getDocs,getCountFromServer}; // ส่งให้โมดูล scale (เหมือนโมดูลอื่นที่รับฟังก์ชัน Firebase จากที่นี่)
 const chatCleanup=makeChatCleanup({db,collection,query,orderBy,limit,where,getDocs,getCountFromServer,writeBatch}); // ลบได้เฉพาะ groupChat และ voiceRooms/*/chat เท่านั้น
 const textFxApi=makeTextFxApi({db,getUid,setDoc,doc,runTransaction,collection,serverTimestamp,serverMode:TEXTFX_SERVER_PURCHASE,getToken:()=>realUserToken("ต้องล็อกอินด้วย Google ก่อน")}); // บันทึกสไตล์ตัวอักษร (users/{uid}.textFx)
 const themeApi=makeThemeApi({db,getUid,setDoc,doc,onSnapshot,runTransaction,collection,serverTimestamp,serverMode:THEME_SERVER_PURCHASE,getToken:()=>realUserToken("ต้องล็อกอินด้วย Google ก่อน")});
@@ -4134,7 +4137,10 @@ export default function App(){
   const [page,setPage]=useState("feed");
   const [legacyPosts,setPosts]=useState([]); // แบบเดิม (ใช้เมื่อปิด FEED_PAGING_ENABLED)
   const [focusPostId,setFocusPostId]=useState(null); // โพสต์ที่จะเปิดความเห็นให้ (มาจากการกดแจ้งเตือน)
-  const [users,setUsers]=useState({});
+  const [legacyUsers,setUsers]=useState({}); // แบบเดิม (ใช้เมื่อปิด USERS_LAZY_ENABLED)
+  // ผู้ใช้: โหลดเฉพาะคนที่ปรากฏบนจอ (ฟังสดเป็นกลุ่ม) แทนการฟังทุกคน — users[uid] ใช้เหมือนเดิมทุกที่
+  const usersStore=useUsersStore({enabled:USERS_LAZY_ENABLED&&!!user,uid:user?getUid():null,fb:SCALE_FB});
+  const users=USERS_LAZY_ENABLED?usersStore.users:legacyUsers;
   const [viewUid,setViewUid]=useState(null);
   const [dmTarget,setDmTarget]=useState(null);
   const [joinReq,setJoinReq]=useState(null);       // คำเชิญเข้าห้องที่เพิ่งกดรับ
@@ -4221,7 +4227,7 @@ export default function App(){
   },[user&&user.isGuest,user&&user.needName,user&&user.uid]); // eslint-disable-line
 
   useEffect(()=>{
-    if(!user)return;
+    if(!user||USERS_LAZY_ENABLED)return;
     return onSnapshot(collection(db,"users"),snap=>{
       const m={};snap.docs.forEach(d=>{m[d.id]=d.data();});setUsers(m);
     },e=>console.error("users",e));
@@ -4263,6 +4269,7 @@ export default function App(){
   const openProfile=uid=>{ if(!uid)return; if(uid===getUid()){setPage("profile");return;} setViewUid(uid); };
 
   return(
+    <UsersApiCtx.Provider value={usersStore}>
     <UsersCtx.Provider value={users}>
     <PresenceProvider api={presenceApi} uid={getUid()}>
     <ImageViewerProvider>
@@ -4313,5 +4320,6 @@ export default function App(){
     </ImageViewerProvider>
     </PresenceProvider>
     </UsersCtx.Provider>
+    </UsersApiCtx.Provider>
   );
 }
