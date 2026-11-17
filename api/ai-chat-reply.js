@@ -5,8 +5,10 @@
 // ใช้ตัวแปร Vercel ที่มีอยู่แล้วทั้งหมด (ANTHROPIC_API_KEY, FIREBASE_SERVICE_ACCOUNT) ไม่ต้องตั้งเพิ่ม
 import { handleChatMention } from "../src/aiChat/server.js";
 import { isAnyBotMention } from "../src/aiChat/logic.js";
-import { AI_CHAT_TRIGGERS, AI_CHAT_RATE_WINDOW_MS, AI_CHAT_RATE_MAX, AI_CHAT_RATE_COLLECTION } from "../src/aiChat/config.js";
+import { AI_CHAT_TRIGGERS, AI_CHAT_BOTS, AI_CHAT_RATE_WINDOW_MS, AI_CHAT_RATE_MAX, AI_CHAT_RATE_COLLECTION } from "../src/aiChat/config.js";
 import { rateStep, bearerOf } from "../src/voiceToken/logic.js";
+
+const BOT_UIDS = new Set(Object.values(AI_CHAT_BOTS).map(b => b.uid));
 
 let adminCache = null;
 async function getAdmin() {
@@ -38,8 +40,9 @@ export default async function handler(req, res) {
     try { uid = (await admin.auth.verifyIdToken(idToken)).uid; }
     catch (e) { return res.status(401).json({ error: "บัญชีหมดอายุหรือไม่ถูกต้อง — ลองโหลดหน้าใหม่" }); }
 
-    const { text, msgId, name } = req.body || {};
-    if (!isAnyBotMention(text, AI_CHAT_TRIGGERS)) return res.status(400).json({ error: "ข้อความนี้ไม่ได้เรียกบอทตัวไหนเลย" });
+    const { text, msgId, name, replyToBotUid: rawReplyToBotUid } = req.body || {};
+    const replyToBotUid = BOT_UIDS.has(rawReplyToBotUid) ? rawReplyToBotUid : null; // ยอมรับเฉพาะ uid บอทจริงเท่านั้น กัน client ส่งมั่ว
+    if (!isAnyBotMention(text, AI_CHAT_TRIGGERS) && !replyToBotUid) return res.status(400).json({ error: "ข้อความนี้ไม่ได้เรียกบอทตัวไหนเลย" });
 
     // จำกัดจำนวนครั้งต่อคน (ถ้าตัวนับพังเอง ปล่อยผ่าน ไม่ให้ฟีเจอร์ล่มเพราะตัวนับ)
     try {
@@ -59,6 +62,7 @@ export default async function handler(req, res) {
       triggerUid: uid,
       triggerName: String(name || "").slice(0, 60),
       triggerMsgId: msgId ? String(msgId).slice(0, 80) : null,
+      replyToBotUid,
     });
     return res.status(200).json({ ok: true, ...result });
   } catch (e) {

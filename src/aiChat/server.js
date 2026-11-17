@@ -53,14 +53,22 @@ async function ensureBotProfile({ db }, bot) {
 
 // ประมวลผล 1 ครั้งที่มีคนเรียกบอทตัวใดตัวหนึ่งในห้องแชทรวม: ตอบคำถามจริงจากบอทที่ถูกเรียก แล้วให้คู่ปรับแทรกมาแซวต่อ (best-effort)
 // random ฉีดเข้ามาได้เพื่อทดสอบ (ไม่งั้นใช้ Math.random จริง) — เช็คที่นี่ก่อนเรียก Claude เลย กันกรณี AI เองมักเออออว่า "น่าแซว" เกือบทุกครั้งถ้าถามตรงๆ
-export async function handleChatMention({ db, FieldValue }, apiKey, { rawText, triggerUid, triggerName, triggerMsgId, fetchFn, random = Math.random } = {}) {
-  const triggerKey = Object.keys(AI_CHAT_BOTS).find(t => isBotMention(rawText, t));
-  if (!triggerKey) throw httpError(400, "ข้อความนี้ไม่ได้เรียกบอทตัวไหนเลย");
+// replyToBotUid: ถ้าผู้ใช้กด "ตอบกลับ" ข้อความของบอทตัวไหนโดยตรง ให้ถือว่ากำลังถามบอทตัวนั้นเสมอ (สำคัญกว่าชื่อที่พิมพ์ในข้อความ)
+// กันเคสที่ข้อความดันมีชื่ออีกบอทติดอยู่ในประโยคเอง (เช่น "หัมน้อยไปไหน" ที่ตอบกลับหัมใหญ่ ไม่ได้ตั้งใจเรียกหัมน้อย)
+export async function handleChatMention({ db, FieldValue }, apiKey, { rawText, triggerUid, triggerName, triggerMsgId, replyToBotUid, fetchFn, random = Math.random } = {}) {
+  let triggerKey = replyToBotUid ? Object.keys(AI_CHAT_BOTS).find(t => AI_CHAT_BOTS[t].uid === replyToBotUid) : null;
+  let question;
+  if (triggerKey) {
+    // ถูกเรียกผ่านการตอบกลับโดยตรง ไม่ใช่พิมพ์ชื่อนำหน้า — เอาข้อความทั้งก้อนเป็นคำถาม (ตัด prefix ออกด้วยถ้าบังเอิญพิมพ์ชื่อบอทตัวนี้มาด้วย)
+    question = isBotMention(rawText, triggerKey) ? extractQuestion(rawText, triggerKey) : String(rawText || "").trim();
+  } else {
+    triggerKey = Object.keys(AI_CHAT_BOTS).find(t => isBotMention(rawText, t));
+    if (!triggerKey) throw httpError(400, "ข้อความนี้ไม่ได้เรียกบอทตัวไหนเลย");
+    question = extractQuestion(rawText, triggerKey);
+  }
   const bot = AI_CHAT_BOTS[triggerKey];
   const rivalKey = Object.keys(AI_CHAT_BOTS).find(t => t !== triggerKey);
   const rival = rivalKey ? AI_CHAT_BOTS[rivalKey] : null;
-
-  const question = extractQuestion(rawText, triggerKey);
   const raw = await callClaudeChat(apiKey, { question, systemPrompt: bot.systemPrompt, fetchFn });
   const replyText = parseChatReply(raw);
   if (!replyText) throw httpError(502, "Claude ตอบกลับไม่ใช่รูปแบบที่ใช้ได้ ลองใหม่อีกครั้ง — raw: " + JSON.stringify(raw).slice(0, 500));
