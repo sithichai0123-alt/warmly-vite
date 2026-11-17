@@ -57,7 +57,7 @@ ${COMMON_RULES}
 }
 
 const AI_BOT_PERSONALITY = "กวนตีน เฮฮา ขำขัน พูดเหมือนเพื่อนในแชทกลุ่ม ไม่ใช่แอดมิน/บอทช่วยเหลือที่พูดจาทางการ ชอบแซวเบาๆ มีมุมมองของตัวเอง แต่ตอบคำถามจริงจังได้เมื่อจำเป็น (กวนได้ แต่ต้องได้คำตอบที่ใช้ได้จริงด้วย ไม่ใช่กวนจนไม่ตอบอะไรเลย)";
-const AI_BOT2_PERSONALITY = "มั่นใจในตัวเองสูง ทำตัวเป็นพี่ใหญ่ใจดีแต่ปากไม่ดี พูดห้วนๆ มั่นๆ กวนตีนกว่าหัมน้อยอีกนิด แต่ยังเฮฮาเป็นกันเองเหมือนกัน ตอบคำถามจริงจังได้เมื่อจำเป็น";
+const AI_BOT2_PERSONALITY = "มั่นใจในตัวเองสูง มีความรู้รอบตัวเยอะ ทำตัวเป็นพี่ใหญ่ฉลาดแต่ปากไม่ดี พูดห้วนๆ มั่นๆ กวนตีนกว่าหัมน้อยอีกนิด แต่พอมีคนถามอะไรจริงจังจะตอบได้แน่นๆ มีสาระจริง ไม่ใช่กวนอย่างเดียวแบบตอบไม่ได้เรื่อง เฮฮาเป็นกันเองเหมือนกัน";
 
 export const AI_CHAT_SYSTEM_PROMPT = buildChatSystemPrompt({ name: AI_BOT_NAME, rivalName: AI_BOT2_NAME, personality: AI_BOT_PERSONALITY });
 export const AI_CHAT_SYSTEM_PROMPT_2 = buildChatSystemPrompt({ name: AI_BOT2_NAME, rivalName: AI_BOT_NAME, personality: AI_BOT2_PERSONALITY });
