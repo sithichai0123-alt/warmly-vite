@@ -1,6 +1,6 @@
 // AI Chat — ฝั่งเซิร์ฟเวอร์: เรียก Claude + เขียนข้อความบอทลง groupChat ผ่าน firebase-admin (ข้ามกฎ Firestore)
 // ฉีด admin ({db, FieldValue}) เข้ามาเพื่อทดสอบได้ · เรียกจาก api/ai-chat-reply.js เท่านั้น ยิงทันทีตอนมีคนเรียกในแชท ไม่ใช่ cron
-import { AI_MODEL, AI_CHAT_BOTS, AI_CHAT_MAX_TOKENS, AI_CHAT_BANTER_MAX_TOKENS, AI_CHAT_WELCOME_MAX_TOKENS, buildBanterSystemPrompt, buildWelcomeSystemPrompt } from "./config.js";
+import { AI_MODEL, AI_CHAT_BOTS, AI_CHAT_MAX_TOKENS, AI_CHAT_BANTER_MAX_TOKENS, AI_CHAT_BANTER_CHANCE, AI_CHAT_WELCOME_MAX_TOKENS, buildBanterSystemPrompt, buildWelcomeSystemPrompt } from "./config.js";
 import { isBotMention, extractQuestion, parseChatReply, buildBotChatMessage } from "./logic.js";
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
@@ -52,7 +52,8 @@ async function ensureBotProfile({ db }, bot) {
 }
 
 // ประมวลผล 1 ครั้งที่มีคนเรียกบอทตัวใดตัวหนึ่งในห้องแชทรวม: ตอบคำถามจริงจากบอทที่ถูกเรียก แล้วให้คู่ปรับแทรกมาแซวต่อ (best-effort)
-export async function handleChatMention({ db, FieldValue }, apiKey, { rawText, triggerUid, triggerName, triggerMsgId, fetchFn } = {}) {
+// random ฉีดเข้ามาได้เพื่อทดสอบ (ไม่งั้นใช้ Math.random จริง) — เช็คที่นี่ก่อนเรียก Claude เลย กันกรณี AI เองมักเออออว่า "น่าแซว" เกือบทุกครั้งถ้าถามตรงๆ
+export async function handleChatMention({ db, FieldValue }, apiKey, { rawText, triggerUid, triggerName, triggerMsgId, fetchFn, random = Math.random } = {}) {
   const triggerKey = Object.keys(AI_CHAT_BOTS).find(t => isBotMention(rawText, t));
   if (!triggerKey) throw httpError(400, "ข้อความนี้ไม่ได้เรียกบอทตัวไหนเลย");
   const bot = AI_CHAT_BOTS[triggerKey];
@@ -71,9 +72,9 @@ export async function handleChatMention({ db, FieldValue }, apiKey, { rawText, t
   });
   const ref = await db.collection("groupChat").add(msg);
 
-  // คู่ปรับแทรกมาแซว — แยกเรียก Claude อีกครั้ง ถ้าพังก็แค่ไม่มีมุกแซว ไม่ทำให้คำตอบหลักเสียหาย
+  // คู่ปรับแทรกมาแซว — สุ่มก่อนว่าจะลองไหม (กันแซวทุกครั้ง) แล้วค่อยแยกเรียก Claude อีกครั้ง ถ้าพังก็แค่ไม่มีมุกแซว ไม่ทำให้คำตอบหลักเสียหาย
   let banterMessageId = null, banterText = null;
-  if (rival) {
+  if (rival && random() < AI_CHAT_BANTER_CHANCE) {
     try {
       await ensureBotProfile({ db }, rival);
       const context = (triggerName || "มีคนหนึ่ง") + ' พิมพ์ว่า: "' + rawText + '"\n' + bot.name + ' ตอบว่า: "' + replyText + '"';

@@ -19,6 +19,10 @@ export const AI_CHAT_TRIGGERS = [AI_CHAT_TRIGGER, AI_CHAT_TRIGGER_2];
 // คำตอบของคู่ปรับที่แทรกมาแซว (ไม่ใช่คำตอบคำถามจริง) ให้สั้นกว่าคำตอบหลักอีก ประหยัดค่า token เพิ่ม
 export const AI_CHAT_BANTER_MAX_TOKENS = 100;
 
+// สุ่มก่อนว่าจะลองให้คู่ปรับพิจารณาแซวไหม (เช็คที่โค้ดนี้ ไม่ใช่ปล่อยให้ AI ตัดสินใจเองทั้งหมด —
+// ในทางปฏิบัติ AI มักหาเหตุผลแซวได้แทบทุกครั้งถ้าถามมันตรงๆ ว่า "น่าแซวไหม" เลยต้องบังคับความถี่จากโค้ดด้วย)
+export const AI_CHAT_BANTER_CHANCE = 0.3; // ~30% ของครั้งที่มีคนเรียกบอท ถึงจะลองเรียก Claude ให้พิจารณาแซว
+
 // จำกัดจำนวนครั้งที่แต่ละคนเรียกบอทได้ต่อช่วงเวลา กันเรียกรัวๆ จนเปลืองค่า Claude API (ดู rateStep ใน voiceToken/logic.js ที่ reuse)
 export const AI_CHAT_RATE_WINDOW_MS = 60 * 1000;
 export const AI_CHAT_RATE_MAX = 5;
