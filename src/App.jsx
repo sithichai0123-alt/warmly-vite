@@ -19,6 +19,8 @@ import { BACKGROUND_AUDIO_ENABLED, BackgroundAudioKeeper, BackgroundAudioPanel, 
 import { ROOM_MUSIC_BG_ENABLED, KEEP_PLAYER_WHEN_COLLAPSED, AUTO_JOIN_MUSIC, useRoomMusicKeeper } from "./roomMusic/index.js";
 import { VOICE_IDLE_PAUSE_ENABLED, useVoiceSaver, ResumeChip } from "./voiceSaver/index.js"; // พักเสียงห้องของผู้ฟังเมื่อห้องเงียบ เพื่อประหยัดนาที LiveKit (ปิดได้ที่ voiceSaver/config.js)
 import { makeAuthedFetch } from "./voiceToken/client.js"; // แนบบัตรผ่านผู้ใช้ไปกับคำขอโทเคนห้องเสียง (ตัวออกโทเคนตรวจสิทธิ์แล้ว)
+import { isBotMention } from "./aiChat/logic.js";
+import { AI_CHAT_TRIGGER } from "./aiChat/config.js"; // พิมพ์ "หัมน้อย" นำหน้าในห้องแชทรวม = เรียกบอทให้ตอบ (ดู api/ai-chat-reply.js)
 import { FEED_PAGING_ENABLED, withFocus, mergePosts, usePostsFeed, useUserPosts, LoadMore, USERS_LAZY_ENABLED, useUsersStore, usePeopleList, useMemberCount, UsersApiCtx } from "./scale/index.js"; // ฟีดโหลดทีละส่วน ไม่ดึงโพสต์ทั้งหมด (ปิดได้ที่ scale/config.js)
 import { ROOM_ACTIONS_GRID_ENABLED, ROOM_MEMBERS_COLLAPSE_ENABLED, MEMBERS_VISIBLE_ROWS, RoomActions, CollapsibleMembers, ROOM_CLASS, fullBleedCss } from "./roomUi/index.js";
 import { ROOM_STAGE_ENABLED, STAGE_MAX, COHOST_MAX, keyOf as stageKey, roleOf as stageRole, cohostsOf, stageView, canModerate, canManageCohosts, joinEntry, takeSeat, leaveSeat, setHand, setMicAllowed, setCohost, RoleBadge, StageHeader, EmptySeat, RequestsPanel, ListenerStatus } from "./roomStage/index.js"; // ห้องแบบเวที 7 คน + เจ้าของ👑/รอง🛡️ + ผู้ฟังขอพูด — ปิดได้ที่ roomStage/config.js // ห้องคุยกระชับ: ปุ่มแถวเดียว + รายชื่อพับได้ — ปิดได้ที่ roomUi/config.js // เพลง/วิดีโอในห้องคุย: ซ่อนแผงแล้วเล่นต่อ · กลับมาแล้วเล่นต่อตรงที่ห้องเล่นอยู่ · กันจอดับระหว่างเล่น — ปิดได้ที่ roomMusic/config.js
@@ -448,6 +450,11 @@ async function sendGiftLogged(gift,fromUser,toUid,toName,ctx){
 // โทเคนสำหรับเรียก /api/* — เฉพาะผู้ใช้ Google จริง (บัญชีนิรนามของผู้เยี่ยมชมถือว่า "ไม่มีโทเคน" เหมือนเดิมทุกอย่าง)
 const voiceFetch=makeAuthedFetch({getIdToken:()=>auth.currentUser?auth.currentUser.getIdToken():Promise.reject(new Error("no user")),fetchFn:(...a)=>fetch(...a)}); // ใช้กับ /api/token ของห้องเสียงและสายโทร
 const realUserToken=msg=>{const u=auth.currentUser;return u&&!u.isAnonymous?u.getIdToken():Promise.reject(new Error(msg));};
+// เรียกหัมน้อยให้ตอบในห้องแชทรวม — ยิงแบบ fire-and-forget (ไม่ await ตอนเรียกใช้) ไม่ให้ error ของบอทไปทำให้ข้อความของผู้ใช้เองดูเหมือนส่งไม่สำเร็จ
+async function triggerAiChatBot(text,msgId,name){
+  try{ await voiceFetch("/api/ai-chat-reply",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text,msgId,name})}); }
+  catch(e){ console.warn("ai-chat-reply",e); }
+}
 
 // Voice Aura: ซื้อ/สวมใส่เอฟเฟกต์เสียง (ตรรกะอยู่ใน voiceAura/wallet.js — ใช้ transaction + ledger แบบเดียวกับกระเป๋าเดิม)
 const auraWallet=makeAuraWallet({db,getUid,runTransaction,doc,collection,serverTimestamp,serverMode:AURA_SERVER_PURCHASE,getToken:()=>realUserToken("ต้องล็อกอินด้วย Google ก่อน")});
@@ -2251,9 +2258,10 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
     const keepImg=img,keepReply=replyTo;
     setInput("");setImg(null);setErr("");setReplyTo(null);
     try{
-      await addDoc(collection(db,...path),payload);
+      const ref=await addDoc(collection(db,...path),payload);
       chatCleanup.trim(path); // เฉพาะแชทรวม — แชทส่วนตัว (dms) จะถูกปฏิเสธในโมดูล ไม่โดนลบ
       onSent&&onSent(txt||"📷 รูปภาพ");
+      if(pathKey==="groupChat"&&txt&&isBotMention(txt,AI_CHAT_TRIGGER))triggerAiChatBot(txt,ref.id,user.name); // พิมพ์ "หัมน้อย" นำหน้าในห้องแชทรวม = เรียกบอทตอบ
     }catch(e){
       console.error("send",e);
       setInput(txt);setImg(keepImg);setReplyTo(keepReply);
