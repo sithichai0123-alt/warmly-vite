@@ -1,6 +1,6 @@
 // AI Chat — ฝั่งเซิร์ฟเวอร์: เรียก Claude + เขียนข้อความบอทลง groupChat ผ่าน firebase-admin (ข้ามกฎ Firestore)
 // ฉีด admin ({db, FieldValue}) เข้ามาเพื่อทดสอบได้ · เรียกจาก api/ai-chat-reply.js เท่านั้น ยิงทันทีตอนมีคนเรียกในแชท ไม่ใช่ cron
-import { AI_MODEL, AI_CHAT_BOTS, AI_CHAT_MAX_TOKENS, AI_CHAT_BANTER_MAX_TOKENS, buildBanterSystemPrompt } from "./config.js";
+import { AI_MODEL, AI_CHAT_BOTS, AI_CHAT_MAX_TOKENS, AI_CHAT_BANTER_MAX_TOKENS, AI_CHAT_WELCOME_MAX_TOKENS, buildBanterSystemPrompt, buildWelcomeSystemPrompt } from "./config.js";
 import { isBotMention, extractQuestion, parseChatReply, buildBotChatMessage } from "./logic.js";
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
@@ -40,6 +40,11 @@ export async function callClaudeChat(apiKey, { question, systemPrompt, model, ma
 export async function callClaudeBanter(apiKey, { context, model, maxTokens = AI_CHAT_BANTER_MAX_TOKENS, fetchFn, systemPrompt } = {}) {
   const userContent = context ? ("บทสนทนาที่เพิ่งเกิดขึ้น:\n" + context) : "เพื่อนคุณเพิ่งคุยกับคนในแชทไป ดูว่ามีจังหวะน่าแซวไหม";
   return callClaudeRaw(apiKey, { systemPrompt, userContent, model, maxTokens, fetchFn });
+}
+
+// เรียก Claude ให้ทักทายคนใหม่ (ไม่ใช่ตอบคำถาม/แซว — ข้อความคงที่ ตัวแปรอยู่ที่ systemPrompt ที่ส่งมาแทน)
+export async function callClaudeWelcome(apiKey, { systemPrompt, model, maxTokens = AI_CHAT_WELCOME_MAX_TOKENS, fetchFn } = {}) {
+  return callClaudeRaw(apiKey, { systemPrompt, userContent: "ทักทายคนใหม่หน่อย", model, maxTokens, fetchFn });
 }
 
 async function ensureBotProfile({ db }, bot) {
@@ -86,4 +91,52 @@ export async function handleChatMention({ db, FieldValue }, apiKey, { rawText, t
   }
 
   return { messageId: ref.id, reply: replyText, banterMessageId, banterReply: banterText };
+}
+
+// คนเข้าแอปมาเป็นครั้งแรก (เช็คครั้งเดียวต่อ uid ตลอดไป ด้วย flag chatWelcomedAt กันทักซ้ำ) — บอททั้งสองตัวทักทายต้อนรับเสมอ (ไม่มีเงื่อนไข/สุ่มแบบมุกแซว เพราะเป็นโอกาสพิเศษ)
+export async function handleNewUserWelcome({ db, FieldValue }, apiKey, { uid, name, fetchFn } = {}) {
+  if (!uid) throw httpError(400, "ไม่มี uid");
+  const ref = db.collection("users").doc(uid);
+  const isNew = await db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    if (snap.exists && snap.data().chatWelcomedAt) return false;
+    tx.set(ref, { chatWelcomedAt: Date.now() }, { merge: true });
+    return true;
+  });
+  if (!isNew) return { welcomed: false };
+
+  const [firstKey, secondKey] = Object.keys(AI_CHAT_BOTS); // ลำดับคงที่ ไม่สุ่ม กันผลลัพธ์เดาไม่ได้ตอนดีบั๊ก
+  const first = AI_CHAT_BOTS[firstKey], second = AI_CHAT_BOTS[secondKey];
+
+  await ensureBotProfile({ db }, first);
+  const raw1 = await callClaudeWelcome(apiKey, {
+    systemPrompt: buildWelcomeSystemPrompt({ name: first.name, rivalName: second.name, personality: first.personality, newcomerName: name }),
+    fetchFn,
+  });
+  const text1 = parseChatReply(raw1);
+  let messageId1 = null;
+  if (text1) {
+    const msg1 = buildBotChatMessage({ text: text1, bot: first, now: FieldValue.serverTimestamp() });
+    messageId1 = (await db.collection("groupChat").add(msg1)).id;
+  }
+
+  // ตัวที่สองทักต่อ — ถ้าพังก็แค่ทักคนเดียว ไม่ทำให้การทักทายของตัวแรกเสียหาย
+  let messageId2 = null, text2 = null;
+  try {
+    await ensureBotProfile({ db }, second);
+    const raw2 = await callClaudeWelcome(apiKey, {
+      systemPrompt: buildWelcomeSystemPrompt({ name: second.name, rivalName: first.name, personality: second.personality, newcomerName: name, priorGreeting: text1 }),
+      fetchFn,
+    });
+    text2 = parseChatReply(raw2);
+    if (text2) {
+      const msg2 = buildBotChatMessage({
+        text: text2, bot: second, now: FieldValue.serverTimestamp(),
+        replyTo: messageId1 ? { id: messageId1, uid: first.uid, name: first.name, text: text1 } : null,
+      });
+      messageId2 = (await db.collection("groupChat").add(msg2)).id;
+    }
+  } catch (e) { /* best-effort */ }
+
+  return { welcomed: true, messageId1, messageId2, reply1: text1, reply2: text2 };
 }
