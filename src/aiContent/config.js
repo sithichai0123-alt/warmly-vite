@@ -48,7 +48,7 @@ export const AI_MASCOT_IMAGES = {
 };
 export const AI_MOODS = Object.keys(AI_MASCOT_IMAGES);
 
-// บอทตอบคอมเมนต์ใต้โพสต์ของตัวเอง — เช็คทุก 15 นาที (ดู .github/workflows/ai-reply-comments.yml) ไม่ใช่เรียลไทม์ (แอปนี้ไม่มี Firebase Cloud Functions)
+// บอทตอบคอมเมนต์ใต้โพสต์ของตัวเอง — cron-job.org ยิง api/ai-reply-comments.js ทุก 15 นาที ไม่ใช่เรียลไทม์ (แอปนี้ไม่มี Firebase Cloud Functions)
 // จำกัดจำนวนคอมเมนต์ที่ตอบต่อรอบไว้กันกรณีมีคอมเมนต์เข้ามาพรวดเดียวเยอะ ๆ (เช่นโพสต์ไวรัล) ไม่ให้ยิง Claude รัวเกินไปรอบเดียว
 export const AI_MAX_REPLIES_PER_RUN = 15;
 

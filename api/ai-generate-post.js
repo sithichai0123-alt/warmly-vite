@@ -1,5 +1,5 @@
 // Vercel Serverless Function — ให้ AI แต่งโพสต์ 1 อัน แล้วเก็บเป็น draft รออนุมัติ (หรือโพสต์จริงทันทีถ้าเปิด auto)
-// ยิงจาก GitHub Actions cron ตามตารางเวลา (ดู .github/workflows/ai-content-post.yml) — ไม่ได้ยิงจากหน้าเว็บ
+// ยิงจาก cron-job.org วันละ 3 รอบ 09:17/13:17/18:17 น. (ส่ง header x-cron-secret) — กดทดสอบเองได้จาก .github/workflows/ai-content-post.yml · ไม่ได้ยิงจากหน้าเว็บ
 // ทุกครั้งที่ยิงมา จะเก็บกวาด draft เก่าที่รออนุมัติ และโพสต์ของหัมน้อยที่ขึ้นฟีดจริงแล้ว ที่เกิน AI_STALE_DRAFT_DAYS วัน (ดู config.js) ทิ้งไปด้วยเสมอ
 //
 // ต้องตั้งก่อนใช้ (นอกเหนือจาก FIREBASE_SERVICE_ACCOUNT ที่มีอยู่แล้ว):

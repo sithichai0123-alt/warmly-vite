@@ -1,5 +1,5 @@
 // Vercel Serverless Function — ให้ "หัมน้อย" ตอบคอมเมนต์ใหม่ที่คนมาคอมเมนต์ใต้โพสต์ของตัวเอง
-// ยิงจาก GitHub Actions cron ทุก 15 นาที (ดู .github/workflows/ai-reply-comments.yml) — ไม่ได้ยิงจากหน้าเว็บ ไม่เรียลไทม์
+// ยิงจาก cron-job.org ทุก 15 นาที (ส่ง header x-cron-secret) — กดทดสอบเองได้จาก .github/workflows/ai-reply-comments.yml · ไม่ได้ยิงจากหน้าเว็บ ไม่เรียลไทม์
 //
 // ต้องตั้งก่อนใช้ (ใช้ตัวแปรเดียวกับ ai-generate-post.js ทั้งหมด ไม่ต้องตั้งเพิ่ม):
 //   ตัวแปร Vercel  ANTHROPIC_API_KEY, FIREBASE_SERVICE_ACCOUNT, AI_CRON_SECRET

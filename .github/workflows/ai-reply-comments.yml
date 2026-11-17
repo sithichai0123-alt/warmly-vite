@@ -1,4 +1,5 @@
-# ยิง api/ai-reply-comments.js ทุก 15 นาที ให้ "หัมน้อย" ตอบคอมเมนต์ใหม่ใต้โพสต์ของตัวเอง (polling — แอปนี้ไม่มี Firebase Cloud Functions)
+# ปุ่มกดรันเองไว้ทดสอบ api/ai-reply-comments.js — ตัวตั้งเวลาจริงทุก 15 นาทีอยู่ที่ cron-job.org
+# (ตัวตั้งเวลาของ GitHub ไม่เคยยิงเองเลยสักรอบใน repo นี้ เลยถอด schedule ออก กันตอบซ้ำซ้อนถ้าวันหลัง GitHub กลับมายิง)
 #
 # ต้องตั้งก่อนใช้งานได้จริง — Settings → Secrets and variables → Actions → New repository secret:
 #   AI_REPLY_CRON_ENDPOINT = https://<โดเมนแอปจริงบน Vercel>/api/ai-reply-comments
@@ -6,8 +7,6 @@
 name: AI reply comments
 
 on:
-  schedule:
-    - cron: "7,22,37,52 * * * *"   # ทุก 15 นาที แต่เลี่ยงนาที :00/:15/:30/:45 ที่ GitHub คิวแน่นจนชอบเลื่อน/ข้ามรอบ
   workflow_dispatch: {}    # กดรันเองได้จาก Actions tab (ไว้ทดสอบ)
 
 jobs:
