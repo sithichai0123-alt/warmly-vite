@@ -36,8 +36,8 @@ export default async function handler(req, res) {
     if (!idToken) return res.status(401).json({ error: "ต้องเข้าแอปก่อนถึงจะเรียกหัมน้อยได้" });
 
     const admin = await getAdmin();
-    let uid;
-    try { uid = (await admin.auth.verifyIdToken(idToken)).uid; }
+    let uid, email;
+    try { const decoded = await admin.auth.verifyIdToken(idToken); uid = decoded.uid; email = decoded.email || null; }
     catch (e) { return res.status(401).json({ error: "บัญชีหมดอายุหรือไม่ถูกต้อง — ลองโหลดหน้าใหม่" }); }
 
     const { text, msgId, name, replyToBotUid: rawReplyToBotUid } = req.body || {};
@@ -60,6 +60,7 @@ export default async function handler(req, res) {
     const result = await handleChatMention(admin, apiKey, {
       rawText: String(text || "").slice(0, 500),
       triggerUid: uid,
+      triggerEmail: email,
       triggerName: String(name || "").slice(0, 60),
       triggerMsgId: msgId ? String(msgId).slice(0, 80) : null,
       replyToBotUid,
