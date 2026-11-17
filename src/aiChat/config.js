@@ -6,8 +6,8 @@ export { AI_BOT_UID, AI_BOT_NAME, AI_BOT_INIT, AI_BOT_AVATAR, AI_MODEL };
 export const AI_CHAT_TRIGGER = AI_BOT_NAME; // "หัมน้อย"
 export const AI_CHAT_MAX_TOKENS = 200; // คำตอบสั้นแค่ ~2 บรรทัดบนจอมือถือ (ดูกฎความยาวในพรอมป์) ลดไว้กันคำตอบหลุดยาว + ประหยัดค่า output token
 
-// อีเมลเจ้าของแอป — คุยกับหัมน้อย/หัมใหญ่ต้องให้ความเคารพเป็นพิเศษ (เช็คจาก Firebase ID token ฝั่งเซิร์ฟเวอร์เท่านั้น ไม่ส่งอีเมลจริงให้ Claude เห็น)
-export const AI_OWNER_EMAIL = "sithichai0123@gmail.com";
+// อีเมลเจ้าของแอป (เพิ่มได้หลายคน) — คุยกับหัมน้อย/หัมใหญ่ต้องให้ความเคารพเป็นพิเศษ (เช็คจาก Firebase ID token ฝั่งเซิร์ฟเวอร์เท่านั้น ไม่ส่งอีเมลจริงให้ Claude เห็น)
+export const AI_OWNER_EMAILS = ["sithichai0123@gmail.com", "sithichai0123456@gmail.com"];
 
 // เติมคำสั่งให้พูดสุภาพ/อ่อนน้อม/เคารพเป็นพิเศษ ต่อท้าย systemPrompt เฉพาะตอนคุยกับเจ้าของแอป — เวลาคุยเล่นปกติยังสบายๆ ได้ แค่สุภาพกว่าคนอื่น ถ้าโดนดุให้ยอมรับฟังอ่อนน้อม ไม่กวนกลับ
 export function withOwnerRespect(systemPrompt, isOwner) {
