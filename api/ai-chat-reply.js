@@ -1,11 +1,11 @@
-// Vercel Serverless Function — หัมน้อยตอบคำถามในห้องแชทรวม เมื่อมีคนพิมพ์ "หัมน้อย" นำหน้าข้อความ
+// Vercel Serverless Function — หัมน้อย/หัมใหญ่ ตอบในห้องแชทรวม เมื่อมีคนพิมพ์ชื่อบอทนำหน้าข้อความ (เรียกตัวไหนก็ได้ อีกตัวจะแทรกมาแซว)
 // ยิงจากฝั่งแอปทันทีตอนมีคนส่งข้อความแบบนั้น (ไม่ใช่ cron) — ต้องแนบ Firebase ID token ของผู้ใช้ (ล็อกอินจริงหรือผู้เยี่ยมชมก็ได้)
 // จำกัดจำนวนครั้งต่อคนต่อนาที กันเรียกรัวๆ จนเปลืองค่า Claude API (ดู AI_CHAT_RATE_MAX/WINDOW_MS ใน src/aiChat/config.js)
 //
 // ใช้ตัวแปร Vercel ที่มีอยู่แล้วทั้งหมด (ANTHROPIC_API_KEY, FIREBASE_SERVICE_ACCOUNT) ไม่ต้องตั้งเพิ่ม
 import { handleChatMention } from "../src/aiChat/server.js";
-import { isBotMention } from "../src/aiChat/logic.js";
-import { AI_CHAT_TRIGGER, AI_CHAT_RATE_WINDOW_MS, AI_CHAT_RATE_MAX, AI_CHAT_RATE_COLLECTION } from "../src/aiChat/config.js";
+import { isAnyBotMention } from "../src/aiChat/logic.js";
+import { AI_CHAT_TRIGGERS, AI_CHAT_RATE_WINDOW_MS, AI_CHAT_RATE_MAX, AI_CHAT_RATE_COLLECTION } from "../src/aiChat/config.js";
 import { rateStep, bearerOf } from "../src/voiceToken/logic.js";
 
 let adminCache = null;
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
     catch (e) { return res.status(401).json({ error: "บัญชีหมดอายุหรือไม่ถูกต้อง — ลองโหลดหน้าใหม่" }); }
 
     const { text, msgId, name } = req.body || {};
-    if (!isBotMention(text, AI_CHAT_TRIGGER)) return res.status(400).json({ error: "ข้อความนี้ไม่ได้เรียกหัมน้อย" });
+    if (!isAnyBotMention(text, AI_CHAT_TRIGGERS)) return res.status(400).json({ error: "ข้อความนี้ไม่ได้เรียกบอทตัวไหนเลย" });
 
     // จำกัดจำนวนครั้งต่อคน (ถ้าตัวนับพังเอง ปล่อยผ่าน ไม่ให้ฟีเจอร์ล่มเพราะตัวนับ)
     try {
@@ -50,7 +50,7 @@ export default async function handler(req, res) {
         tx.set(ref, r.next);
         return r;
       });
-      if (!st.allow) return res.status(429).json({ error: "เรียกหัมน้อยถี่เกินไป รอสักครู่แล้วลองใหม่" });
+      if (!st.allow) return res.status(429).json({ error: "เรียกบอทถี่เกินไป รอสักครู่แล้วลองใหม่" });
     } catch (e) { /* best-effort */ }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
