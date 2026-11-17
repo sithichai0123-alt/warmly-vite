@@ -36,9 +36,10 @@ export async function callClaudeChat(apiKey, { question, systemPrompt, model, ma
   return callClaudeRaw(apiKey, { systemPrompt, userContent, model, maxTokens, fetchFn });
 }
 
-// เรียก Claude ให้แซวคู่ปรับสั้นๆ (ไม่ตอบคำถามเดิม)
-export async function callClaudeBanter(apiKey, { systemPrompt, model, maxTokens = AI_CHAT_BANTER_MAX_TOKENS, fetchFn } = {}) {
-  return callClaudeRaw(apiKey, { systemPrompt, userContent: "แซวเพื่อนคุณหน่อย", model, maxTokens, fetchFn });
+// เรียก Claude ให้พิจารณาแซวคู่ปรับ (แนบบทสนทนาจริงให้ดู ให้ AI ตัดสินใจเองว่าน่าแซวไหม ไม่ใช่สั่งให้แซวเสมอ)
+export async function callClaudeBanter(apiKey, { context, model, maxTokens = AI_CHAT_BANTER_MAX_TOKENS, fetchFn, systemPrompt } = {}) {
+  const userContent = context ? ("บทสนทนาที่เพิ่งเกิดขึ้น:\n" + context) : "เพื่อนคุณเพิ่งคุยกับคนในแชทไป ดูว่ามีจังหวะน่าแซวไหม";
+  return callClaudeRaw(apiKey, { systemPrompt, userContent, model, maxTokens, fetchFn });
 }
 
 async function ensureBotProfile({ db }, bot) {
@@ -70,7 +71,8 @@ export async function handleChatMention({ db, FieldValue }, apiKey, { rawText, t
   if (rival) {
     try {
       await ensureBotProfile({ db }, rival);
-      const banterRaw = await callClaudeBanter(apiKey, { systemPrompt: buildBanterSystemPrompt({ speakerName: rival.name, rivalName: bot.name }), fetchFn });
+      const context = (triggerName || "มีคนหนึ่ง") + ' พิมพ์ว่า: "' + rawText + '"\n' + bot.name + ' ตอบว่า: "' + replyText + '"';
+      const banterRaw = await callClaudeBanter(apiKey, { systemPrompt: buildBanterSystemPrompt({ speakerName: rival.name, rivalName: bot.name }), context, fetchFn });
       banterText = parseChatReply(banterRaw);
       if (banterText) {
         const banterMsg = buildBotChatMessage({
