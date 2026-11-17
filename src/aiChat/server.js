@@ -1,6 +1,6 @@
 // AI Chat — ฝั่งเซิร์ฟเวอร์: เรียก Claude + เขียนข้อความบอทลง groupChat ผ่าน firebase-admin (ข้ามกฎ Firestore)
 // ฉีด admin ({db, FieldValue}) เข้ามาเพื่อทดสอบได้ · เรียกจาก api/ai-chat-reply.js เท่านั้น ยิงทันทีตอนมีคนเรียกในแชท ไม่ใช่ cron
-import { AI_MODEL, AI_CHAT_BOTS, AI_CHAT_MAX_TOKENS, AI_CHAT_BANTER_MAX_TOKENS, AI_CHAT_BANTER_CHANCE, AI_CHAT_WELCOME_MAX_TOKENS, buildBanterSystemPrompt, buildWelcomeSystemPrompt } from "./config.js";
+import { AI_MODEL, AI_CHAT_BOTS, AI_CHAT_MAX_TOKENS, AI_CHAT_BANTER_MAX_TOKENS, AI_CHAT_BANTER_CHANCE, AI_CHAT_WELCOME_MAX_TOKENS, AI_OWNER_EMAIL, withOwnerRespect, buildBanterSystemPrompt, buildWelcomeSystemPrompt } from "./config.js";
 import { isBotMention, extractQuestion, parseChatReply, parseDeferFlag, buildBotChatMessage } from "./logic.js";
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
@@ -55,7 +55,8 @@ async function ensureBotProfile({ db }, bot) {
 // random ฉีดเข้ามาได้เพื่อทดสอบ (ไม่งั้นใช้ Math.random จริง) — เช็คที่นี่ก่อนเรียก Claude เลย กันกรณี AI เองมักเออออว่า "น่าแซว" เกือบทุกครั้งถ้าถามตรงๆ
 // replyToBotUid: ถ้าผู้ใช้กด "ตอบกลับ" ข้อความของบอทตัวไหนโดยตรง ให้ถือว่ากำลังถามบอทตัวนั้นเสมอ (สำคัญกว่าชื่อที่พิมพ์ในข้อความ)
 // กันเคสที่ข้อความดันมีชื่ออีกบอทติดอยู่ในประโยคเอง (เช่น "หัมน้อยไปไหน" ที่ตอบกลับหัมใหญ่ ไม่ได้ตั้งใจเรียกหัมน้อย)
-export async function handleChatMention({ db, FieldValue }, apiKey, { rawText, triggerUid, triggerName, triggerMsgId, replyToBotUid, fetchFn, random = Math.random } = {}) {
+// triggerEmail: อีเมลผู้เรียก (จาก Firebase ID token ที่ verify แล้ว) ถ้าตรงกับ AI_OWNER_EMAIL ให้บอทพูดด้วยความเคารพเป็นพิเศษ
+export async function handleChatMention({ db, FieldValue }, apiKey, { rawText, triggerUid, triggerName, triggerEmail, triggerMsgId, replyToBotUid, fetchFn, random = Math.random } = {}) {
   let triggerKey = replyToBotUid ? Object.keys(AI_CHAT_BOTS).find(t => AI_CHAT_BOTS[t].uid === replyToBotUid) : null;
   let question;
   if (triggerKey) {
@@ -69,7 +70,8 @@ export async function handleChatMention({ db, FieldValue }, apiKey, { rawText, t
   const bot = AI_CHAT_BOTS[triggerKey];
   const rivalKey = Object.keys(AI_CHAT_BOTS).find(t => t !== triggerKey);
   const rival = rivalKey ? AI_CHAT_BOTS[rivalKey] : null;
-  const raw = await callClaudeChat(apiKey, { question, systemPrompt: bot.systemPrompt, fetchFn });
+  const isOwner = !!triggerEmail && triggerEmail.toLowerCase() === AI_OWNER_EMAIL.toLowerCase();
+  const raw = await callClaudeChat(apiKey, { question, systemPrompt: withOwnerRespect(bot.systemPrompt, isOwner), fetchFn });
   const replyText = parseChatReply(raw);
   if (!replyText) throw httpError(502, "Claude ตอบกลับไม่ใช่รูปแบบที่ใช้ได้ ลองใหม่อีกครั้ง — raw: " + JSON.stringify(raw).slice(0, 500));
 
@@ -86,7 +88,7 @@ export async function handleChatMention({ db, FieldValue }, apiKey, { rawText, t
     didDefer = true;
     try {
       await ensureBotProfile({ db }, rival);
-      const raw2 = await callClaudeChat(apiKey, { question, systemPrompt: rival.systemPrompt, fetchFn });
+      const raw2 = await callClaudeChat(apiKey, { question, systemPrompt: withOwnerRespect(rival.systemPrompt, isOwner), fetchFn });
       deferredReply = parseChatReply(raw2);
       if (deferredReply) {
         const msg2 = buildBotChatMessage({
