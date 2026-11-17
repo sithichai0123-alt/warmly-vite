@@ -1,7 +1,7 @@
 // AI Chat — ฝั่งเซิร์ฟเวอร์: เรียก Claude + เขียนข้อความบอทลง groupChat ผ่าน firebase-admin (ข้ามกฎ Firestore)
 // ฉีด admin ({db, FieldValue}) เข้ามาเพื่อทดสอบได้ · เรียกจาก api/ai-chat-reply.js เท่านั้น ยิงทันทีตอนมีคนเรียกในแชท ไม่ใช่ cron
 import { AI_MODEL, AI_CHAT_BOTS, AI_CHAT_MAX_TOKENS, AI_CHAT_BANTER_MAX_TOKENS, AI_CHAT_BANTER_CHANCE, AI_CHAT_WELCOME_MAX_TOKENS, buildBanterSystemPrompt, buildWelcomeSystemPrompt } from "./config.js";
-import { isBotMention, extractQuestion, parseChatReply, buildBotChatMessage } from "./logic.js";
+import { isBotMention, extractQuestion, parseChatReply, parseDeferFlag, buildBotChatMessage } from "./logic.js";
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 
@@ -80,9 +80,27 @@ export async function handleChatMention({ db, FieldValue }, apiKey, { rawText, t
   });
   const ref = await db.collection("groupChat").add(msg);
 
-  // คู่ปรับแทรกมาแซว — สุ่มก่อนว่าจะลองไหม (กันแซวทุกครั้ง) แล้วค่อยแยกเรียก Claude อีกครั้ง ถ้าพังก็แค่ไม่มีมุกแซว ไม่ทำให้คำตอบหลักเสียหาย
+  // บอทที่ตอบ (เช่นหัมน้อย) ส่งไม้ต่อให้คู่หูไหม (คำถามจริงจังเกินตัวเอง) — ถ้าใช่ เรียกคู่หูมาตอบจริงแทนไปเลย ไม่ต้องรอสุ่มแบบมุกแซว
+  let deferredMessageId = null, deferredReply = null, didDefer = false;
+  if (bot.canDefer && rival && parseDeferFlag(raw)) {
+    didDefer = true;
+    try {
+      await ensureBotProfile({ db }, rival);
+      const raw2 = await callClaudeChat(apiKey, { question, systemPrompt: rival.systemPrompt, fetchFn });
+      deferredReply = parseChatReply(raw2);
+      if (deferredReply) {
+        const msg2 = buildBotChatMessage({
+          text: deferredReply, bot: rival, now: FieldValue.serverTimestamp(),
+          replyTo: triggerMsgId ? { id: triggerMsgId, uid: triggerUid, name: triggerName, text: rawText } : null,
+        });
+        deferredMessageId = (await db.collection("groupChat").add(msg2)).id;
+      }
+    } catch (e) { /* best-effort: อย่างน้อยยังมีคำตอบส่งไม้ต่อของบอทตัวแรกอยู่ ไม่พังทั้งหมด */ }
+  }
+
+  // คู่ปรับแทรกมาแซว — ข้ามถ้าเพิ่งส่งไม้ต่อไปแล้ว (คู่หูออกมาตอบจริงจังแล้ว ไม่ต้องแซวซ้ำ) ไม่งั้นสุ่มก่อนว่าจะลองไหม (กันแซวทุกครั้ง)
   let banterMessageId = null, banterText = null;
-  if (rival && random() < AI_CHAT_BANTER_CHANCE) {
+  if (!didDefer && rival && random() < AI_CHAT_BANTER_CHANCE) {
     try {
       await ensureBotProfile({ db }, rival);
       const context = (triggerName || "มีคนหนึ่ง") + ' พิมพ์ว่า: "' + rawText + '"\n' + bot.name + ' ตอบว่า: "' + replyText + '"';
@@ -99,7 +117,7 @@ export async function handleChatMention({ db, FieldValue }, apiKey, { rawText, t
     } catch (e) { /* best-effort */ }
   }
 
-  return { messageId: ref.id, reply: replyText, banterMessageId, banterReply: banterText };
+  return { messageId: ref.id, reply: replyText, deferredMessageId, deferredReply, banterMessageId, banterReply: banterText };
 }
 
 // คนเข้าแอปมาเป็นครั้งแรก (เช็คครั้งเดียวต่อ uid ตลอดไป ด้วย flag chatWelcomedAt กันทักซ้ำ) — บอททั้งสองตัวทักทายต้อนรับเสมอ (ไม่มีเงื่อนไข/สุ่มแบบมุกแซว เพราะเป็นโอกาสพิเศษ)

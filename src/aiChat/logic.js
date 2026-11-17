@@ -17,17 +17,27 @@ export function extractQuestion(text, trigger) {
   return t.slice(trigger.length).replace(/^[\s,.:!?-]+/, "").trim();
 }
 
-// parse คำตอบของ Claude ({reply}) — parse ไม่ได้/ว่าง → คืน null
-export function parseChatReply(text) {
+// ดึง JSON object จากคำตอบดิบของ Claude (ตัดข้อความเกินรอบๆ ออก) — parse ไม่ได้ → คืน null ใช้ร่วมกันใน parseChatReply/parseDeferFlag
+function parseReplyObject(text) {
   if (typeof text !== "string") return null;
   const m = text.match(/\{[\s\S]*\}/);
   if (!m) return null;
-  let obj;
-  try { obj = JSON.parse(m[0]); } catch (e) { return null; }
-  if (!obj || typeof obj !== "object") return null;
+  try { const obj = JSON.parse(m[0]); return (obj && typeof obj === "object") ? obj : null; } catch (e) { return null; }
+}
+
+// parse คำตอบของ Claude ({reply}) — parse ไม่ได้/ว่าง → คืน null
+export function parseChatReply(text) {
+  const obj = parseReplyObject(text);
+  if (!obj) return null;
   const reply = typeof obj.reply === "string" ? obj.reply.trim() : "";
   // ตาข่ายกันพลาดเฉยๆ (ความยาวจริงถูกคุมด้วยกฎใน AI_CHAT_SYSTEM_PROMPT ~70 ตัวอักษรแล้ว) ตัดที่ 200 ให้มีระยะห่างกันคำตอบปกติโดนตัดกลางประโยค
   return reply ? reply.slice(0, 200) : null;
+}
+
+// บอทที่ "ส่งไม้ต่อได้" (เช่นหัมน้อย) ใช้ตั้ง "defer": true ในคำตอบตอนคำถามจริงจังเกินตัวเอง — เช็คค่านี้เพื่อให้คู่หูมาตอบจริงจังแทน
+export function parseDeferFlag(text) {
+  const obj = parseReplyObject(text);
+  return !!(obj && obj.defer === true);
 }
 
 // สร้าง message object ของบอทให้ตรง schema เดียวกับที่ BubbleChat/send() ใช้ใน groupChat (uid/author/init/text/t[/replyTo])
