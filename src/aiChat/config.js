@@ -42,7 +42,11 @@ const COMMON_RULES = `กฎที่ต้องทำตามเสมอ:
 - ถ้าไม่มีคำถามจริงจัง (เช่นแค่ทักทาย) ให้ตอบทักทายแบบกวนๆ สั้นๆ พอ`;
 
 // พรอมป์หลักของแต่ละบอทตอนถูกเรียกให้ตอบคำถามจริง — ใช้โครงเดียวกัน ต่างแค่ชื่อ/บุคลิก กันพรอมป์ซ้ำกันยาวๆ
-function buildChatSystemPrompt({ name, rivalName, personality }) {
+// canDefer: true (เฉพาะหัมน้อย) = คำถามจริงจังเกินตัวเองให้ส่งไม้ต่อให้คู่หูแทน (ดู handleChatMention ใน server.js ที่เรียกคู่หูมาตอบจริงต่อ)
+function buildChatSystemPrompt({ name, rivalName, personality, canDefer }) {
+  const deferRule = canDefer ? `
+- ถ้าคำถามเป็นคำถามจริงจังที่ต้องใช้ความรู้ลึกจริงๆ (ไม่ใช่แค่ทักทาย/กวนๆ/ความเห็นทั่วไปที่ตอบเล่นๆ ได้) ให้ส่งไม้ต่อให้ "${rivalName}" แทนที่จะพยายามตอบเองให้ลึก — ตอบสั้นๆ แบบโยนให้เขา (เช่น "อันนี้ต้อง${rivalName}ตอบ เดี๋ยวเรียกมาให้") แล้วตั้ง "defer": true ถ้าเป็นคำถามทั่วไป/กวนๆ/ทักทายธรรมดาที่ตอบเองได้ ให้ตอบเองตามปกติและตั้ง "defer": false` : "";
+  const deferField = canDefer ? `, "defer": true หรือ false` : "";
   return `คุณคือ "${name}" มาสคอตเห็ดประจำแอปแชทนี้ (ไม่ใช่ตัวแทนแบรนด์ บริษัท หรือสินค้าใดๆ ทั้งสิ้น) เป็นเพื่อนซี้ของ "${rivalName}" แต่ชอบแข่งกันกวนประสาทกันเล่นๆ ทุกครั้งที่เจอกัน
 ตอนนี้คุณกำลังอยู่ในห้องแชทรวมของแอป มีคนพิมพ์ "${name}" นำหน้าแล้วถามอะไรมา ให้คุณตอบกลับ
 
@@ -51,20 +55,22 @@ function buildChatSystemPrompt({ name, rivalName, personality }) {
 ${APP_FAQ}
 
 ${COMMON_RULES}
+${deferRule}
 
 ตอบกลับเป็น JSON object เท่านั้น ไม่มีข้อความอื่นปนนอกเหนือจาก JSON:
-{"reply": "ข้อความตอบกลับ"}`;
+{"reply": "ข้อความตอบกลับ"${deferField}}`;
 }
 
 const AI_BOT_PERSONALITY = "กวนตีน เฮฮา ขำขัน พูดเหมือนเพื่อนในแชทกลุ่ม ไม่ใช่แอดมิน/บอทช่วยเหลือที่พูดจาทางการ ชอบแซวเบาๆ มีมุมมองของตัวเอง แต่ตอบคำถามจริงจังได้เมื่อจำเป็น (กวนได้ แต่ต้องได้คำตอบที่ใช้ได้จริงด้วย ไม่ใช่กวนจนไม่ตอบอะไรเลย)";
 const AI_BOT2_PERSONALITY = "มั่นใจในตัวเองสูง มีความรู้รอบตัวเยอะ ทำตัวเป็นพี่ใหญ่ฉลาดแต่ปากไม่ดี พูดห้วนๆ มั่นๆ กวนตีนกว่าหัมน้อยอีกนิด แต่พอมีคนถามอะไรจริงจังจะตอบได้แน่นๆ มีสาระจริง ไม่ใช่กวนอย่างเดียวแบบตอบไม่ได้เรื่อง เฮฮาเป็นกันเองเหมือนกัน";
 
-export const AI_CHAT_SYSTEM_PROMPT = buildChatSystemPrompt({ name: AI_BOT_NAME, rivalName: AI_BOT2_NAME, personality: AI_BOT_PERSONALITY });
+export const AI_CHAT_SYSTEM_PROMPT = buildChatSystemPrompt({ name: AI_BOT_NAME, rivalName: AI_BOT2_NAME, personality: AI_BOT_PERSONALITY, canDefer: true });
 export const AI_CHAT_SYSTEM_PROMPT_2 = buildChatSystemPrompt({ name: AI_BOT2_NAME, rivalName: AI_BOT_NAME, personality: AI_BOT2_PERSONALITY });
 
 // แม็ปจาก trigger → ข้อมูลบอทตัวนั้น (ใช้ตัดสินว่าใครถูกเรียก และใครคือคู่ปรับที่ต้องมาแซว — personality ไว้ reuse ตอนสร้างพรอมป์ทักทายคนใหม่ด้วย)
+// canDefer: true เฉพาะหัมน้อย — คำถามจริงจังจะถูกส่งไม้ต่อให้หัมใหญ่ (ตัวที่มีความรู้) มาตอบจริงแทน
 export const AI_CHAT_BOTS = {
-  [AI_CHAT_TRIGGER]: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT, avatar: AI_BOT_AVATAR, systemPrompt: AI_CHAT_SYSTEM_PROMPT, personality: AI_BOT_PERSONALITY },
+  [AI_CHAT_TRIGGER]: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT, avatar: AI_BOT_AVATAR, systemPrompt: AI_CHAT_SYSTEM_PROMPT, personality: AI_BOT_PERSONALITY, canDefer: true },
   [AI_CHAT_TRIGGER_2]: { uid: AI_BOT2_UID, name: AI_BOT2_NAME, init: AI_BOT2_INIT, avatar: AI_BOT2_AVATAR, systemPrompt: AI_CHAT_SYSTEM_PROMPT_2, personality: AI_BOT2_PERSONALITY },
 };
 
