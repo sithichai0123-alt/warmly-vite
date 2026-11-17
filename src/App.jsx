@@ -4268,6 +4268,12 @@ export default function App(){
     ensureWallet().then(g=>{if(g)logLedger({kind:"welcome",label:"เหรียญต้อนรับ",gold:WELCOME_COINS});}).catch(e=>console.error("wallet",e));
   },[user&&user.isGuest,user&&user.needName,user&&user.uid]); // eslint-disable-line
 
+  // หัมน้อย+หัมใหญ่ ทักทายคนเข้าแอปใหม่ในห้องแชทรวม (รวมผู้เยี่ยมชมด้วย) — เซิร์ฟเวอร์เช็คกันทักซ้ำเอง เรียกซ้ำได้ไม่เสียหาย
+  useEffect(()=>{
+    if(!user||user.needName)return;
+    voiceFetch("/api/ai-chat-welcome",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:user.name})}).catch(e=>console.warn("ai-chat-welcome",e));
+  },[user&&user.needName,user&&user.uid]); // eslint-disable-line
+
   useEffect(()=>{
     if(!user||USERS_LAZY_ENABLED)return;
     return onSnapshot(collection(db,"users"),snap=>{

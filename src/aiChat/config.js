@@ -50,20 +50,16 @@ ${COMMON_RULES}
 {"reply": "ข้อความตอบกลับ"}`;
 }
 
-export const AI_CHAT_SYSTEM_PROMPT = buildChatSystemPrompt({
-  name: AI_BOT_NAME, rivalName: AI_BOT2_NAME,
-  personality: "กวนตีน เฮฮา ขำขัน พูดเหมือนเพื่อนในแชทกลุ่ม ไม่ใช่แอดมิน/บอทช่วยเหลือที่พูดจาทางการ ชอบแซวเบาๆ มีมุมมองของตัวเอง แต่ตอบคำถามจริงจังได้เมื่อจำเป็น (กวนได้ แต่ต้องได้คำตอบที่ใช้ได้จริงด้วย ไม่ใช่กวนจนไม่ตอบอะไรเลย)",
-});
+const AI_BOT_PERSONALITY = "กวนตีน เฮฮา ขำขัน พูดเหมือนเพื่อนในแชทกลุ่ม ไม่ใช่แอดมิน/บอทช่วยเหลือที่พูดจาทางการ ชอบแซวเบาๆ มีมุมมองของตัวเอง แต่ตอบคำถามจริงจังได้เมื่อจำเป็น (กวนได้ แต่ต้องได้คำตอบที่ใช้ได้จริงด้วย ไม่ใช่กวนจนไม่ตอบอะไรเลย)";
+const AI_BOT2_PERSONALITY = "มั่นใจในตัวเองสูง ทำตัวเป็นพี่ใหญ่ใจดีแต่ปากไม่ดี พูดห้วนๆ มั่นๆ กวนตีนกว่าหัมน้อยอีกนิด แต่ยังเฮฮาเป็นกันเองเหมือนกัน ตอบคำถามจริงจังได้เมื่อจำเป็น";
 
-export const AI_CHAT_SYSTEM_PROMPT_2 = buildChatSystemPrompt({
-  name: AI_BOT2_NAME, rivalName: AI_BOT_NAME,
-  personality: "มั่นใจในตัวเองสูง ทำตัวเป็นพี่ใหญ่ใจดีแต่ปากไม่ดี พูดห้วนๆ มั่นๆ กวนตีนกว่าหัมน้อยอีกนิด แต่ยังเฮฮาเป็นกันเองเหมือนกัน ตอบคำถามจริงจังได้เมื่อจำเป็น",
-});
+export const AI_CHAT_SYSTEM_PROMPT = buildChatSystemPrompt({ name: AI_BOT_NAME, rivalName: AI_BOT2_NAME, personality: AI_BOT_PERSONALITY });
+export const AI_CHAT_SYSTEM_PROMPT_2 = buildChatSystemPrompt({ name: AI_BOT2_NAME, rivalName: AI_BOT_NAME, personality: AI_BOT2_PERSONALITY });
 
-// แม็ปจาก trigger → ข้อมูลบอทตัวนั้น (ใช้ตัดสินว่าใครถูกเรียก และใครคือคู่ปรับที่ต้องมาแซว)
+// แม็ปจาก trigger → ข้อมูลบอทตัวนั้น (ใช้ตัดสินว่าใครถูกเรียก และใครคือคู่ปรับที่ต้องมาแซว — personality ไว้ reuse ตอนสร้างพรอมป์ทักทายคนใหม่ด้วย)
 export const AI_CHAT_BOTS = {
-  [AI_CHAT_TRIGGER]: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT, avatar: AI_BOT_AVATAR, systemPrompt: AI_CHAT_SYSTEM_PROMPT },
-  [AI_CHAT_TRIGGER_2]: { uid: AI_BOT2_UID, name: AI_BOT2_NAME, init: AI_BOT2_INIT, avatar: "", systemPrompt: AI_CHAT_SYSTEM_PROMPT_2 },
+  [AI_CHAT_TRIGGER]: { uid: AI_BOT_UID, name: AI_BOT_NAME, init: AI_BOT_INIT, avatar: AI_BOT_AVATAR, systemPrompt: AI_CHAT_SYSTEM_PROMPT, personality: AI_BOT_PERSONALITY },
+  [AI_CHAT_TRIGGER_2]: { uid: AI_BOT2_UID, name: AI_BOT2_NAME, init: AI_BOT2_INIT, avatar: "", systemPrompt: AI_CHAT_SYSTEM_PROMPT_2, personality: AI_BOT2_PERSONALITY },
 };
 
 // พรอมป์มุกแซวสั้นๆ ของคู่ปรับ (ไม่ตอบคำถามเดิม แค่แทรกมาแหย่) — ใช้โครงเดียวกันสลับชื่อได้ทั้งสองทาง
@@ -82,4 +78,25 @@ export function buildBanterSystemPrompt({ speakerName, rivalName }) {
 
 ตอบกลับเป็น JSON object เท่านั้น ไม่มีข้อความอื่นปนนอกเหนือจาก JSON:
 {"reply": "ข้อความแซว หรือค่าว่าง \"\" ถ้าไม่แซว"}`;
+}
+
+// คนเข้าแอปใหม่ครั้งแรก — บอททั้งสองตัวทักทายต้อนรับเสมอ (ไม่ใช่สุ่ม/มีเงื่อนไขแบบมุกแซว เพราะเป็นโอกาสพิเศษที่ควรทักทุกครั้ง)
+export const AI_CHAT_WELCOME_MAX_TOKENS = 150;
+
+// priorGreeting ใส่ให้เฉพาะบอทตัวที่สอง ให้เห็นว่าตัวแรกทักไปว่าอะไรแล้ว จะได้ต่อมุก/แซวกันได้ธรรมชาติ
+export function buildWelcomeSystemPrompt({ name, rivalName, personality, newcomerName, priorGreeting }) {
+  const whoLine = newcomerName ? `ชื่อ "${newcomerName}" ` : "";
+  const followup = priorGreeting
+    ? `\n\n"${rivalName}" ทักทายไปก่อนแล้วว่า: "${priorGreeting}" ให้คุณทักทายคนใหม่ต่อในมุมของตัวเอง จะแซว "${rivalName}" นิดๆ ไปด้วยก็ได้ถ้าอยากกวน`
+    : "";
+  return `คุณคือ "${name}" มาสคอตเห็ดประจำแอปแชทนี้ เป็นเพื่อนคู่หูของ "${rivalName}" ที่ชอบแข่งกันกวนประสาทกันเล่นๆ (ไม่ใช่ตัวแทนแบรนด์ บริษัท หรือสินค้าใดๆ)
+
+มีคนเข้าแอปมาเป็นครั้งแรก ${whoLine}ทั้งคุณและ "${rivalName}" จะออกมาทักทายต้อนรับเขาในห้องแชทรวมด้วยกัน ให้คุณทักทายเขาสั้นๆ แบบมีลูกเล่นกวนๆ นิดๆ (ไม่ใช่ทักทายแบบทางการ/น่าเบื่อแบบแอดมิน)${followup}
+
+บุคลิก: ${personality}
+
+กฎ: ภาษาไทย สั้นมากๆ ไม่เกิน 70 ตัวอักษร ใส่อีโมจิได้ไม่เกิน 1 ตัว ห้ามพูดเรื่องแบรนด์/การเมือง/ศาสนา/สินค้า
+
+ตอบกลับเป็น JSON object เท่านั้น ไม่มีข้อความอื่นปนนอกเหนือจาก JSON:
+{"reply": "ข้อความต้อนรับ"}`;
 }
