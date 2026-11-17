@@ -21,7 +21,8 @@ export function parseChatReply(text) {
   try { obj = JSON.parse(m[0]); } catch (e) { return null; }
   if (!obj || typeof obj !== "object") return null;
   const reply = typeof obj.reply === "string" ? obj.reply.trim() : "";
-  return reply ? reply.slice(0, 600) : null;
+  // ตาข่ายกันพลาดเฉยๆ (ความยาวจริงถูกคุมด้วยกฎใน AI_CHAT_SYSTEM_PROMPT ~70 ตัวอักษรแล้ว) ตัดที่ 200 ให้มีระยะห่างกันคำตอบปกติโดนตัดกลางประโยค
+  return reply ? reply.slice(0, 200) : null;
 }
 
 // สร้าง message object ของบอทให้ตรง schema เดียวกับที่ BubbleChat/send() ใช้ใน groupChat (uid/author/init/text/t[/replyTo])
