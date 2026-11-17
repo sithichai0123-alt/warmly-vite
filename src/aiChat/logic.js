@@ -5,6 +5,11 @@ export function isBotMention(text, trigger) {
   return String(text || "").trim().startsWith(trigger);
 }
 
+// เรียกบอทตัวไหนตัวหนึ่งในลิสต์ไหม (ใช้ตอนมีบอทหลายตัว เช่น หัมน้อย/หัมใหญ่)
+export function isAnyBotMention(text, triggers) {
+  return triggers.some(t => isBotMention(text, t));
+}
+
 // ตัดคำเรียกบอท + เครื่องหมาย/ช่องว่างที่ติดมาหัวประโยคออก เหลือแค่คำถามจริง ("" = แค่ทักไม่ได้ถามอะไร)
 export function extractQuestion(text, trigger) {
   const t = String(text || "").trim();
