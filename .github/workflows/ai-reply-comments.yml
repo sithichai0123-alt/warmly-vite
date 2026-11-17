@@ -7,7 +7,7 @@ name: AI reply comments
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7,22,37,52 * * * *"   # ทุก 15 นาที แต่เลี่ยงนาที :00/:15/:30/:45 ที่ GitHub คิวแน่นจนชอบเลื่อน/ข้ามรอบ
   workflow_dispatch: {}    # กดรันเองได้จาก Actions tab (ไว้ทดสอบ)
 
 jobs:
