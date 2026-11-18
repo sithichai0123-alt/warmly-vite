@@ -1154,11 +1154,11 @@ function useVoice(){
     pausedRef.current=true;setPaused(true);
     setConnected(false);setSpeaking({});setMics({});setMicOn(false);setNeedAudio(false);
   },[]);
-  const resumeFromPause=useCallback(()=>{
+  const resumeFromPause=useCallback((withMic)=>{
     if(!pausedRef.current)return Promise.resolve();
     const c=lastConnRef.current; if(!c||leftRef.current){pausedRef.current=false;setPaused(false);return Promise.resolve();}
     pausedRef.current=false;setPaused(false);
-    return connect(c.roomId,c.identity,c.name,{mic:false}); // ผู้ฟังกลับเข้าเสียงโดยไม่เปิดไมค์
+    return connect(c.roomId,c.identity,c.name,{mic:!!withMic}); // กลับเข้าเสียง (withMic=เปิดไมค์ด้วยเมื่อจะพูด · ไม่ใส่=แค่ฟัง)
   },[connect]);
 
   const enableAudio=useCallback(async()=>{
@@ -1254,7 +1254,8 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
   const isHost=!!inRoom&&(inRoom.hostUid?inRoom.hostUid===myUid:inRoom.hostInit===user.init);
   // ประหยัดนาที LiveKit: ผู้ฟังในห้องที่เงียบ (ไม่มีใครพูด) จะถูกพักเสียงอัตโนมัติ · เพลง YouTube เล่นต่อ · มีคนพูดเมื่อไรกลับเข้าเสียงเอง (ต้องอยู่หลัง isHost)
   const iAmListener=!!stage&&!!me&&!meOnStage&&!isHost;
-  const voiceSaver=useVoiceSaver({inRoomId,voiceActiveAt:inRoom&&inRoom.voiceActiveAt,listener:iAmListener,isHost,connected,paused:voicePaused,speaking,voice,
+  const pausable=ROOM_STAGE_ENABLED&&!!me&&!isHost&&!micOn; // พักได้: ไม่ใช่เจ้าของห้อง และไมค์ปิดอยู่ (เปิดไมค์เมื่อไร = ไม่พัก)
+  const voiceSaver=useVoiceSaver({inRoomId,voiceActiveAt:inRoom&&inRoom.voiceActiveAt,listener:pausable,isHost,connected,paused:voicePaused,speaking,voice,
     stamp:()=>{ if(inRoomId)updateDoc(doc(db,"voiceRooms",inRoomId),{voiceActiveAt:serverTimestamp()}).catch(()=>{}); }});
   const hostDoc=inRoom&&inRoom.hostUid?_users[inRoom.hostUid]:null; // ธีมของห้อง = ธีม "ห้องเสียง" ของโฮสต์ (ทุกคนในห้องเห็นเหมือนกัน)
   const hostThemed=!!resolveOwnerTheme(hostDoc,"voice");
@@ -1327,6 +1328,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
   useEffect(()=>{ if(nowPlayingId)setShowPL(true); },[nowPlayingId]);
 
   function onMicClick(){
+    if(voicePaused){ if(ROOM_STAGE_ENABLED&&me&&!meOnStage)audienceMicAction(); else voice.resumeFromPause(true); return; } // พักเสียงอยู่ → ปลุกก่อน (ผู้พูดเปิดไมค์ด้วย)
     if(ROOM_STAGE_ENABLED&&me&&!meOnStage){audienceMicAction();return;}
     if(duckActive){alert("กำลังคุยสายส่วนตัวอยู่ — ไมค์ห้องปิดไว้ วางสายก่อนแล้วค่อยเปิดไมค์ห้อง");return;}
     if(me&&me.mic===false&&!micOn){alert(ROOM_STAGE_ENABLED?"เจ้าของห้องหรือรองปิดไมค์ของคุณอยู่":"โฮสต์ปิดไมค์ของคุณอยู่");return;}
@@ -1554,6 +1556,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
               <Btn onClick={leave} v="danger" sz="sm" style={{flexShrink:0}}>ออกจากห้อง</Btn>
             </div>
 
+            {voicePaused&&VOICE_IDLE_PAUSE_ENABLED&&<ResumeChip T={T} onResume={()=>voiceSaver.resume()}/>}
             {ROOM_ACTIONS_GRID_ENABLED?(
               /* ปุ่มทั้งหมดของห้อง: แถวเดียว ทุกช่องขนาดเท่ากัน ชื่อคงที่ สถานะบอกด้วยไอคอน+สี (roomUi/RoomActions.jsx) */
               <RoomActions T={T} items={[
@@ -1653,7 +1656,6 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                   </div>);};
                 return(
                   <div data-stage style={{paddingBottom:4}}>
-                    {voicePaused&&iAmListener&&<ResumeChip T={T} onResume={voiceSaver.resume}/>}
                     {amListener&&<ListenerStatus hand={typeof me.hand==="number"} free={stage.free} T={T}/>}
                     {stageNote&&<div data-stage-note style={{fontSize:12,color:T.green,background:T.greenA33,borderRadius:10,padding:"7px 10px",marginBottom:10}}>{stageNote}</div>}
                     <StageHeader count={stage.speakers.length} max={STAGE_MAX} T={T}/>
