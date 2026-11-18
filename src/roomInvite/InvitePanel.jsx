@@ -42,7 +42,6 @@ export default function InvitePanel({ roomId, roomName, friends, memberUids, Ava
                 <Avatar uid={f.uid} size={38}/>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{Name ? <Name uid={f.uid} /> : nameOf(f.uid)}</div>
-                  {isOnline && <div style={{ fontSize:12, color: on(f.uid) ? C.green : C.muted }}>{on(f.uid) ? "ออนไลน์" : "ออฟไลน์"}</div>}
                 </div>
                 <button type="button" data-invite-btn={s.state} disabled={dis} onClick={() => go(f.uid)} style={{ background: dis ? "transparent" : C.brand, color: dis ? C.sub : "#fff", borderRadius: 14, padding: "6px 13px", fontSize: 12, fontWeight: 700, cursor: dis ? "default" : "pointer", fontFamily: "inherit", border: dis ? "1px solid " + C.border : "none" }}>{label}</button>
               </div>

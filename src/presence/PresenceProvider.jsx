@@ -116,18 +116,18 @@ export function useOnlineCount() {
 }
 
 // จุดสถานะมุมขวาล่างของรูปโปรไฟล์ (วางใน wrapper ที่เป็น position:relative)
-export function PresenceDot({ uid, size = 40, bg = "var(--app-background,#0F0E17)", green = "var(--presence-on,#22C55E)", gray = "var(--presence-off,#6B7280)" }) {
+export function PresenceDot({ uid, size = 40, bg = "var(--app-background,#0F0E17)", green = "var(--presence-on,#22C55E)", gray = "var(--presence-off,#6B7280)", orange = "var(--presence-recent,#F59E0B)" }) {
   const v = useContext(Ctx);
   const st = usePresence(uid);
   if (!v || !uid) return null;
   const d = Math.max(9, Math.round(size * 0.24));
-  return <span data-presence-dot={st.state} title={st.state === "online" ? "ออนไลน์" : "ออฟไลน์"} style={{ position: "absolute", bottom: 0, right: 0, width: d, height: d, borderRadius: "50%", background: st.state === "online" ? green : gray, border: "2px solid " + bg, boxShadow: st.state === "online" ? "0 0 6px 1px var(--presence-glow,transparent)" : "none", boxSizing: "content-box", pointerEvents: "none" }} />;
+  return <span data-presence-dot={st.state} title={st.state === "online" ? "ออนไลน์" : st.state === "recent" ? "เพิ่งออกไป" : "ออฟไลน์"} style={{ position: "absolute", bottom: 0, right: 0, width: d, height: d, borderRadius: "50%", background: st.state === "online" ? green : st.state === "recent" ? orange : gray, border: "2px solid " + bg, boxShadow: st.state === "online" ? "0 0 6px 1px var(--presence-glow,transparent)" : "none", boxSizing: "content-box", pointerEvents: "none" }} />;
 }
 
-// ข้อความสถานะ: "● ออนไลน์" / "ออนไลน์ล่าสุด 5 นาทีที่แล้ว" (ไม่มีข้อมูล/ซ่อนเวลา = ไม่แสดงอะไร)
+// ข้อความสถานะ: ออนไลน์ = ไม่แสดง (ดูจากจุด) / "เห็นล่าสุด 5 นาทีที่แล้ว" (ไม่มีข้อมูล/ซ่อนเวลา = ไม่แสดงอะไร)
 export function PresenceText({ uid, style, green = "#22C55E" }) {
   const st = usePresence(uid);
   const label = usePresenceLabel(uid);
   if (!label) return null;
-  return <span data-presence-text={st.state} style={{ fontSize:12, color: st.state === "online" ? green : undefined, ...style }}>{st.state === "online" ? "● " : ""}{label}</span>;
+  return <span data-presence-text={st.state} style={{ fontSize:12, ...style }}>{label}</span>;
 }
