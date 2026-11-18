@@ -1,5 +1,5 @@
 // Presence — ตรรกะล้วน (ไม่แตะ Firebase/DOM) เพื่อทดสอบง่าย
-import { STALE_MS, RECENT_MS } from "./config.js";
+import { STALE_MS, RECENT_MS, ONLINE_FRESH_MS } from "./config.js";
 
 const toMs = t => {
   if (t == null) return null;
@@ -13,16 +13,17 @@ const toMs = t => {
 //   - hideLast = ซ่อนเฉพาะ "ออนไลน์ล่าสุดเมื่อไหร่"
 //   - state="online" แต่เงียบเกิน STALE_MS = ออฟไลน์ (กันสถานะค้างเมื่อแอปถูกปิดโดยไม่ได้ส่งออฟไลน์)
 //   - t ยังไม่ได้ค่าจากเซิร์ฟเวอร์ (เพิ่งเขียน) = ใช้เวลาปัจจุบัน
-export function computeStatus(d, now, staleMs = STALE_MS, recentMs = RECENT_MS) {
+export function computeStatus(d, now, staleMs = STALE_MS, recentMs = RECENT_MS, freshMs = ONLINE_FRESH_MS) {
   if (!d || typeof d !== "object") return { state: "offline", lastSeen: null };
   if (d.hidden === true) return { state: "offline", lastSeen: null };
   let t = toMs(d.t);
   if (t == null) t = now;
   if (t > now) t = now; // นาฬิกาเครื่องเพี้ยน
-  const fresh = now - t < staleMs;
-  const online = d.state === "online" && fresh;
+  const age = now - t;
+  const online = d.state === "online" && age < Math.min(freshMs, staleMs);
   const lastSeen = d.hideLast === true ? null : t;
-  const recent = !online && lastSeen != null && now - lastSeen < recentMs;
+  // ส้ม: (ก) ส่ง "ออฟไลน์" แล้วไม่เกิน recentMs  (ข) ยังเป็น "ออนไลน์" ค้างแต่เงียบเกิน freshMs แต่ยังไม่ถึง staleMs (ออกไปโดยไม่ทันส่งออฟไลน์)
+  const recent = !online && lastSeen != null && (d.state === "online" ? age < staleMs : age < recentMs);
   return { state: online ? "online" : recent ? "recent" : "offline", lastSeen };
 }
 
