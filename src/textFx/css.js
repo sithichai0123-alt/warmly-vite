@@ -20,11 +20,13 @@ export function animList(item) {
 export const animSecs = item => animList(item).map(a => a.secs);
 
 // สีพร้อมโทนสว่าง/มืดของธีม (ใช้กับเงาที่คำนวณตอนปรับแต่ง)
-export function glowColor(c, a) { return "color-mix(in srgb," + hex(c, a) + " calc(var(--wm-dark,1)*100%),transparent)"; }
+// พื้นสว่าง: เรืองแสงยังอยู่ (จางลงเล็กน้อย ไม่หายไป) นีออนจึงยังดูเป็นนีออนบนพื้นสว่าง
+export const LIGHT_GLOW_K = 1;
+export function glowColor(c, a) { return "color-mix(in srgb," + hex(c, a) + " calc(var(--wm-dark,1)*100%)," + hex(c, +(a * LIGHT_GLOW_K).toFixed(2)) + ")"; }
 
 function build(item, mix) {
   const C = ([d, l]) => (mix ? "color-mix(in srgb," + d + " calc(var(--wm-dark,1)*100%)," + l + ")" : d);
-  const G = (c, a) => (mix ? "color-mix(in srgb," + hex(c, a) + " calc(var(--wm-dark,1)*100%),transparent)" : hex(c, a));
+  const G = (c, a) => (mix ? glowColor(c, a) : hex(c, a));
   const o = [];
   const anims = animList(item);
   if (item.font) {

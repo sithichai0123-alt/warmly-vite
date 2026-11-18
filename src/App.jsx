@@ -943,7 +943,7 @@ function GiftLine({m}){
 // ── Room Chat (text chat ในห้องเสียง) ────────────────────
 function RoomChat({roomId,user,onGift}){
   const users=useContext(UsersCtx);
-  const [msgFx,setMsgFx]=useState(null); // สไตล์ของข้อความที่จะส่ง (null = ข้อความปกติ; ผู้ใช้กดปุ่ม Aa เลือกเอง)
+  const [msgFx,setMsgFxRaw]=useState(()=>ls.get("msgFx",null)); const setMsgFx=v=>{setMsgFxRaw(v);ls.set("msgFx",v||null);}; // // สไตล์ของข้อความที่จะส่ง (null = ข้อความปกติ; ผู้ใช้กดปุ่ม Aa เลือกเอง)
   const [msgs,setMsgs]=useState([]);
   const [input,setInput]=useState("");
   const endRef=useRef();
@@ -2225,7 +2225,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
   const [giftOpen,setGiftOpen]=useState(false);
   const [pickTarget,setPickTarget]=useState(null);
   const [fx,setFx]=useState(null);
-  const [msgFx,setMsgFx]=useState(null); // สไตล์ของข้อความที่จะส่ง (null = ข้อความปกติ; ผู้ใช้กดปุ่ม Aa เลือกเอง)
+  const [msgFx,setMsgFxRaw]=useState(()=>ls.get("msgFx",null)); const setMsgFx=v=>{setMsgFxRaw(v);ls.set("msgFx",v||null);}; // // สไตล์ของข้อความที่จะส่ง (null = ข้อความปกติ; ผู้ใช้กดปุ่ม Aa เลือกเอง)
   const fileRef=useRef();const endRef=useRef();
   const [replyTo,setReplyTo]=useState(null);   // ข้อความที่เลือกตอบกลับ { id, uid, name, text, img }
   const [flashId,setFlashId]=useState(null);   // ข้อความที่เพิ่งกดเลื่อนไปหา (ไฮไลต์ชั่วครู่)
