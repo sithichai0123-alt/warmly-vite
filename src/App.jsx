@@ -2381,6 +2381,10 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
   const peerBlocksMe=usePeerBlocksMe(dmOn,peer,myUid);
   const dmPrefs=useDmPrefs();
   const [dmSettings,setDmSettings]=useState(false);
+  const [delConv,setDelConv]=useState(null); // แชทที่กำลังยืนยันลบจากรายการ "บทสนทนาของฉัน"
+  const [delBusy,setDelBusy]=useState(false);
+  const [delErr,setDelErr]=useState("");
+  async function removeConv(fn){setDelBusy(true);setDelErr("");try{await fn();setDelConv(null);}catch(e){setDelErr("ลบไม่สำเร็จ "+((e&&(e.message||e.code))||"ลองใหม่อีกครั้ง"));}setDelBusy(false);}
   useEffect(()=>{ if(!DM_TOOLS_ENABLED)return; setActiveDm(tab==="dm"&&peer?[myUid,peer].sort().join("_"):null); return ()=>setActiveDm(null); },[tab,peer,myUid]); // เปิดแชทนี้อยู่ = ไม่ต้องมีเสียงแจ้งเตือนซ้ำ
 
   const pairId=uid=>[myUid,uid].sort().join("_");
@@ -2436,7 +2440,8 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
             if(DM_TOOLS_ENABLED&&!visibleConversation(c,myUid))return null; // ลบประวัติแล้วและยังไม่มีข้อความใหม่ = ซ่อนจากรายการ
             const ou=users[other]||{};
             return(
-              <div key={c.id} style={{display:"flex",gap:4,alignItems:"center",borderBottom:"1px solid "+T.border}}>
+              <div key={c.id} style={{borderBottom:"1px solid "+T.border}}>
+              <div style={{display:"flex",gap:4,alignItems:"center"}}>
                 {/* รูป + ชื่อ → เปิดโปรไฟล์ · ไอคอน 💬 ด้านขวา → เข้าแชท (แบบเดียวกับรายการ "เริ่มแชทกับ...") */}
                 <div data-conv-profile onClick={()=>openProfileFromChat&&openProfileFromChat(other)} style={{display:"flex",gap:11,alignItems:"center",flex:1,minWidth:0,padding:"10px 6px",cursor:"pointer"}}>
                   <Av uid={other} init={ou.init||"??"} bg={T.card} tc={T.brand2} size={42}/>
@@ -2447,6 +2452,20 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
                   {dmu.isUnread(c.id)&&<UnreadDot/>}
                 </div>
                 <button data-conv-chat onClick={()=>setPeer(other)} aria-label={"แชทกับ "+(ou.name||"ผู้ใช้")} style={{width:46,height:46,flexShrink:0,border:"none",background:"transparent",color:T.brand2,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>💬</button>
+                {DM_TOOLS_ENABLED&&<button data-conv-delete onClick={()=>{setDelErr("");setDelConv(delConv===c.id?null:c.id);}} aria-label={"ลบแชทกับ "+(ou.name||"ผู้ใช้")} style={{width:40,height:46,flexShrink:0,border:"none",background:"transparent",color:delConv===c.id?T.red:T.muted,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>🗑️</button>}
+              </div>
+              {DM_TOOLS_ENABLED&&delConv===c.id&&(
+                <div data-conv-delete-confirm style={{margin:"2px 4px 12px",padding:"12px 12px 10px",background:T.card,border:"1px solid "+T.border,borderRadius:12}}>
+                  <div style={{fontSize:13,fontWeight:700,color:T.text}}>ลบแชทกับ {ou.name||"ผู้ใช้นี้"} ออกจากรายการ?</div>
+                  <div style={{fontSize:12,color:T.sub,margin:"4px 0 10px",lineHeight:1.5}}>"ลบเฉพาะฝั่งฉัน" = หายจากรายการของคุณ อีกฝ่ายยังเห็นตามเดิม (ถ้าเขาส่งข้อความใหม่มา แชทจะกลับมา)</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    <button data-conv-delete-mine disabled={delBusy} onClick={()=>removeConv(()=>dmApi.clearHistory(myUid,other))} style={{padding:"9px",borderRadius:9,border:"none",background:T.red,color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",opacity:delBusy?.6:1}}>ลบเฉพาะฝั่งฉัน</button>
+                    {CHAT_DELETE_ENABLED&&!user.isGuest&&<button data-conv-delete-both disabled={delBusy} onClick={()=>removeConv(()=>chatDeleteApi.deleteAll(other))} style={{padding:"9px",borderRadius:9,border:"1px solid "+T.red,background:"transparent",color:T.red,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",opacity:delBusy?.6:1}}>ลบทั้งสองฝั่ง (กู้คืนไม่ได้)</button>}
+                    <button disabled={delBusy} onClick={()=>setDelConv(null)} style={{padding:"9px",borderRadius:9,border:"1px solid "+T.border,background:"transparent",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>ยกเลิก</button>
+                  </div>
+                  {delErr&&<div style={{fontSize:12,color:T.yellow,marginTop:8}}>⚠️ {delErr}</div>}
+                </div>
+              )}
               </div>
             );
           })}
