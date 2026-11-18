@@ -605,17 +605,20 @@ function ImgGrid({images,mediaTypes}){
   const viewer=useImageViewer();
   if(!images?.length)return null;
   const n=images.length;
+  const singleImg=n===1&&!(mediaTypes?.[0]==="video"||images[0]?.startsWith("data:video")); // รูปเดี่ยว (เช่นโปสเตอร์ของหัมน้อย): โชว์ทั้งรูป ไม่ตัดขอบ
   // รายการรูป (ไม่รวมวิดีโอ) สำหรับตัวดูรูปเต็มจอ — แตะรูปไหนเปิดที่รูปนั้น
   const picList=images.map((src,i)=>({src,i})).filter(x=>!(mediaTypes?.[x.i]==="video"||x.src?.startsWith("data:video")));
   const openPic=i=>{const k=picList.findIndex(x=>x.i===i);if(k>=0)viewer.open(picList.map(x=>x.src),k);};
-  return(<div style={{display:"grid",gap:2,margin:"10px 0",borderRadius:14,overflow:"hidden",gridTemplateColumns:n===1?"1fr":"1fr 1fr",maxHeight:n===1?(FEED_VIDEO_ENABLED&&(mediaTypes?.[0]==="video"||images[0]?.startsWith("data:video"))?"none":380):260}}>
+  return(<div style={{display:"grid",gap:2,margin:"10px 0",borderRadius:14,overflow:"hidden",gridTemplateColumns:n===1?"1fr":"1fr 1fr",maxHeight:singleImg?"none":n===1?(FEED_VIDEO_ENABLED&&(mediaTypes?.[0]==="video"||images[0]?.startsWith("data:video"))?"none":380):260}}>
     {images.slice(0,4).map((src,i)=>{
       const isVid=mediaTypes?.[i]==="video"||src?.startsWith("data:video");
       return(
-        <div key={i} style={{overflow:"hidden",position:"relative",gridColumn:n===3&&i===0?"1/3":undefined,background:"#000",minHeight:130}}>
+        <div key={i} style={{overflow:"hidden",position:"relative",gridColumn:n===3&&i===0?"1/3":undefined,background:singleImg?"transparent":"#000",minHeight:singleImg?0:130}}>
           {isVid
             ? <FeedVideo src={src} single={n===1}/>
-            : <img src={src} alt="" onClick={viewer.enabled?()=>openPic(i):undefined} style={{width:"100%",height:"100%",objectFit:"cover",display:"block",minHeight:130,cursor:viewer.enabled?"zoom-in":undefined}} onError={e=>e.target.style.display="none"}/>
+            : singleImg
+              ? <img src={src} alt="" onClick={viewer.enabled?()=>openPic(i):undefined} style={{display:"block",width:"100%",maxWidth:520,height:"auto",maxHeight:"80vh",objectFit:"contain",margin:"0 auto",borderRadius:14,cursor:viewer.enabled?"zoom-in":undefined}} onError={e=>e.target.style.display="none"}/>
+              : <img src={src} alt="" onClick={viewer.enabled?()=>openPic(i):undefined} style={{width:"100%",height:"100%",objectFit:"cover",display:"block",minHeight:130,cursor:viewer.enabled?"zoom-in":undefined}} onError={e=>e.target.style.display="none"}/>
           }
           {i===3&&n>4&&<div onClick={viewer.enabled&&!isVid?()=>openPic(i):undefined} style={{position:"absolute",inset:0,cursor:viewer.enabled?"zoom-in":undefined,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:22,fontWeight:700}}>+{n-4}</div>}
         </div>
