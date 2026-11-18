@@ -123,10 +123,10 @@ export default function FxSettings({ me, user, api }) {
     setBusy(false);
   }
 
-  const pvBg = light ? { background: "#FFFFFF", color: "#1F1B2E", "--wm-dark": 0 } : { background: C.card, color: C.text, "--wm-dark": 1 };
+  const pvBg = light ? { background: "#FFFFFF", color: "#1F1B2E", "--wm-dark": 0 } : { background: "#221F33", color: "#F0EEFF", "--wm-dark": 1 };
 
   return (
-    <div data-fx-settings style={{ "--wm-dark": 1 }}>
+    <div data-fx-settings>
       <div style={{ padding: "10px 14px 0", fontSize:12, color: C.sub, lineHeight: 1.5 }}>
         เลือกฟอนต์/เอฟเฟกต์แยกกันได้ในแต่ละจุด คนอื่นจะเห็นตามที่คุณเลือก กด "ดูตัวอย่าง" ก่อนได้ — ยังไม่บันทึกจนกว่าจะกด "ใช้"
       </div>
@@ -228,7 +228,7 @@ export default function FxSettings({ me, user, api }) {
               return (
                 <div key={t.id} data-fx-row={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 2px", borderBottom: "1px solid " + C.border }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4, color: C.text, "--wm-dark": 1 }}><TextFx fx={t.id} lite>{myName}</TextFx></div>
+                    <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4, color: C.text }}><TextFx fx={t.id} lite>{myName}</TextFx></div>
                     <div style={{ fontSize:12, color: C.sub }}>{t.name} · {KIND_LABEL[t.kind]} · {RARITY[t.rarity]}{isCur ? <b style={{ color: C.green }}> ● ใช้อยู่</b> : null}</div>
                     <div style={{ fontSize: 12, marginTop: 2 }}>{t.price && ok ? <span style={{ color: C.green, fontWeight: 800 }}>✓ เป็นเจ้าของแล้ว</span> : <Price t={t} />}{!ok && <span style={{ marginLeft: 8, fontSize:12, color: C.muted }}>🔒</span>}</div>
                   </div>
