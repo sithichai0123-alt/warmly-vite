@@ -116,12 +116,12 @@ export function useOnlineCount() {
 }
 
 // จุดสถานะมุมขวาล่างของรูปโปรไฟล์ (วางใน wrapper ที่เป็น position:relative)
-export function PresenceDot({ uid, size = 40, bg = "var(--app-background,#0F0E17)", green = "#22C55E", gray = "#6B7280" }) {
+export function PresenceDot({ uid, size = 40, bg = "var(--app-background,#0F0E17)", green = "var(--presence-on,#22C55E)", gray = "var(--presence-off,#6B7280)" }) {
   const v = useContext(Ctx);
   const st = usePresence(uid);
   if (!v || !uid) return null;
   const d = Math.max(9, Math.round(size * 0.24));
-  return <span data-presence-dot={st.state} title={st.state === "online" ? "ออนไลน์" : "ออฟไลน์"} style={{ position: "absolute", bottom: 0, right: 0, width: d, height: d, borderRadius: "50%", background: st.state === "online" ? green : gray, border: "2px solid " + bg, boxSizing: "content-box", pointerEvents: "none" }} />;
+  return <span data-presence-dot={st.state} title={st.state === "online" ? "ออนไลน์" : "ออฟไลน์"} style={{ position: "absolute", bottom: 0, right: 0, width: d, height: d, borderRadius: "50%", background: st.state === "online" ? green : gray, border: "2px solid " + bg, boxShadow: st.state === "online" ? "0 0 6px 1px var(--presence-glow,transparent)" : "none", boxSizing: "content-box", pointerEvents: "none" }} />;
 }
 
 // ข้อความสถานะ: "● ออนไลน์" / "ออนไลน์ล่าสุด 5 นาทีที่แล้ว" (ไม่มีข้อมูล/ซ่อนเวลา = ไม่แสดงอะไร)

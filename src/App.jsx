@@ -522,7 +522,7 @@ function Av({init,bg,tc,size=40,online,grad,isSelf,uid}){
           : <div style={{padding:Math.max(2,Math.round(size*.07)),borderRadius:"50%",background:frame.bg,boxShadow:frame.glow,display:"inline-block",lineHeight:0}}>{core}</div>)
       : core}
     {online?<div style={{position:"absolute",bottom:1,right:1,width:Math.max(8,size*.2),height:Math.max(8,size*.2),borderRadius:"50%",background:T.green,border:"2px solid "+T.bg}}/>
-      :(PRESENCE_ENABLED&&uid&&size>=DOT_MIN_SIZE?<PresenceDot uid={uid} size={size} bg={T.bg} green={T.green}/>:null)}
+      :(PRESENCE_ENABLED&&uid&&size>=DOT_MIN_SIZE?<PresenceDot uid={uid} size={size} bg={T.bg}/>:null)}
   </div>);
 }
 
