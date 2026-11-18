@@ -2344,14 +2344,14 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
           </div>
           <button onClick={()=>setReplyTo(null)} aria-label="ยกเลิกการตอบกลับ" style={{width:24,height:24,borderRadius:"50%",border:"none",background:"rgba(255,255,255,.1)",color:T.sub,cursor:"pointer",fontSize:12,fontFamily:"inherit",flexShrink:0}}>✕</button>
         </div>}
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
           <button onClick={()=>fileRef.current.click()} style={{width:36,height:36,borderRadius:"50%",border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:15,flexShrink:0,fontFamily:"inherit"}}>📷</button>
           {TEXTFX_ENABLED&&<MsgFxButton me={users[myUid]} value={msgFx} onChange={setMsgFx}/>}
           {giftTo&&!user.isGuest&&<button onClick={()=>setGiftOpen(true)} style={{width:36,height:36,borderRadius:"50%",border:"1px solid "+T.borderHi,background:T.brandA22,cursor:"pointer",fontSize:15,flexShrink:0,fontFamily:"inherit"}}>🎁</button>}
           <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder}
-            style={{flex:1,minWidth:0,border:"1px solid "+T.border,borderRadius:20,padding:"9px 16px",fontSize:14,color:T.text,background:T.card,outline:"none",fontFamily:"inherit"}}
+            style={{flex:1,minWidth:0,border:"1px solid "+T.border,borderRadius:23,height:46,boxSizing:"border-box",padding:"0 14px",fontSize:15,color:T.text,background:T.card,outline:"none",fontFamily:"inherit"}}
             onFocus={e=>e.target.style.borderColor=T.borderHi} onBlur={e=>e.target.style.borderColor=T.border}/>
-          <button onClick={send} style={{width:38,height:38,borderRadius:"50%",background:T.brandGrad,border:"none",cursor:"pointer",color:"#fff",flexShrink:0,fontSize:17,fontFamily:"inherit"}}>↑</button>
+          <button onClick={send} aria-label="ส่งข้อความ" style={{width:80,height:46,borderRadius:23,background:T.brandGrad,border:"none",cursor:"pointer",color:"#fff",flexShrink:0,fontSize:16,fontWeight:800,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:0,boxShadow:"0 4px 14px rgba(124,92,252,.45)"}}><span>ส่ง</span><svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 2 9l9 4 4 9z" fill="#fff"/><path d="M22 2 11 13" stroke="#6A47EE" strokeWidth="1.6" strokeLinecap="round"/></svg></button>
         </div>
       </div>}
       {giftOpen&&giftTo&&<GiftPicker user={user} to={giftTo} onClose={()=>setGiftOpen(false)}/>}
