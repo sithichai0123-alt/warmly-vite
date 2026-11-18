@@ -1,7 +1,7 @@
 // แถบแจ้งเตือนลอยด้านบนจอ (คำขอเป็นเพื่อน / คำเชิญเข้าห้อง) — กดปุ่มในแถบได้เลย
 import { useBanners, hideBanner } from "./bus.js";
 
-const C = { card: "#221F33", border: "#4F46A8", text: "#F0EEFF", sub: "#9B94C4", brand: "#7C6BF0", red: "#F87171" };
+const C = { card: "var(--panel-background, #221F33)", border: "var(--border-strong, #4F46A8)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", brand: "var(--primary-color, #7C6BF0)", red: "var(--danger-color, #F87171)" };
 
 export default function BannerStack() {
   const list = useBanners();

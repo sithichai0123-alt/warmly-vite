@@ -5,7 +5,7 @@ import { TONES, playNotification } from "./sounds.js";
 import { validateSoundFile } from "./logic.js";
 import { MAX_CUSTOM_SOUND_BYTES, MAX_CUSTOM_SOUND_SECONDS, ALLOWED_SOUND_TYPES } from "./config.js";
 
-const C = { card: "#221F33", surface: "#1A1825", border: "#2E2A45", borderHi: "#4F46A8", brand2: "#A78BFA", text: "#F0EEFF", sub: "#9B94C4", muted: "#8A84B0", yellow: "#F59E0B", red: "#F87171", grad: "linear-gradient(135deg,#7C5CFC,#A78BFA)" };
+const C = { card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", yellow: "var(--warning-color, #F59E0B)", red: "var(--danger-color, #F87171)", grad: "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" };
 const chip = on => ({ fontFamily: "inherit", fontSize: 12, fontWeight: 700, padding: "6px 11px", borderRadius: 20, border: "1px solid " + (on ? C.brand2 : C.border), background: on ? "rgba(124,92,252,.25)" : "transparent", color: on ? C.text : C.sub, cursor: "pointer" });
 
 function readDataUrl(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onerror = () => rej(new Error("read")); r.onload = () => res(r.result); r.readAsDataURL(file); }); }

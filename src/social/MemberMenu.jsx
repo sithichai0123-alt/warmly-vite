@@ -1,6 +1,6 @@
 // เมนูเล็กตอนแตะรูปสมาชิกในห้องเสียง: โปรไฟล์ / ส่งของขวัญ / เพิ่มเพื่อน / โทรส่วนตัว
 // รายการทั้งหมดส่งมาจาก App (ซ่อนรายการที่ใช้ไม่ได้ด้วย hidden:true)
-const C = { card: "#221F33", border: "#2E2A45", borderHi: "#4F46A8", text: "#F0EEFF", sub: "#9B94C4", red: "#F87171" };
+const C = { card: "var(--panel-background, #221F33)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", red: "var(--danger-color, #F87171)" };
 
 export default function MemberMenu({ title, subtitle, items, onClose }) {
   const shown = (items || []).filter(i => i && !i.hidden);

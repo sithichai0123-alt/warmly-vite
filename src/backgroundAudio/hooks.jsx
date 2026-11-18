@@ -91,7 +91,7 @@ export function BackgroundAudioKeeper({ callActive = false }) {
 }
 
 // แผงข้อมูล 🌙: บอกสถานะจริง + ข้อจำกัดของเครื่องนี้ + สวิตช์กันจอดับ
-const C = { card: "#221F33", border: "#2E2A45", borderHi: "#4F46A8", text: "#F0EEFF", sub: "#9B94C4", green: "#34D399", yellow: "#F59E0B", brand: "#7C6BF0" };
+const C = { card: "var(--panel-background, #221F33)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", green: "var(--success-color, #34D399)", yellow: "var(--warning-color, #F59E0B)", brand: "var(--primary-color, #7C6BF0)" };
 const Row = ({ ok, label, hint }) => (
   <div data-bg-row style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "6px 0", fontSize: 13, color: C.text }}>
     <span style={{ width: 18, textAlign: "center", color: ok === true ? C.green : ok === false ? C.yellow : C.sub }}>{ok === true ? "✅" : ok === false ? "⚠️" : "•"}</span>

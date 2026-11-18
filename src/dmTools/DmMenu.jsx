@@ -1,7 +1,7 @@
 // DM Tools — เมนู ⋯ ในหัวแชทส่วนตัว: ปิดเสียงแชทนี้ / ลบประวัติ (ฝั่งเรา) / บล็อก-เลิกบล็อก
 import { useState } from "react";
 
-const C = { card: "#221F33", border: "#2E2A45", borderHi: "#4F46A8", brand2: "#A78BFA", text: "#F0EEFF", sub: "#9B94C4", yellow: "#F59E0B", red: "#F87171" };
+const C = { card: "var(--panel-background, #221F33)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", yellow: "var(--warning-color, #F59E0B)", red: "var(--danger-color, #F87171)" };
 const item = (extra) => ({ display: "block", width: "100%", textAlign: "left", fontFamily: "inherit", fontSize: 13, padding: "10px 12px", border: "none", background: "transparent", color: C.text, cursor: "pointer", ...extra });
 
 export default function DmMenu({ peerName, muted, blocked, onToggleMute, onClear, onToggleBlock, onDeleteAll }) {

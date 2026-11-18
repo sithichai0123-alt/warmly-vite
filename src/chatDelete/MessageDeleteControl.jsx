@@ -2,7 +2,7 @@
 // (ข้อความของอีกฝ่าย/ของขวัญ/ข้อความที่ยังส่งไม่เสร็จ จะไม่มีปุ่มนี้ — ตัดสินที่ BubbleChat)
 import { useState } from "react";
 
-const C = { border: "#2E2A45", sub: "#9B94C4", text: "#F0EEFF", red: "#F87171", yellow: "#F59E0B", card: "#221F33" };
+const C = { border: "var(--border-color, #2E2A45)", sub: "var(--text-secondary, #9B94C4)", text: "var(--text-primary, #F0EEFF)", red: "var(--danger-color, #F87171)", yellow: "var(--warning-color, #F59E0B)", card: "var(--panel-background, #221F33)" };
 const btn = (extra) => ({ border: "none", fontFamily: "inherit", fontSize:12, cursor: "pointer", borderRadius: 8, padding: "4px 10px", ...extra });
 
 export default function MessageDeleteControl({ onDelete }) {

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { inviteStates } from "./logic.js";
 
-const C = { card: "#221F33", border: "#2E2A45", borderHi: "#4F46A8", text: "#F0EEFF", sub: "#9B94C4", muted: "#6B648F", brand: "#7C6BF0", green: "#10B981" };
+const C = { card: "var(--panel-background, #221F33)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #6B648F)", brand: "var(--primary-color, #7C6BF0)", green: "var(--success-color, #10B981)" };
 export const sentRegistry = new Map(); // `${roomId}:${uid}` → เวลาที่เชิญล่าสุด (อยู่ข้ามการปิด/เปิดหน้าต่าง)
 
 export default function InvitePanel({ roomId, roomName, friends, memberUids, Avatar, nameOf, Name, isOnline, onInvite, onClose }) {

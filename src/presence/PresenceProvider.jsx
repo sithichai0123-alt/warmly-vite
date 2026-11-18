@@ -116,7 +116,7 @@ export function useOnlineCount() {
 }
 
 // จุดสถานะมุมขวาล่างของรูปโปรไฟล์ (วางใน wrapper ที่เป็น position:relative)
-export function PresenceDot({ uid, size = 40, bg = "#0F0E17", green = "#22C55E", gray = "#6B7280" }) {
+export function PresenceDot({ uid, size = 40, bg = "var(--app-background,#0F0E17)", green = "#22C55E", gray = "#6B7280" }) {
   const v = useContext(Ctx);
   const st = usePresence(uid);
   if (!v || !uid) return null;

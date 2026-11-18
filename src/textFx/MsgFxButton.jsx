@@ -6,7 +6,7 @@ import { canUseFx, resolveTextFx } from "./resolve.js";
 import { TEXTFX_ENABLED } from "./config.js";
 import TextFx from "./TextFx.jsx";
 
-const C = { card: "#221F33", border: "#2E2A45", borderHi: "#4F46A8", brand2: "#A78BFA", text: "#F0EEFF", sub: "#9B94C4", green: "#10B981" };
+const C = { card: "var(--panel-background, #221F33)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", green: "var(--success-color, #10B981)" };
 
 // value = รหัสไอเทมที่เลือกไว้ (null = ปกติ), onChange(id|null), me = เอกสารผู้ใช้ของตัวเอง (ไว้ตรวจว่าใช้อะไรได้)
 // inline = เมนูแสดงต่อท้ายแถวเดียวกัน (ในกล่องที่ตัดขอบ เช่นการ์ดโพสต์ — ใช้เมนูลอยไม่ได้) ต้องอยู่ในแถว flex ที่ flex-wrap
