@@ -1022,15 +1022,16 @@ function RoomChat({roomId,user,onGift}){
           onChange={e=>setInput(e.target.value)}
           onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}
           placeholder="พิมพ์ข้อความ... (Enter เพื่อส่ง)"
-          style={{flex:1,background:T.surface,border:"1.5px solid "+T.border,borderRadius:20,padding:"8px 14px",fontSize:13,outline:"none",color:T.text,fontFamily:"inherit",transition:"border .15s"}}
+          style={{flex:1,background:T.surface,border:"1.5px solid "+T.border,borderRadius:24,height:48,boxSizing:"border-box",padding:"0 16px",fontSize:15,outline:"none",color:T.text,fontFamily:"inherit",transition:"border .15s"}}
           onFocus={e=>e.target.style.borderColor=T.borderHi}
           onBlur={e=>e.target.style.borderColor=T.border}
         />
         <button
           onClick={send}
           disabled={!input.trim()}
-          style={{width:36,height:36,borderRadius:"50%",background:input.trim()?T.brandGrad:T.border,border:"none",color:"#fff",cursor:input.trim()?"pointer":"default",fontSize:16,fontFamily:"inherit",flexShrink:0,transition:"background .15s"}}>
-          ↑
+          aria-label="ส่งข้อความ"
+          style={{width:54,height:54,borderRadius:"50%",background:input.trim()?T.brandGrad:T.border,border:"none",cursor:input.trim()?"pointer":"default",fontFamily:"inherit",flexShrink:0,transition:"background .15s",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:input.trim()?"0 4px 14px rgba(124,92,252,.45)":"none"}}>
+          <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" style={{marginLeft:-2,marginTop:1,opacity:input.trim()?1:.55}}><path d="M22 2 2 9l9 4 4 9z" fill="#fff"/><path d="M22 2 11 13" stroke={input.trim()?"#6A47EE":T.border} strokeWidth="1.6" strokeLinecap="round"/></svg>
         </button>
       </div>
     </div>
