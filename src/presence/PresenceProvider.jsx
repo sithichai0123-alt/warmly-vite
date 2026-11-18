@@ -103,6 +103,11 @@ export function usePresenceLabel(uid) {
   if (!v || !uid) return "";
   return statusLabel(st, v.now);
 }
+// สถานะของใครก็ได้ ("online"|"recent"|"offline") — ใช้เรียงรายชื่อ: ออนไลน์ → เพิ่งออก → ออฟไลน์
+export function usePresenceStateOf() {
+  const v = useContext(Ctx);
+  return (uid) => (v && uid ? computeStatus(docOf(v, uid), v.now, STALE_MS).state : "offline");
+}
 export function usePresenceEnabled() { return !!useContext(Ctx); }
 // ฟังก์ชันเช็กออนไลน์ของใครก็ได้ (ใช้กับรายชื่อ: เพื่อน/เชิญเข้าห้อง) — ตามค่าที่เจ้าตัวตั้งซ่อนสถานะไว้ด้วย
 export function useIsOnline() {
