@@ -9,7 +9,7 @@ import { APP_MODE_ENABLED, useAppMode, ThemeScope, AppearanceModal, makeThemeApi
 import { makeChatCleanup } from "./chatCleanup/index.js"; // ลบข้อความเก่าเกิน 100 ในแชทรวม/แชทห้องเสียง (แยกไฟล์ — ปิดได้ที่ chatCleanup/config.js)
 import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, createMicGainController, applyYtVolume, applyYtVolumeWhenReady, setMusicMuted } from "./audioControls/index.js"; // ปรับเสียงไมค์/เพลงแยกกัน (แยกไฟล์ — ปิดได้ที่ audioControls/config.js)
 import { ImageViewerProvider, useImageViewer } from "./imageViewer/index.js"; // ดูรูปเต็มจอ (แยกไฟล์ — ปิดได้ที่ imageViewer/config.js)
-import { PRESENCE_ENABLED, PRESENCE_WINDOW_ENABLED, useOnlineCount, DOT_MIN_SIZE, PresenceProvider, PresenceDot, PresenceText, makePresenceApi, usePresencePrefs, setPresencePrefs, useIsOnline } from "./presence/index.js"; // สถานะออนไลน์ จุดเขียว/เทา (แยกไฟล์ — ปิดได้ที่ presence/config.js)
+import { PRESENCE_ENABLED, PRESENCE_WINDOW_ENABLED, useOnlineCount, DOT_MIN_SIZE, PresenceProvider, PresenceDot, PresenceText, makePresenceApi, usePresencePrefs, setPresencePrefs, useIsOnline, usePresenceStateOf } from "./presence/index.js"; // สถานะออนไลน์ จุดเขียว/เทา (แยกไฟล์ — ปิดได้ที่ presence/config.js)
 import { CHAT_DELETE_ENABLED, makeChatDeleteApi, makeClientFallback, MessageDeleteControl } from "./chatDelete/index.js"; // ลบข้อความแชทส่วนตัว (ทีละข้อความ/ทั้งหมด) ผ่าน Backend — ปิดได้ที่ chatDelete/config.js
 import { DM_UNREAD_ENABLED, DM_UNREAD_FOR_GUESTS, DmUnreadProvider, useDmUnread, UnreadBadge, UnreadDot } from "./dmUnread/index.js"; // จุด/ตัวเลขข้อความใหม่ในแชทส่วนตัว — ปิดได้ที่ dmUnread/config.js
 import { FRIENDS_ENABLED, makeFriendsApi, FriendsProvider, useFriends, FriendButton, FriendsPanel } from "./friends/index.js"; // ระบบเพื่อน — ปิดได้ที่ friends/config.js
@@ -2394,8 +2394,11 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
   const usersApi=useContext(UsersApiCtx);
   const peopleQ=usePeopleList({enabled:USERS_LAZY_ENABLED&&tab==="dm"&&!peer,myUid,search,fb:SCALE_FB,seed:usersApi.seed}); // รายชื่อ "เริ่มแชทกับ..." ล่าสุด 50 คน + ค้นหาที่เซิร์ฟเวอร์
   const memberTotal=useMemberCount({enabled:USERS_LAZY_ENABLED&&tab==="group",fb:SCALE_FB});     // ให้เซิร์ฟเวอร์นับสมาชิก
-  const people=USERS_LAZY_ENABLED?peopleQ.list:Object.entries(users).filter(([id])=>id!==myUid).map(([id,u])=>({id,...u}))
+  const presenceOf=usePresenceStateOf();
+  const PRES_RANK={online:0,recent:1,offline:2}; // เรียงรายชื่อ "เริ่มแชทกับ...": ออนไลน์ → เพิ่งออก → ออฟไลน์ (ในกลุ่มเดียวกันคงลำดับเดิม)
+  const peopleRaw=USERS_LAZY_ENABLED?peopleQ.list:Object.entries(users).filter(([id])=>id!==myUid).map(([id,u])=>({id,...u}))
     .filter(u=>!search.trim()||String(u.name||"").toLowerCase().includes(search.trim().toLowerCase()));
+  const people=PRESENCE_ENABLED?[...peopleRaw].sort((a,b)=>PRES_RANK[presenceOf(a.id)]-PRES_RANK[presenceOf(b.id)]):peopleRaw;
   const sortedConvs=[...convs].sort((a,b)=>((b.lastT&&b.lastT.toMillis?b.lastT.toMillis():0)-(a.lastT&&a.lastT.toMillis?a.lastT.toMillis():0)));
   const memberCount=USERS_LAZY_ENABLED?(memberTotal==null?"…":memberTotal):Object.keys(users).length;
 
