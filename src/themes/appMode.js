@@ -24,7 +24,7 @@ function allVars() {
   const v = themeStyleVars({ scheme: "light", vars: LIGHT_VARS }, null); // รวมสีโปร่งใส + --wm-dark
   v["--wm-cs"] = "light";
   // จุดออนไลน์/ออฟไลน์: โหมดสว่างให้เขียวสดมีแสงเรือง vs เทาอ่อน (ดูต่างกันชัด) — โหมดมืดใช้ค่าเดิม
-  v["--presence-on"] = "#16A34A"; v["--presence-off"] = "#A19DB8"; v["--presence-glow"] = "rgba(22,163,74,.6)";
+  v["--presence-on"] = "#16A34A"; v["--presence-off"] = "#A19DB8"; v["--presence-glow"] = "rgba(22,163,74,.6)"; v["--presence-recent"] = "#F59E0B";
   return v;
 }
 
