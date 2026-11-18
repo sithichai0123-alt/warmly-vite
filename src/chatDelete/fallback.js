@@ -26,6 +26,18 @@ export function makeClientFallback({ db, getUid, doc, collection, query, orderBy
       await setDoc(pref, patch, { merge: true });
       return { ok: true, deleted: 1, conversationRemoved: false };
     },
+    async deleteGroupOne(messageId) {
+      const uid = getUid();
+      if (!uid || !validMsgId(messageId)) fail("ข้อมูลไม่ถูกต้อง");
+      const mref = doc(db, "groupChat", messageId);
+      const sn = await getDoc(mref);
+      if (!sn.exists()) return { ok: true, deleted: 0, already: true };
+      const m = sn.data() || {};
+      if (m.uid !== uid) fail("ลบได้เฉพาะข้อความของตัวเอง");
+      if (m.gift) fail("ข้อความของขวัญลบไม่ได้");
+      await deleteDoc(mref);
+      return { ok: true, deleted: 1 };
+    },
     async deleteAll(peer) {
       const uid = getUid();
       if (!uid || !validPeer(uid, peer)) fail("ข้อมูลไม่ถูกต้อง");

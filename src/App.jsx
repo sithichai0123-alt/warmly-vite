@@ -2417,7 +2417,8 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
           <div style={{padding:"8px 14px",fontSize:12,color:T.muted,background:T.surface,flexShrink:0,borderBottom:"1px solid "+T.border}}>
             🌐 ห้องแชทรวมของทุกคนใน Warmly • สมาชิก {memberCount} คน{!user.isGuest&&" • 🎁 แตะรูปคนอื่นเพื่อส่งของขวัญ"}
           </div>
-          <BubbleChat path={["groupChat"]} user={user} showNames avatarGift placeholder="คุยกับทุกคน..."/>
+          <BubbleChat path={["groupChat"]} user={user} showNames avatarGift placeholder="คุยกับทุกคน..."
+            onDeleteMessage={CHAT_DELETE_ENABLED&&!user.isGuest?(id=>chatDeleteApi.deleteGroupOne(id)):undefined}/>
         </div>
       )}
 

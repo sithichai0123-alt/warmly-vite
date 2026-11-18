@@ -49,5 +49,6 @@ export function makeChatDeleteApi({ getToken, fetchFn, endpoint = ENDPOINT, time
   return {
     deleteOne: (peer, messageId) => run({ action: "deleteOne", peer, messageId }, () => fallback.deleteOne(peer, messageId)),
     deleteAll: (peer) => run({ action: "deleteAll", peer }, () => fallback.deleteAll(peer)),
+    deleteGroupOne: (messageId) => run({ action: "deleteGroupOne", messageId }, () => fallback.deleteGroupOne(messageId)),
   };
 }
