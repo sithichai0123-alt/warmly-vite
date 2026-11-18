@@ -1710,8 +1710,8 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
 
       {loading&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>⏳ กำลังโหลด...</div>}
 
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {closedNote&&<div role="status" style={{padding:"10px 14px",borderRadius:12,background:T.yellowA22,color:T.yellow,fontSize:12,fontWeight:700,lineHeight:1.5}}>{closedNote}</div>}
+      <div className="w-room-list" style={{display:"flex",flexDirection:"column",gap:10}}>
+        {closedNote&&<div role="status" style={{gridColumn:"1 / -1",padding:"10px 14px",borderRadius:12,background:T.yellowA22,color:T.yellow,fontSize:12,fontWeight:700,lineHeight:1.5}}>{closedNote}</div>}
         {visibleRooms.map(r=>(
           <OwnerScope key={r.id} ownerDoc={r.hostUid?_users[r.hostUid]:null} section="voice">{/* การ์ดห้องใช้ธีมของโฮสต์ */}
           <Card style={{border:"1px solid "+(inRoomId===r.id?T.borderHi:T.border)}}>
@@ -1735,7 +1735,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
           </Card>
           </OwnerScope>
         ))}
-        {!loading&&visibleRooms.length===0&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>ยังไม่มีห้องเสียง — เปิดห้องใหม่ได้เลย!</div>}
+        {!loading&&visibleRooms.length===0&&<div style={{gridColumn:"1 / -1",textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>ยังไม่มีห้องเสียง — เปิดห้องใหม่ได้เลย!</div>}
       </div>
     </div>
   );
@@ -2195,7 +2195,7 @@ function FeedPage({user,onGo,notifs,onReadNotif,onOpenPost,focusPostId,onFocusDo
       <NewPostBox user={user}/>
       {loading&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>⏳ กำลังโหลด...</div>}
       {!loading&&posts.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:T.muted,fontSize:14}}>ยังไม่มีโพสต์ — โพสต์แรกได้เลย! ✨</div>}
-      {posts.map(p=><OwnerScope key={p.id} ownerDoc={p.authorUid?users[p.authorUid]:null} section="feed"><PostCard p={p} user={user} autoOpen={focusPostId===p.id} onAutoOpened={onFocusDone}/></OwnerScope>)} {/* โพสต์ใครโพสต์มัน: ใช้ธีม "ฟีด" ของคนโพสต์ */}
+      <div className="w-feed-grid">{posts.map(p=><OwnerScope key={p.id} ownerDoc={p.authorUid?users[p.authorUid]:null} section="feed"><PostCard p={p} user={user} autoOpen={focusPostId===p.id} onAutoOpened={onFocusDone}/></OwnerScope>)}</div> {/* โพสต์ใครโพสต์มัน: ใช้ธีม "ฟีด" ของคนโพสต์ · จอกว้าง = 2 คอลัมน์ (CSS w-feed-grid) */}
       {shared&&shared.hasMore&&<LoadMore T={T} onClick={shared.loadMore}/>}
     </div>
   );
@@ -2403,7 +2403,7 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
   const pu=peer?(users[peer]||{}):{};
 
   return(
-    <div style={{display:"flex",flexDirection:"column",height:"calc(100dvh - 112px)",overflow:"hidden"}}>
+    <div className="w-chat" style={{display:"flex",flexDirection:"column",height:"calc(100dvh - 112px)",overflow:"hidden"}}>
       <div style={{display:"flex",background:T.surface,borderBottom:"1px solid "+T.border,flexShrink:0}}>
         {tabBtn("group","💬 ห้องรวม")}
         {tabBtn("dm",<span style={{display:"inline-flex",alignItems:"center",gap:6}}><span>✉️ ข้อความ</span><UnreadBadge n={dmu.count}/></span>)}
@@ -4328,7 +4328,7 @@ export default function App(){
     <ProfileCtx.Provider value={openProfile}>
     <SocialProviders user={user} onOpenFriends={()=>{setPage("chat");setChatTabReq("friends");}} onJoinRoom={r=>{setJoinReq(r);setPage("voice");}}>
     <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",minHeight:"100dvh",background:T.bg,display:"flex",flexDirection:"column",maxWidth:"var(--app-w)",margin:"0 auto"}}>
-      <style>{`:root{--app-w:480px}@media (min-width:900px){:root{--app-w:720px}}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:dark}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}@keyframes entryslide{0%{transform:translateY(-34px) scale(.8);opacity:0}14%{transform:translateY(0) scale(1.08);opacity:1}22%{transform:scale(1)}85%{opacity:1}100%{transform:translateY(-8px);opacity:0}}`}</style>
+      <style>{`:root{--app-w:480px;--nav-w:480px}@media (min-width:900px){:root{--app-w:960px;--nav-w:720px}.w-feed-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px;align-items:start}.w-room-list{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.w-narrow{max-width:760px;width:100%;margin-left:auto;margin-right:auto}.w-chat{max-width:860px;width:100%;margin-left:auto;margin-right:auto;border-left:1px solid ${T.border};border-right:1px solid ${T.border}}}@media (min-width:1280px){:root{--app-w:1200px}}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:dark}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}@keyframes entryslide{0%{transform:translateY(-34px) scale(.8);opacity:0}14%{transform:translateY(0) scale(1.08);opacity:1}22%{transform:scale(1)}85%{opacity:1}100%{transform:translateY(-8px);opacity:0}}`}</style>
       <div style={{background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid "+T.border,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:30}}>
         <div style={{display:"flex",alignItems:"center",gap:9}}>
           <div style={{width:30,height:30,borderRadius:9,background:T.brandGrad,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>💜</div>
@@ -4346,12 +4346,12 @@ export default function App(){
           {page==="feed"    &&<FeedPage shared={FEED_PAGING_ENABLED?{feed:withFocus(postsFeed.feed,postsFeed.all,focusPostId),ready:postsFeed.ready,hasMore:postsFeed.hasMore,loadMore:postsFeed.loadMore}:null} user={user} onGo={setPage} notifs={notif.unread} onReadNotif={notif.markRead} onOpenPost={id=>{setPage("feed");setFocusPostId(id);}} focusPostId={focusPostId} onFocusDone={()=>setFocusPostId(null)} onJoinRoom={r=>{setJoinReq(r);setPage("voice");}}/>}
           {page==="chat"    &&<ChatPage user={user} openPeer={dmTarget} onPeerOpened={()=>setDmTarget(null)} openTab={chatTabReq} onTabOpened={()=>setChatTabReq(null)}/>}
           <div style={{display:page==="voice"?"block":"none"}}><VoiceErrorBoundary><VoiceRoomsPage user={user} onAppearance={()=>openAppearance("voice")} joinReq={joinReq} onJoinReqHandled={()=>setJoinReq(null)}/></VoiceErrorBoundary></div>
-          {page==="profile" &&<ProfilePage user={user} posts={posts} onAppearance={()=>openAppearance("profile")} onUpdateName={n=>{const u={...user,name:n,init:n.slice(0,2).toUpperCase()};ls.set("user",u);setUser(u);}}/>}
-          {page==="privacy" &&<PrivacyPage onLogout={handleLogout}/>}
+          {page==="profile" &&<div className="w-narrow"><ProfilePage user={user} posts={posts} onAppearance={()=>openAppearance("profile")} onUpdateName={n=>{const u={...user,name:n,init:n.slice(0,2).toUpperCase()};ls.set("user",u);setUser(u);}}/></div>}
+          {page==="privacy" &&<div className="w-narrow"><PrivacyPage onLogout={handleLogout}/></div>}
         </div>
       </div>
       </ThemeScope>
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"var(--app-w)",background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid "+T.border,display:"flex",zIndex:30,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"var(--nav-w)",background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid "+T.border,display:"flex",zIndex:30,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
         {TABS.map(t=>(
           <button key={t.key} onClick={()=>setPage(t.key)} style={{flex:1,padding:"10px 4px 8px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,fontFamily:"inherit",position:"relative"}}>
             <NavBadge tabKey={t.key} feedCount={notif.unread.length}/>
