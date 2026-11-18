@@ -2188,14 +2188,14 @@ function FeedPage({user,onGo,notifs,onReadNotif,onOpenPost,focusPostId,onFocusDo
   const loading=shared?!shared.ready:ownLoading;
 
   return(
-    <div>
+    <div className="w-narrow">
       <NotifCard items={notifs} onRead={onReadNotif||(()=>{})} onOpenPost={onOpenPost||(()=>{})}/>
       <StartGuide onGo={onGo} isGuest={!!user.isGuest}/>
       <HomeStrip onJoinRoom={onJoinRoom} onGo={onGo}/>
       <NewPostBox user={user}/>
       {loading&&<div style={{textAlign:"center",padding:"24px 0",color:T.muted,fontSize:13}}>⏳ กำลังโหลด...</div>}
       {!loading&&posts.length===0&&<div style={{textAlign:"center",padding:"32px 0",color:T.muted,fontSize:14}}>ยังไม่มีโพสต์ — โพสต์แรกได้เลย! ✨</div>}
-      <div className="w-feed-grid">{posts.map(p=><OwnerScope key={p.id} ownerDoc={p.authorUid?users[p.authorUid]:null} section="feed"><PostCard p={p} user={user} autoOpen={focusPostId===p.id} onAutoOpened={onFocusDone}/></OwnerScope>)}</div> {/* โพสต์ใครโพสต์มัน: ใช้ธีม "ฟีด" ของคนโพสต์ · จอกว้าง = 2 คอลัมน์ (CSS w-feed-grid) */}
+      {posts.map(p=><OwnerScope key={p.id} ownerDoc={p.authorUid?users[p.authorUid]:null} section="feed"><PostCard p={p} user={user} autoOpen={focusPostId===p.id} onAutoOpened={onFocusDone}/></OwnerScope>)} {/* โพสต์ใครโพสต์มัน: ใช้ธีม "ฟีด" ของคนโพสต์ */}
       {shared&&shared.hasMore&&<LoadMore T={T} onClick={shared.loadMore}/>}
     </div>
   );
@@ -2208,7 +2208,7 @@ function fmtTime(ms){
 }
 
 // ── แชทแบบฟองข้อความ (ใช้ทั้งห้องรวมและแชทส่วนตัว) ────────
-function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo,avatarGift,sinceMs,blockedUids,lock,onDeleteMessage}){
+function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo,avatarGift,sinceMs,blockedUids,lock,onDeleteMessage,newestFirst}){
   const users=useContext(UsersCtx);
   const openProfileFromBubble=useContext(ProfileCtx); // กดรูป/ชื่อในฟองข้อความ → เปิดโปรไฟล์
   const viewer=useImageViewer();
@@ -2241,11 +2241,11 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
         });
       }
       first=false;
-      setMsgs(snap.docs.map(d=>({id:d.id,...d.data({serverTimestamps:"estimate"})})).reverse());
+      const arr=snap.docs.map(d=>({id:d.id,...d.data({serverTimestamps:"estimate"})}));setMsgs(newestFirst?arr:arr.reverse()); // คำค้นเรียงใหม่→เก่าอยู่แล้ว: newestFirst = ข้อความล่าสุดอยู่บนสุด
     },e=>{console.error("chat",e);setErr("โหลดแชทไม่ได้ ("+(e.code||e.message)+") — ตรวจ Firestore rules");});
   },[pathKey,sinceMs]); // eslint-disable-line
 
-  useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[msgs.length]);
+  useEffect(()=>{if(newestFirst){const el=listRef.current;if(el)el.scrollTo({top:0,behavior:"smooth"});return;}endRef.current?.scrollIntoView({behavior:"smooth"});},[msgs.length]); // eslint-disable-line
   const vis=blockedUids&&blockedUids.size?msgs.filter(m=>!blockedUids.has(m.uid)):msgs; // ข้อความของคนที่บล็อกไว้ไม่แสดง
 
   async function send(){
@@ -2315,7 +2315,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
                   <div style={{fontSize:12,color:T.sub,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:220}}>{m.replyTo.text||(m.replyTo.img?"📷 รูปภาพ":"")}</div>
                 </div>}
                 {m.image&&<img src={m.image} alt="" onClick={viewer.enabled?()=>viewer.open([m.image],0):undefined} style={{maxWidth:"100%",cursor:viewer.enabled?"zoom-in":undefined,borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
-                {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?"#fff":T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={i<vis.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text}</div>}
+                {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?"#fff":T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={newestFirst?i>=3:i<vis.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text}</div>}
                 <div style={{fontSize:12,color:T.muted,margin:"2px 4px 0",display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:me?"flex-end":"flex-start",gap:4}}><span>{fmtTime(ms)}</span>{!lock&&!String(m.id).startsWith("tmp-")&&<span data-reply-btn onClick={()=>startReply(m,nm)} style={{cursor:"pointer",fontWeight:600,color:T.sub,padding:"0 2px"}}>ตอบกลับ</span>}{onDeleteMessage&&me&&!String(m.id).startsWith("tmp-")&&<MessageDeleteControl onDelete={async()=>{await onDeleteMessage(m.id);setMsgs(prev=>prev.filter(x=>x.id!==m.id));}}/>}</div>
               </div>
             </div>
@@ -2417,7 +2417,7 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
           <div style={{padding:"8px 14px",fontSize:12,color:T.muted,background:T.surface,flexShrink:0,borderBottom:"1px solid "+T.border}}>
             🌐 ห้องแชทรวมของทุกคนใน Warmly • สมาชิก {memberCount} คน{!user.isGuest&&" • 🎁 แตะรูปคนอื่นเพื่อส่งของขวัญ"}
           </div>
-          <BubbleChat path={["groupChat"]} user={user} showNames avatarGift placeholder="คุยกับทุกคน..."
+          <BubbleChat path={["groupChat"]} newestFirst user={user} showNames avatarGift placeholder="คุยกับทุกคน..."
             onDeleteMessage={CHAT_DELETE_ENABLED&&!user.isGuest?(id=>chatDeleteApi.deleteGroupOne(id)):undefined}/>
         </div>
       )}
@@ -4328,7 +4328,7 @@ export default function App(){
     <ProfileCtx.Provider value={openProfile}>
     <SocialProviders user={user} onOpenFriends={()=>{setPage("chat");setChatTabReq("friends");}} onJoinRoom={r=>{setJoinReq(r);setPage("voice");}}>
     <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",minHeight:"100dvh",background:T.bg,display:"flex",flexDirection:"column",maxWidth:"var(--app-w)",margin:"0 auto"}}>
-      <style>{`:root{--app-w:480px;--nav-w:480px}@media (min-width:900px){:root{--app-w:960px;--nav-w:720px}.w-feed-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px;align-items:start}.w-room-list{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.w-narrow{max-width:760px;width:100%;margin-left:auto;margin-right:auto}.w-chat{max-width:860px;width:100%;margin-left:auto;margin-right:auto;border-left:1px solid ${T.border};border-right:1px solid ${T.border}}}@media (min-width:1280px){:root{--app-w:1200px}}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:dark}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}@keyframes entryslide{0%{transform:translateY(-34px) scale(.8);opacity:0}14%{transform:translateY(0) scale(1.08);opacity:1}22%{transform:scale(1)}85%{opacity:1}100%{transform:translateY(-8px);opacity:0}}`}</style>
+      <style>{`:root{--app-w:480px;--nav-w:480px}@media (min-width:900px){:root{--app-w:960px;--nav-w:720px}.w-room-list{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.w-narrow{max-width:760px;width:100%;margin-left:auto;margin-right:auto}.w-chat{max-width:860px;width:100%;margin-left:auto;margin-right:auto;border-left:1px solid ${T.border};border-right:1px solid ${T.border}}}@media (min-width:1280px){:root{--app-w:1200px}}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:dark}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}@keyframes entryslide{0%{transform:translateY(-34px) scale(.8);opacity:0}14%{transform:translateY(0) scale(1.08);opacity:1}22%{transform:scale(1)}85%{opacity:1}100%{transform:translateY(-8px);opacity:0}}`}</style>
       <div style={{background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid "+T.border,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:30}}>
         <div style={{display:"flex",alignItems:"center",gap:9}}>
           <div style={{width:30,height:30,borderRadius:9,background:T.brandGrad,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>💜</div>
@@ -4353,11 +4353,11 @@ export default function App(){
       </ThemeScope>
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"var(--nav-w)",background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid "+T.border,display:"flex",zIndex:30,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
         {TABS.map(t=>(
-          <button key={t.key} onClick={()=>setPage(t.key)} style={{flex:1,padding:"10px 4px 8px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,fontFamily:"inherit",position:"relative"}}>
+          <button key={t.key} onClick={()=>setPage(t.key)} style={{flex:1,padding:"10px 4px 8px",border:"none",background:page===t.key?T.brandA33:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,fontFamily:"inherit",position:"relative"}}>
             <NavBadge tabKey={t.key} feedCount={notif.unread.length}/>
             <span style={{fontSize:20,lineHeight:1}}>{t.icon}</span>
-            <span style={{fontSize:12,fontWeight:page===t.key?700:500,color:page===t.key?T.brand2:T.muted}}>{t.label}</span>
-            {page===t.key&&<div style={{width:16,height:2,borderRadius:2,background:T.brandGrad,marginTop:2}}/>}
+            <span style={{fontSize:12,fontWeight:page===t.key?800:500,color:page===t.key?T.brand:T.sub}}>{t.label}</span>
+            {page===t.key&&<div style={{width:22,height:3,borderRadius:2,background:T.brand,marginTop:2}}/>}
           </button>
         ))}
       </div>
