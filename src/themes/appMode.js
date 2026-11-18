@@ -11,14 +11,14 @@ const KEY = "wm_appMode";
 
 // ปรับโทนสว่างที่นี่ที่เดียว (ตอนนี้: ครีมอบอุ่น + สีเน้นม่วง)
 export const LIGHT_VARS = {
-  "--app-background": "#FFF9F2", "--surface-background": "#FFF0DF", "--panel-background": "#FFFFFF", "--border-color": "#F0DDC6", "--border-strong": "#8A63F0",
-  "--primary-color": "#7C4DEB", "--secondary-color": "#6A3FD6", "--button-background": "linear-gradient(135deg,#6A3FD6,#8A63F0)",
-  "--text-primary": "#2B2118", "--text-secondary": "#6B5844", "--text-muted": "#7D6850",
+  "--app-background": "#F6F4FF", "--surface-background": "#EEEAFE", "--panel-background": "#FFFFFF", "--border-color": "#DDD6FA", "--border-strong": "#7C5CE0",
+  "--primary-color": "#6A45E6", "--secondary-color": "#5B3AD2", "--button-background": "linear-gradient(135deg,#5B3AD2,#7452E8)",
+  "--text-primary": "#1B1838", "--text-secondary": "#47427A", "--text-muted": "#6A6598",
   "--success-color": "#047857", "--danger-color": "#BE123C", "--danger-background": "rgba(190,18,60,.08)", "--warning-color": "#9A4A06",
-  "--page-background": "linear-gradient(180deg,#FFF9F2,#FFF1E0)", "--message-bubble": "#FBEBD6",
-  "--card-shadow": "0 4px 18px rgba(160,110,60,.14)", "--accent-color": "#6A3FD6", "--glass-background": "rgba(255,249,242,.9)",
+  "--page-background": "linear-gradient(180deg,#F6F4FF,#EDE9FE)", "--message-bubble": "#EFEBFF",
+  "--card-shadow": "0 4px 20px rgba(91,58,210,.12)", "--accent-color": "#5B3AD2", "--glass-background": "rgba(246,244,255,.88)",
 };
-const LIGHT_BG = "#FFF9F2", DARK_BG = "#0F0E17";
+const LIGHT_BG = "#F6F4FF", DARK_BG = "#0F0E17";
 
 function allVars() {
   const v = themeStyleVars({ scheme: "light", vars: LIGHT_VARS }, null); // รวมสีโปร่งใส + --wm-dark
