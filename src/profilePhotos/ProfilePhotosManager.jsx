@@ -6,7 +6,7 @@ import { processFile, makeThumb } from "./image.js";
 import PhotoCropper from "./PhotoCropper.jsx";
 import { emptyState, planAdd, planRemove, planSetMain, mainOf, ordered } from "./photos.js";
 
-const C = { card: "#221F33", surface: "#1A1825", border: "#2E2A45", borderHi: "#4F46A8", brand2: "#A78BFA", text: "#F0EEFF", sub: "#9B94C4", muted: "#8A84B0", yellow: "#F59E0B", red: "#F87171", grad: "linear-gradient(135deg,#7C5CFC,#A78BFA)" };
+const C = { card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", yellow: "var(--warning-color, #F59E0B)", red: "var(--danger-color, #F87171)", grad: "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" };
 const btn = (extra) => ({ fontFamily: "inherit", fontSize:12, fontWeight: 700, padding: "5px 9px", borderRadius: 8, border: "1px solid " + C.borderHi, background: "transparent", color: C.brand2, cursor: "pointer", ...extra });
 
 export default function ProfilePhotosManager({ uid, api, legacyAvatar, onMainChange, onOpen, onClose }) {

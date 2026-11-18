@@ -7,3 +7,4 @@ export { default as ThemeScope } from "./ThemeScope.jsx";
 export { default as OwnerScope, resolveOwnerTheme } from "./OwnerScope.jsx";
 export { makeThemeApi } from "./api.js";
 export { default as AppearanceModal } from "./AppearanceModal.jsx";
+export { APP_MODE_ENABLED, useAppMode, getAppMode, setAppMode } from "./appMode.js";

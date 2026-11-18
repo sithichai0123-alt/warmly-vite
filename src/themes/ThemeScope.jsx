@@ -10,7 +10,7 @@ import { useSectionTheme } from "./store.js";
 if (typeof document !== "undefined" && !document.getElementById("wm-theme-css")) {
   const st = document.createElement("style");
   st.id = "wm-theme-css";
-  st.textContent = '[data-wscheme="light"] input,[data-wscheme="light"] textarea,[data-wscheme="light"] select{color-scheme:light}';
+  st.textContent = '[data-wscheme="light"] input,[data-wscheme="light"] textarea,[data-wscheme="light"] select{color-scheme:light}[data-wscheme="dark"] input,[data-wscheme="dark"] textarea,[data-wscheme="dark"] select{color-scheme:dark}';
   document.head.appendChild(st);
 }
 

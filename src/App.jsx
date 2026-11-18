@@ -5,7 +5,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, orderBy, query, doc, updateDoc, increment, serverTimestamp, deleteDoc, getDocs, setDoc, getDoc, where, limit, arrayUnion, arrayRemove, runTransaction, getCountFromServer, writeBatch, documentId } from "firebase/firestore";
 import { useNow, useRoomHeartbeat, useRoomJanitor, roomExpired, roomCloseInMs, fmtCountdown, ROOM_AUTOCLOSE_ENABLED } from "./roomLife/index.js"; // ปิดห้องเสียงอัตโนมัติเมื่อโฮสต์ไม่อยู่เกิน 5 นาที (ปิดได้ที่ roomLife/config.js)
 import { TextFx, FxGallery, FxSettings, MsgFxButton, makeTextFxApi, resolveTextFx, resolveMessageFx, resolveTune, TEXTFX_ENABLED, TEXTFX_SERVER_PURCHASE } from "./textFx/index.js"; // ฟอนต์พิเศษ/เอฟเฟกต์ตัวอักษร (ปิดได้ที่ textFx/config.js)
-import { ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
+import { APP_MODE_ENABLED, useAppMode, ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { makeChatCleanup } from "./chatCleanup/index.js"; // ลบข้อความเก่าเกิน 100 ในแชทรวม/แชทห้องเสียง (แยกไฟล์ — ปิดได้ที่ chatCleanup/config.js)
 import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, createMicGainController, applyYtVolume, applyYtVolumeWhenReady, setMusicMuted } from "./audioControls/index.js"; // ปรับเสียงไมค์/เพลงแยกกัน (แยกไฟล์ — ปิดได้ที่ audioControls/config.js)
 import { ImageViewerProvider, useImageViewer } from "./imageViewer/index.js"; // ดูรูปเต็มจอ (แยกไฟล์ — ปิดได้ที่ imageViewer/config.js)
@@ -1031,7 +1031,7 @@ function RoomChat({roomId,user,onGift}){
           disabled={!input.trim()}
           aria-label="ส่งข้อความ"
           style={{width:54,height:54,borderRadius:"50%",background:input.trim()?T.brandGrad:T.border,border:"none",cursor:input.trim()?"pointer":"default",fontFamily:"inherit",flexShrink:0,transition:"background .15s",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:input.trim()?"0 4px 14px rgba(124,92,252,.45)":"none"}}>
-          <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" style={{marginLeft:-2,marginTop:1,opacity:input.trim()?1:.55}}><path d="M22 2 2 9l9 4 4 9z" fill="#fff"/><path d="M22 2 11 13" stroke={input.trim()?"#6A47EE":T.border} strokeWidth="1.6" strokeLinecap="round"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" style={{marginLeft:-2,marginTop:1,color:input.trim()?"#fff":T.muted}}><path d="M22 2 2 9l9 4 4 9z" fill="currentColor"/><path d="M22 2 11 13" stroke={input.trim()?"#6A47EE":T.border} strokeWidth="1.6" strokeLinecap="round"/></svg>
         </button>
       </div>
     </div>
@@ -2314,7 +2314,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
               }} style={{cursor:(avatarGift&&!user.isGuest)||m.uid?"pointer":"default"}}><Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={28}/></div>}
               <div style={{maxWidth:"74%",display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start"}}>
                 {head&&<div data-bubble-name onClick={()=>{if(m.uid&&openProfileFromBubble)openProfileFromBubble(m.uid);}} style={{fontSize:12,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px",cursor:m.uid?"pointer":"default"}}><Nm uid={m.uid} name={m.author}/></div>}
-                {m.replyTo&&m.replyTo.id&&<div data-reply-quote onClick={()=>jumpTo(m.replyTo.id)} style={{maxWidth:"100%",marginBottom:3,padding:"5px 10px",borderRadius:10,background:"rgba(255,255,255,.07)",borderLeft:"3px solid "+T.brand2,cursor:"pointer",textAlign:"left",boxSizing:"border-box"}}>
+                {m.replyTo&&m.replyTo.id&&<div data-reply-quote onClick={()=>jumpTo(m.replyTo.id)} style={{maxWidth:"100%",marginBottom:3,padding:"5px 10px",borderRadius:10,background:T.brandA22,borderLeft:"3px solid "+T.brand2,cursor:"pointer",textAlign:"left",boxSizing:"border-box"}}>
                   <div style={{fontSize:12,fontWeight:700,color:T.brand2}}>{(m.replyTo.uid&&users[m.replyTo.uid]&&users[m.replyTo.uid].name)||m.replyTo.name||"ผู้ใช้"}</div>
                   <div style={{fontSize:12,color:T.sub,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:220}}>{m.replyTo.text||(m.replyTo.img?"📷 รูปภาพ":"")}</div>
                 </div>}
@@ -2343,7 +2343,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
             <div style={{fontSize:12,fontWeight:700,color:T.brand2}}>ตอบกลับ {replyTo.name}</div>
             <div style={{fontSize:12,color:T.sub,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{replyTo.text||(replyTo.img?"📷 รูปภาพ":"")}</div>
           </div>
-          <button onClick={()=>setReplyTo(null)} aria-label="ยกเลิกการตอบกลับ" style={{width:24,height:24,borderRadius:"50%",border:"none",background:"rgba(255,255,255,.1)",color:T.sub,cursor:"pointer",fontSize:12,fontFamily:"inherit",flexShrink:0}}>✕</button>
+          <button onClick={()=>setReplyTo(null)} aria-label="ยกเลิกการตอบกลับ" style={{width:24,height:24,borderRadius:"50%",border:"none",background:T.brandA22,color:T.sub,cursor:"pointer",fontSize:12,fontFamily:"inherit",flexShrink:0}}>✕</button>
         </div>}
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           <button onClick={()=>fileRef.current.click()} style={{width:36,height:36,borderRadius:"50%",border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:15,flexShrink:0,fontFamily:"inherit"}}>📷</button>
@@ -2352,7 +2352,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
           <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder}
             style={{flex:1,minWidth:0,border:"1px solid "+T.border,borderRadius:23,height:46,boxSizing:"border-box",padding:"0 14px",fontSize:15,color:T.text,background:T.card,outline:"none",fontFamily:"inherit"}}
             onFocus={e=>e.target.style.borderColor=T.borderHi} onBlur={e=>e.target.style.borderColor=T.border}/>
-          <button onClick={send} aria-label="ส่งข้อความ" style={{width:80,height:46,borderRadius:23,background:(input.trim()||img)?T.brandGrad:T.border,border:"none",cursor:(input.trim()||img)?"pointer":"default",color:"#fff",flexShrink:0,fontSize:16,fontWeight:800,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:0,boxShadow:(input.trim()||img)?"0 4px 14px rgba(124,92,252,.45)":"none",transition:"background .15s"}}><span style={{opacity:(input.trim()||img)?1:.55}}>ส่ง</span><svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true" style={{opacity:(input.trim()||img)?1:.55}}><path d="M22 2 2 9l9 4 4 9z" fill="#fff"/><path d="M22 2 11 13" stroke={(input.trim()||img)?"#6A47EE":T.border} strokeWidth="1.6" strokeLinecap="round"/></svg></button>
+          <button onClick={send} aria-label="ส่งข้อความ" style={{width:80,height:46,borderRadius:23,background:(input.trim()||img)?T.brandGrad:T.border,border:"none",cursor:(input.trim()||img)?"pointer":"default",color:(input.trim()||img)?"#fff":T.muted,flexShrink:0,fontSize:16,fontWeight:800,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:0,boxShadow:(input.trim()||img)?"0 4px 14px rgba(124,92,252,.45)":"none",transition:"background .15s"}}><span>ส่ง</span><svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 2 9l9 4 4 9z" fill="currentColor"/><path d="M22 2 11 13" stroke={(input.trim()||img)?"#6A47EE":T.border} strokeWidth="1.6" strokeLinecap="round"/></svg></button>
         </div>
       </div>}
       {giftOpen&&giftTo&&<GiftPicker user={user} to={giftTo} onClose={()=>setGiftOpen(false)}/>}
@@ -4215,6 +4215,7 @@ export default function App(){
   const [joinReq,setJoinReq]=useState(null);       // คำเชิญเข้าห้องที่เพิ่งกดรับ
   const [chatTabReq,setChatTabReq]=useState(null); // สั่งเปิดแท็บในหน้าแชท (เช่น เพื่อน)
   const [shopOpen,setShopOpen]=useState(false);
+  const [appMode,toggleAppMode]=useAppMode(); // สว่าง/มืดทั้งแอป (ปุ่ม ☀️/🌙 บนแถบบน)
   const [fxDemo,setFxDemo]=useState(()=>{try{return /[?&]fxdemo=1(&|$)/.test(window.location.search);}catch(e){return false;}}); // ?fxdemo=1 = หน้าดูตัวอย่างฟอนต์
   const [giftDemo,setGiftDemo]=useState(()=>{try{return GIFT_DEMO_ENABLED&&GIFT_SHOW_ENABLED&&/[?&]giftdemo=1(&|$)/.test(window.location.search);}catch(e){return false;}}); // ?giftdemo=1 = หน้าดูตัวอย่างเอฟเฟกต์ของขวัญ
   const [demoFx,setDemoFx]=useState(null);
@@ -4351,7 +4352,7 @@ export default function App(){
     <ProfileCtx.Provider value={openProfile}>
     <SocialProviders user={user} onOpenFriends={()=>{setPage("chat");setChatTabReq("friends");}} onJoinRoom={r=>{setJoinReq(r);setPage("voice");}}>
     <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",minHeight:"100dvh",background:T.bg,display:"flex",flexDirection:"column",maxWidth:"var(--app-w)",margin:"0 auto"}}>
-      <style>{`:root{--app-w:480px;--nav-w:480px}@media (min-width:900px){:root{--app-w:960px;--nav-w:720px}.w-room-list{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.w-narrow{max-width:760px;width:100%;margin-left:auto;margin-right:auto}.w-chat{max-width:860px;width:100%;margin-left:auto;margin-right:auto;border-left:1px solid ${T.border};border-right:1px solid ${T.border}}}@media (min-width:1280px){:root{--app-w:1200px}}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:dark}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}@keyframes entryslide{0%{transform:translateY(-34px) scale(.8);opacity:0}14%{transform:translateY(0) scale(1.08);opacity:1}22%{transform:scale(1)}85%{opacity:1}100%{transform:translateY(-8px);opacity:0}}`}</style>
+      <style>{`:root{--app-w:480px;--nav-w:480px}@media (min-width:900px){:root{--app-w:960px;--nav-w:720px}.w-room-list{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.w-narrow{max-width:760px;width:100%;margin-left:auto;margin-right:auto}.w-chat{max-width:860px;width:100%;margin-left:auto;margin-right:auto;border-left:1px solid ${T.border};border-right:1px solid ${T.border}}}@media (min-width:1280px){:root{--app-w:1200px}}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:var(--wm-cs,dark)}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}@keyframes entryslide{0%{transform:translateY(-34px) scale(.8);opacity:0}14%{transform:translateY(0) scale(1.08);opacity:1}22%{transform:scale(1)}85%{opacity:1}100%{transform:translateY(-8px);opacity:0}}`}</style>
       <div style={{background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid "+T.border,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:30}}>
         <div style={{display:"flex",alignItems:"center",gap:9}}>
           <div style={{width:30,height:30,borderRadius:9,background:T.brandGrad,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>💜</div>
@@ -4359,6 +4360,7 @@ export default function App(){
         </div>
         <div style={{display:"flex",alignItems:"center",gap:7}}>
           {!user.isGuest&&<button onClick={()=>setShopOpen(true)} style={{border:"1px solid rgba(245,158,11,.4)",background:"rgba(245,158,11,.12)",color:T.yellow,borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🛍️ ร้านค้า · 🪙 {(users[getUid()]&&users[getUid()].coins)||0}</button>}
+          {APP_MODE_ENABLED&&<button data-app-mode onClick={toggleAppMode} aria-label={appMode==="light"?"สลับเป็นโหมดมืด":"สลับเป็นโหมดสว่าง"} title={appMode==="light"?"โหมดมืด":"โหมดสว่าง"} style={{width:30,height:30,borderRadius:"50%",border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:15,lineHeight:1,padding:0,flexShrink:0,fontFamily:"inherit"}}>{appMode==="light"?"🌙":"☀️"}</button>}
           <Nm uid={getUid()} name={user.name} own style={{fontSize:13,color:T.sub,fontWeight:500}}/>
           {user.isGuest&&<span style={{fontSize:12,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 7px",fontWeight:700}}>Guest</span>}
         </div>

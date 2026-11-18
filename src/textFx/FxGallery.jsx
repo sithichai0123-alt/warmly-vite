@@ -5,7 +5,7 @@ import { FX, TIER_LABEL, KIND_LABEL, RARITY } from "./catalog.js";
 import { TEXTFX_MODES, useTextFxMode, setTextFxMode } from "./store.js";
 import TextFx from "./TextFx.jsx";
 
-const C = { card: "#221F33", surface: "#1A1825", border: "#2E2A45", borderHi: "#4F46A8", brand2: "#A78BFA", text: "#F0EEFF", sub: "#9B94C4", muted: "#8A84B0", green: "#10B981", yellow: "#F59E0B", purple: "#C084FC" };
+const C = { card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", green: "var(--success-color, #10B981)", yellow: "var(--warning-color, #F59E0B)", purple: "#C084FC" };
 const MODE_LABEL = { full: "เคลื่อนไหว", reduced: "ลดแอนิเมชัน", off: "ปิดเอฟเฟกต์" };
 // พื้นหลังจำลองธีมต่าง ๆ ของ Warmly (dark=1 พื้นเข้ม, 0 พื้นสว่าง)
 const BGS = [

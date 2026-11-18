@@ -12,7 +12,7 @@ const OFF = { enabled: false, busy: false, requestCall: () => ({ ok: false, reas
 const Ctx = createContext(OFF);
 export const useCall = () => useContext(Ctx);
 
-const C = { card: "#221F33", border: "#4F46A8", text: "#F0EEFF", sub: "#9B94C4", brand: "#7C6BF0", green: "#10B981", red: "#F43F5E" };
+const C = { card: "var(--panel-background, #221F33)", border: "var(--border-strong, #4F46A8)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", brand: "var(--primary-color, #7C6BF0)", green: "var(--success-color, #10B981)", red: "var(--danger-color, #F43F5E)" };
 const btn = (bg, extra) => ({ border: "none", background: bg, color: "#fff", borderRadius: 14, padding: "10px 20px", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", ...extra });
 
 export function CallProvider({ api, uid, myName, guest, nameOf, Name, isUserGuest, Avatar, blocked, lk, fetchFn, children }) {

@@ -2,7 +2,7 @@
 // ผลลัพธ์: { sx, sy, sw, sh } = สี่เหลี่ยมที่ครอปจากรูปต้นฉบับ (หน่วยพิกเซลของรูปต้นฉบับ) ตามสัดส่วน aspect
 import { useEffect, useRef, useState } from "react";
 
-const C = { card: "#221F33", surface: "#1A1825", borderHi: "#4F46A8", brand2: "#A78BFA", text: "#F0EEFF", muted: "#8A84B0", grad: "linear-gradient(135deg,#7C5CFC,#A78BFA)" };
+const C = { card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", muted: "var(--text-muted, #8A84B0)", grad: "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" };
 const MAX_ZOOM = 4;
 
 // ขนาดกรอบตามอุปกรณ์: มือถือเกือบเต็มจอ • แท็บเล็ตกลางๆ • คอมใหญ่ขึ้นแต่ไม่เกินความสูงจอ
