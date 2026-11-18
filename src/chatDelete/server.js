@@ -6,7 +6,8 @@
 //  - path ของแชทคำนวณฝั่งเซิร์ฟเวอร์จาก uid ที่ยืนยันแล้ว + peer เท่านั้น ไม่รับ path จากไคลเอนต์
 //  - ลบทีละข้อความ: ต้องเป็นข้อความของตัวเอง และห้ามลบข้อความของขวัญ (เกี่ยวกับเหรียญ)
 //  - ลบทั้งหมด: เฉพาะ dms/{pair}/messages ของคู่สนทนานี้ + เอกสาร dms/{pair} เท่านั้น
-//  - ไม่แตะ users / ledger / groupChat / แชทของคู่อื่น
+//  - ห้องแชทรวม (groupChat): ลบได้ทีละข้อความของตัวเองเท่านั้น (deleteGroupOne) — ไม่มี "ลบทั้งหมด" เพราะเป็นพื้นที่ส่วนรวม
+//  - ไม่แตะ users / ledger / แชทของคู่อื่น
 
 import { pairIdOf, validPeer, validMsgId, previewOf, MAX_BATCH, MAX_ROUNDS } from "./logic.js";
 export { pairIdOf, validPeer, MAX_BATCH, MAX_ROUNDS };
@@ -75,6 +76,19 @@ export async function deleteAll({ db }, { uid, peer }) {
   return { ok: true, deleted, conversationRemoved: hasDoc };
 }
 
+// ลบข้อความของตัวเอง 1 อันในห้องแชทรวม (groupChat) — ไม่มี path/peer ให้เลือก มีแค่ messageId
+export async function deleteGroupOne({ db }, { uid, messageId }) {
+  if (!validMsgId(messageId)) throw httpError(400, "ไม่ระบุข้อความ");
+  const mref = db.collection("groupChat").doc(messageId);
+  const sn = await mref.get();
+  if (!sn.exists) return { ok: true, deleted: 0, already: true }; // ลบไปแล้ว = สำเร็จ (idempotent)
+  const m = sn.data() || {};
+  if (m.uid !== uid) throw httpError(403, "ลบได้เฉพาะข้อความของตัวเอง");
+  if (m.gift) throw httpError(403, "ข้อความของขวัญลบไม่ได้");
+  await mref.delete();
+  return { ok: true, deleted: 1 };
+}
+
 export function makeHandler(getAdmin) {
   return async function handler(req, res) {
     res.setHeader("Cache-Control", "no-store");
@@ -84,15 +98,15 @@ export function makeHandler(getAdmin) {
       if (!m) return res.status(401).json({ error: "ต้องล็อกอินก่อน" });
       const body = req.body && typeof req.body === "object" ? req.body : {};
       const action = body.action;
-      if (action !== "deleteOne" && action !== "deleteAll") return res.status(400).json({ error: "คำสั่งไม่ถูกต้อง" });
+      if (action !== "deleteOne" && action !== "deleteAll" && action !== "deleteGroupOne") return res.status(400).json({ error: "คำสั่งไม่ถูกต้อง" });
 
       const admin = await getAdmin();
       let uid;
       try { uid = (await admin.auth.verifyIdToken(m[1])).uid; } catch (e) { return res.status(401).json({ error: "โทเคนไม่ถูกต้อง" }); }
 
-      const out = action === "deleteOne"
-        ? await deleteOne(admin, { uid, peer: body.peer, messageId: body.messageId })
-        : await deleteAll(admin, { uid, peer: body.peer });
+      const out = action === "deleteOne" ? await deleteOne(admin, { uid, peer: body.peer, messageId: body.messageId })
+        : action === "deleteAll" ? await deleteAll(admin, { uid, peer: body.peer })
+        : await deleteGroupOne(admin, { uid, messageId: body.messageId });
       return res.status(200).json(out);
     } catch (e) {
       const status = e && (e.code === 501 || e.status) ? (e.code === 501 ? 501 : e.status) : 500;
