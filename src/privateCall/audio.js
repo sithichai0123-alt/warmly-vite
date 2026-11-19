@@ -2,6 +2,7 @@
 //  - เสียงของสายใช้ attribute data-lk-call (ห้องเสียงหลักใช้ data-lk) จึงไม่ปนและไม่ถูกลบข้ามกัน
 //  - ไม่ผูกกับ React/Firebase: รับคลาส Room/RoomEvent/Track เข้ามา ทดสอบด้วยของปลอมได้
 import { TOKEN_ENDPOINT, REMOTE_LEFT_GRACE_MS } from "./config.js";
+import { audioRoute } from "../audioRoute/index.js"; // ส่งเสียงสายไปหูฟังบลูทูธเมื่อเชื่อมต่ออยู่
 
 export function createCallAudio({ Room, RoomEvent, Track, fetchFn, tokenEndpoint = TOKEN_ENDPOINT, onChange, onRemoteLeft, graceMs = REMOTE_LEFT_GRACE_MS, doc }) {
   const D = doc || (typeof document !== "undefined" ? document : null);
@@ -15,7 +16,7 @@ export function createCallAudio({ Room, RoomEvent, Track, fetchFn, tokenEndpoint
   async function disconnect() {
     clearGrace(); everRemote = false;
     const r = room; room = null;
-    if (r) { try { r.removeAllListeners(); r.disconnect(); } catch (e) { /* */ } }
+    if (r) { audioRoute.detach(r); try { r.removeAllListeners(); r.disconnect(); } catch (e) { /* */ } }
     wipeAudio();
     set({ connected: false, micOn: false, remoteJoined: false, needAudio: false });
   }
@@ -47,6 +48,7 @@ export function createCallAudio({ Room, RoomEvent, Track, fetchFn, tokenEndpoint
       if (room !== r) { r.disconnect(); return false; }
       if (r.remoteParticipants.size > 0) everRemote = true;
       set({ connected: true, error: "" });
+      audioRoute.attach(r);
       try { await r.startAudio(); } catch (e) { /* ต้องแตะเพื่อเปิดเสียง */ }
       set({ needAudio: !r.canPlaybackAudio });
       if (mic) await setMic(true);

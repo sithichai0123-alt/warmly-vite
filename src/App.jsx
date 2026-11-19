@@ -8,6 +8,7 @@ import { TextFx, FxGallery, FxSettings, MsgFxButton, makeTextFxApi, resolveTextF
 import { APP_MODE_ENABLED, useAppMode, ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { makeChatCleanup } from "./chatCleanup/index.js"; // ลบข้อความเก่าเกิน 100 ในแชทรวม/แชทห้องเสียง (แยกไฟล์ — ปิดได้ที่ chatCleanup/config.js)
 import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, createMicGainController, applyYtVolume, applyYtVolumeWhenReady, setMusicMuted } from "./audioControls/index.js"; // ปรับเสียงไมค์/เพลงแยกกัน (แยกไฟล์ — ปิดได้ที่ audioControls/config.js)
+import { audioRoute } from "./audioRoute/index.js"; // ส่งเสียงไปหูฟังบลูทูธเมื่อเชื่อมต่ออยู่ (ปิดได้ที่ audioRoute/config.js)
 import { ImageViewerProvider, useImageViewer } from "./imageViewer/index.js"; // ดูรูปเต็มจอ (แยกไฟล์ — ปิดได้ที่ imageViewer/config.js)
 import { PRESENCE_ENABLED, PRESENCE_WINDOW_ENABLED, useOnlineCount, DOT_MIN_SIZE, PresenceProvider, PresenceDot, PresenceText, makePresenceApi, usePresencePrefs, setPresencePrefs, useIsOnline, usePresenceStateOf } from "./presence/index.js"; // สถานะออนไลน์ จุดเขียว/เทา (แยกไฟล์ — ปิดได้ที่ presence/config.js)
 import { CHAT_DELETE_ENABLED, makeChatDeleteApi, makeClientFallback, MessageDeleteControl } from "./chatDelete/index.js"; // ลบข้อความแชทส่วนตัว (ทีละข้อความ/ทั้งหมด) ผ่าน Backend — ปิดได้ที่ chatDelete/config.js
@@ -1077,6 +1078,7 @@ function useVoice(){
     leftRef.current=true;pausedRef.current=false;setPaused(false);
     const room=roomRef.current; roomRef.current=null;
     if(micGainRef.current)micGainRef.current.unbind();
+    audioRoute.detach(room);
     if(room){try{room.removeAllListeners();room.disconnect();}catch(e){}}
     document.querySelectorAll("audio[data-lk]").forEach(el=>{try{el.srcObject=null;}catch(e){} el.remove();});
     setConnected(false);setSpeaking({});setMics({});setMicOn(false);setNeedAudio(false);
@@ -1106,7 +1108,7 @@ function useVoice(){
     room.on(RoomEvent.AudioPlaybackStatusChanged,()=>setNeedAudio(!room.canPlaybackAudio));
     [RoomEvent.TrackMuted,RoomEvent.TrackUnmuted,RoomEvent.ParticipantConnected,RoomEvent.ParticipantDisconnected,
      RoomEvent.LocalTrackPublished,RoomEvent.LocalTrackUnpublished,RoomEvent.TrackPublished].forEach(ev=>room.on(ev,refreshMics));
-    room.on(RoomEvent.Disconnected,()=>{if(roomRef.current===room){setConnected(false);setMicOn(false);setSpeaking({});}});
+    room.on(RoomEvent.Disconnected,()=>{audioRoute.detach(room);if(roomRef.current===room){setConnected(false);setMicOn(false);setSpeaking({});}});
 
     try{
       const url=`/api/token?room=${encodeURIComponent(roomId)}&identity=${encodeURIComponent(identity)}&name=${encodeURIComponent(name)}`;
@@ -1116,6 +1118,7 @@ function useVoice(){
       await room.connect(data.url,data.token);
       if(roomRef.current!==room){room.disconnect();return;}
       setConnected(true);
+      audioRoute.attach(room);
       try{await room.startAudio();}catch(e){}
       setNeedAudio(!room.canPlaybackAudio);
       try{
@@ -1156,6 +1159,7 @@ function useVoice(){
     if(pausedRef.current)return;
     const room=roomRef.current; roomRef.current=null;
     if(micGainRef.current)micGainRef.current.unbind();
+    audioRoute.detach(room);
     if(room){try{room.removeAllListeners();room.disconnect();}catch(e){}}
     document.querySelectorAll("audio[data-lk]").forEach(el=>{try{el.srcObject=null;}catch(e){} el.remove();});
     pausedRef.current=true;setPaused(true);
