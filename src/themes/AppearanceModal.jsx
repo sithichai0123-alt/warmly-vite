@@ -8,8 +8,8 @@ import { planBuyTheme } from "./wallet.js";
 import { useSectionTheme, setSectionTheme, useSharedBy } from "./store.js";
 import ThemeScope from "./ThemeScope.jsx";
 
-const C = { card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", green: "var(--success-color, #10B981)", red: "var(--danger-color, #F43F5E)", yellow: "var(--warning-color, #F59E0B)", purple: "#C084FC" };
-const btn = (primary, extra) => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 12, padding: "7px 13px", borderRadius: 10, cursor: "pointer", border: primary ? "none" : "1px solid " + C.borderHi, background: primary ? "linear-gradient(135deg,#7C5CFC,#A78BFA)" : "transparent", color: primary ? "#fff" : C.brand2, ...extra });
+const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", green: "var(--success-color, #10B981)", red: "var(--danger-color, #F43F5E)", yellow: "var(--warning-color, #F59E0B)", purple: "#C084FC" };
+const btn = (primary, extra) => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 12, padding: "7px 13px", borderRadius: 10, cursor: "pointer", border: primary ? "none" : "1px solid " + C.borderHi, background: primary ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: primary ? C.onBrand : C.brand2, ...extra });
 
 function Price({ t }) {
   if (!t.price) return <span style={{ color: C.green, fontWeight: 800 }}>ฟรี</span>;
@@ -43,19 +43,19 @@ function Mock({ id }) {
       <div style={{ background: v("--page-background", v("--app-background", "#0F0E17")), borderRadius: 14, padding: 12, border: "1px solid " + C.border, transition: "background .3s" }} data-mock={t.id}>
         <div style={{ background: panel, border: "1px solid " + border, borderRadius: 14, padding: 10, boxShadow: v("--card-shadow", "0 4px 24px rgba(0,0,0,.3)") }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: grad, color: "#fff", fontSize:12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>TO</div>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: grad, color: v("--on-primary", "#fff"), fontSize:12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>TO</div>
             <div><div style={{ fontSize: 12, fontWeight: 800, color: text }}>Toi</div><div style={{ fontSize:12, color: muted }}>เมื่อกี้</div></div>
             <div style={{ marginLeft: "auto", fontSize:12, fontWeight: 700, color: acc, border: "1px solid " + border, borderRadius: 20, padding: "1px 8px" }}>✦ สบายดี</div>
           </div>
           <div style={{ fontSize: 12, color: sub, margin: "8px 0", lineHeight: 1.5 }}>วันนี้อากาศดีจัง ใครอยู่ในห้องเสียงบ้าง 🌿</div>
           <div style={{ display: "flex", gap: 6 }}>
-            <span style={{ background: grad, color: "#fff", borderRadius: 10, padding: "5px 12px", fontSize:12, fontWeight: 700 }}>ถูกใจ</span>
+            <span style={{ background: grad, color: v("--on-primary", "#fff"), borderRadius: 10, padding: "5px 12px", fontSize:12, fontWeight: 700 }}>ถูกใจ</span>
             <span style={{ border: "1px solid " + border, color: sub, borderRadius: 10, padding: "5px 12px", fontSize:12, fontWeight: 600 }}>ความคิดเห็น</span>
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, margin: "10px 0" }}>
           <div style={{ alignSelf: "flex-start", background: v("--message-bubble", "#221F33"), border: "1px solid " + border, color: text, borderRadius: 14, padding: "6px 11px", fontSize: 12, maxWidth: "70%" }}>เข้ามาคุยกันหน่อยสิ</div>
-          <div style={{ alignSelf: "flex-end", background: grad, color: "#fff", borderRadius: 14, padding: "6px 11px", fontSize: 12, maxWidth: "70%" }}>ไปเลย กำลังเข้าห้อง 🎙️</div>
+          <div style={{ alignSelf: "flex-end", background: grad, color: v("--on-primary", "#fff"), borderRadius: 14, padding: "6px 11px", fontSize: 12, maxWidth: "70%" }}>ไปเลย กำลังเข้าห้อง 🎙️</div>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", background: panel, border: "1px solid " + border, borderRadius: 14, padding: "8px 10px" }}>
           {["A", "B", "C"].map((x, i) => (
@@ -167,7 +167,7 @@ export default function AppearanceModal({ me, user, onClose, api, startSection, 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 60, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "20px 12px" }}>
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, background: C.card, border: "1px solid " + C.borderHi, borderRadius: 20, overflow: "hidden", color: C.text }}>
-        <div style={{ padding: "16px 16px 12px", background: "linear-gradient(135deg,#7C5CFC33," + C.card + ")" }}>
+        <div style={{ padding: "16px 16px 12px", background: "linear-gradient(135deg,color-mix(in srgb,var(--primary-color,#7C5CFC) 20%,transparent)," + C.card + ")" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: 17, fontWeight: 800 }}>🎨 ธีมและการแสดงผล</div>
             <button onClick={onClose} aria-label="ปิด" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.4)", color: "#fff", cursor: "pointer", fontFamily: "inherit" }}>✕</button>

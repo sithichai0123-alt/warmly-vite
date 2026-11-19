@@ -46,7 +46,7 @@ export function RequestsPanel({ requests, free, max, T, avatar, onApprove, onDen
           {avatar(m)}
           <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 700, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name || "ผู้ใช้"}</div>
           <button data-approve onClick={() => onApprove(m)} disabled={free <= 0}
-            style={{ border: "none", background: free > 0 ? T.brandGrad : T.border, color: free > 0 ? "#fff" : T.muted, borderRadius: 16, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: free > 0 ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
+            style={{ border: "none", background: free > 0 ? T.brandGrad : T.border, color: free > 0 ? T.onBrand : T.muted, borderRadius: 16, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: free > 0 ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
             {free > 0 ? "อนุมัติ" : "เวทีเต็ม"}
           </button>
           <button data-deny onClick={() => onDeny(m)}

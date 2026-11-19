@@ -2,7 +2,7 @@
 // ผลลัพธ์: { sx, sy, sw, sh } = สี่เหลี่ยมที่ครอปจากรูปต้นฉบับ (หน่วยพิกเซลของรูปต้นฉบับ) ตามสัดส่วน aspect
 import { useEffect, useRef, useState } from "react";
 
-const C = { card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", muted: "var(--text-muted, #8A84B0)", grad: "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" };
+const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", muted: "var(--text-muted, #8A84B0)", grad: "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" };
 const MAX_ZOOM = 4;
 
 // ขนาดกรอบตามอุปกรณ์: มือถือเกือบเต็มจอ • แท็บเล็ตกลางๆ • คอมใหญ่ขึ้นแต่ไม่เกินความสูงจอ
@@ -81,7 +81,7 @@ export default function PhotoCropper({ file, index = 1, total = 1, aspect = 1, c
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
           <button type="button" onClick={onCancel} style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "1px solid " + C.borderHi, background: "transparent", color: C.brand2, fontFamily: "inherit", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>ข้ามรูปนี้</button>
-          <button type="button" onClick={confirm} disabled={!dim} style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: C.grad, color: "#fff", fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: dim ? 1 : .5 }}>ใช้รูปนี้</button>
+          <button type="button" onClick={confirm} disabled={!dim} style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: C.grad, color: C.onBrand, fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: dim ? 1 : .5 }}>ใช้รูปนี้</button>
         </div>
         <button type="button" onClick={() => onDone(null)} style={{ width: "100%", marginTop: 8, padding: "8px 0", border: "none", background: "transparent", color: C.muted, fontFamily: "inherit", fontSize: 13, cursor: "pointer" }}>ไม่ครอป ใช้ทั้งรูป</button>
       </div>

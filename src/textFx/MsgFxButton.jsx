@@ -6,7 +6,7 @@ import { canUseFx, resolveTextFx } from "./resolve.js";
 import { TEXTFX_ENABLED } from "./config.js";
 import TextFx from "./TextFx.jsx";
 
-const C = { card: "var(--panel-background, #221F33)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", green: "var(--success-color, #10B981)" };
+const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", green: "var(--success-color, #10B981)" };
 
 // value = รหัสไอเทมที่เลือกไว้ (null = ปกติ), onChange(id|null), me = เอกสารผู้ใช้ของตัวเอง (ไว้ตรวจว่าใช้อะไรได้)
 // inline = เมนูแสดงต่อท้ายแถวเดียวกัน (ในกล่องที่ตัดขอบ เช่นการ์ดโพสต์ — ใช้เมนูลอยไม่ได้) ต้องอยู่ในแถว flex ที่ flex-wrap
@@ -26,13 +26,13 @@ export default function MsgFxButton({ me, value, onChange, inline }) {
   return (
     <span ref={ref} style={inline ? { display: "contents" } : { position: "relative", flexShrink: 0 }}>
       <button type="button" data-msgfx-btn aria-label="เลือกสไตล์ข้อความ" onClick={() => setOpen(o => !o)}
-        style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid " + (on ? "transparent" : C.borderHi), background: on ? "linear-gradient(135deg,#7C5CFC,#A78BFA)" : "transparent", color: on ? "#fff" : C.brand2, cursor: "pointer", fontSize: 13, fontWeight: 800, flexShrink: 0, fontFamily: "inherit" }}>Aa</button>
+        style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid " + (on ? "transparent" : C.borderHi), background: on ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: on ? C.onBrand : C.brand2, cursor: "pointer", fontSize: 13, fontWeight: 800, flexShrink: 0, fontFamily: "inherit" }}>Aa</button>
       {open && (
         <div data-msgfx-pop style={{ ...(inline ? { order: 99, flexBasis: "100%", boxSizing: "border-box" } : { position: "absolute", bottom: 44, left: 0, width: 230, zIndex: 20, boxShadow: "0 8px 28px rgba(0,0,0,.5)" }), maxHeight: 240, overflowY: "auto", background: C.card, border: "1px solid " + C.borderHi, borderRadius: 14, padding: 6, color: C.text, "--wm-dark": 1 }}>
           <div style={{ fontSize:12, color: C.sub, padding: "2px 6px 6px" }}>สไตล์ของข้อความที่จะส่ง (จำไว้ใช้ต่อ จนกว่าจะกดเปลี่ยน)</div>
-          <div data-msgfx-opt="none" onClick={() => { onChange(null); setOpen(false); }} style={{ padding: "8px 8px", borderRadius: 9, cursor: "pointer", fontSize: 13, background: !on ? "#4F46A833" : "transparent" }}>ข้อความปกติ {!on && <b style={{ color: C.green, fontSize: 11 }}>● เลือกอยู่</b>}</div>
+          <div data-msgfx-opt="none" onClick={() => { onChange(null); setOpen(false); }} style={{ padding: "8px 8px", borderRadius: 9, cursor: "pointer", fontSize: 13, background: !on ? "color-mix(in srgb,var(--border-strong,#4F46A8) 25%,transparent)" : "transparent" }}>ข้อความปกติ {!on && <b style={{ color: C.green, fontSize: 11 }}>● เลือกอยู่</b>}</div>
           {list.map(t => (
-            <div key={t.id} data-msgfx-opt={t.id} onClick={() => { onChange(t.id); setOpen(false); }} style={{ padding: "8px 8px", borderRadius: 9, cursor: "pointer", background: value === t.id ? "#4F46A833" : "transparent" }}>
+            <div key={t.id} data-msgfx-opt={t.id} onClick={() => { onChange(t.id); setOpen(false); }} style={{ padding: "8px 8px", borderRadius: 9, cursor: "pointer", background: value === t.id ? "color-mix(in srgb,var(--border-strong,#4F46A8) 25%,transparent)" : "transparent" }}>
               <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.4 }}><TextFx fx={t.id} lite>ข้อความตัวอย่าง Hello</TextFx></div>
               <div style={{ fontSize:12, color: C.sub }}>{t.name}{saved === t.id ? " · ★ ที่ตั้งไว้" : ""}{value === t.id ? " · ● เลือกอยู่" : ""}</div>
             </div>

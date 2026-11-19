@@ -75,6 +75,8 @@ const T = {
   bg:"var(--app-background,#0F0E17)", surface:"var(--surface-background,#1A1825)", card:"var(--panel-background,#221F33)", border:"var(--border-color,#2E2A45)",
   borderHi:"var(--border-strong,#4F46A8)", brand:"var(--primary-color,#7C5CFC)", brand2:"var(--secondary-color,#A78BFA)",
   brandGrad:"var(--button-background,linear-gradient(135deg,#7C5CFC,#A78BFA))",
+  brandText:"var(--brand-text-gradient,var(--button-background,linear-gradient(135deg,#7C5CFC,#A78BFA)))", // ไล่สีสำหรับ "ตัวอักษร" (พื้นสว่างต้องเข้มกว่าสีปุ่ม)
+  onBrand:"var(--on-primary,#fff)", // สีตัวอักษรบนพื้นสีหลัก/ปุ่มหลัก (ม่วง=ขาว, ทอง=ดำเข้ม)
   text:"var(--text-primary,#F0EEFF)", sub:"var(--text-secondary,#9B94C4)", muted:"var(--text-muted,#5C5780)",
   green:"var(--success-color,#10B981)", red:"var(--danger-color,#F43F5E)", redBg:"var(--danger-background,rgba(244,63,94,.12))",
   yellow:"var(--warning-color,#F59E0B)", glass:"var(--glass-background,rgba(34,31,51,.8))",
@@ -82,6 +84,7 @@ const T = {
   brandA22:"var(--primary-a13,rgba(124,92,252,.133))", brandA33:"var(--primary-a20,rgba(124,92,252,.2))", brandA44:"var(--primary-a27,rgba(124,92,252,.267))",
   pageBg:"var(--page-background,transparent)", bubble:"var(--message-bubble,var(--panel-background,#221F33))", cardShadow:"var(--card-shadow,0 4px 24px rgba(0,0,0,.3))",
   brand2A22:"var(--secondary-a13,rgba(167,139,250,.133))", greenA33:"var(--success-a20,rgba(16,185,129,.2))", yellowA22:"var(--warning-a13,rgba(245,158,11,.133))",
+  brandMix:pct=>"color-mix(in srgb,var(--primary-color,#7C5CFC) "+pct+"%,transparent)", // สีหลักแบบโปร่งใส pct% (ใช้กับเงา/ไฮไลต์)
 };
 
 // ── Persistent local storage ──────────────────────────────
@@ -514,7 +517,7 @@ function Av({init,bg,tc,size=40,online,grad,isSelf,uid}){
   const frame = _u&&_u.frame&&FRAMES[_u.frame];
   const core = selfImg
     ? <img src={selfImg} alt={init} referrerPolicy="no-referrer" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",display:"block",border:"2px solid "+(grad?T.brand:T.border)}}/>
-    : <div style={{width:size,height:size,borderRadius:"50%",background:grad?T.brandGrad:(bg||T.card),color:grad?"#fff":(tc||T.brand2),display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.32,fontWeight:700,boxShadow:grad?"0 0 16px rgba(124,92,252,.5)":"none"}}>{init}</div>;
+    : <div style={{width:size,height:size,borderRadius:"50%",background:grad?T.brandGrad:(bg||T.card),color:grad?T.onBrand:(tc||T.brand2),display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.32,fontWeight:700,boxShadow:grad?"0 0 16px rgba(124,92,252,.5)":"none"}}>{init}</div>;
   return(<div style={{position:"relative",flexShrink:0}}>
     {frame
       ? (frame.conic
@@ -564,7 +567,7 @@ function FxMsg({uid,fx,children}){
 }
 
 function Btn({children,onClick,v="primary",sz="md",full,style={}}){
-  const variants={primary:{background:T.brandGrad,color:"#fff",border:"none",boxShadow:"0 4px 16px rgba(124,92,252,.35)"},ghost:{background:"transparent",color:T.sub,border:"1px solid "+T.border},outline:{background:"transparent",color:T.brand2,border:"1px solid "+T.borderHi},danger:{background:T.redBg,color:T.red,border:"1px solid rgba(244,63,94,.3)"}};
+  const variants={primary:{background:T.brandGrad,color:T.onBrand,border:"none",boxShadow:"0 4px 16px "+T.brandMix(35)},ghost:{background:"transparent",color:T.sub,border:"1px solid "+T.border},outline:{background:"transparent",color:T.brand2,border:"1px solid "+T.borderHi},danger:{background:T.redBg,color:T.red,border:"1px solid rgba(244,63,94,.3)"}};
   const sizes={sm:{padding:"6px 14px",borderRadius:10,fontSize:12},md:{padding:"9px 20px",borderRadius:12,fontSize:14},lg:{padding:"13px 28px",borderRadius:14,fontSize:15}};
   return(<button onClick={onClick} style={{fontFamily:"inherit",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,width:full?"100%":undefined,transition:"all .18s",...variants[v],...sizes[sz],...style}}>{children}</button>);
 }
@@ -683,7 +686,7 @@ function AuthPage({onLogin}){
     <div style={{minHeight:"100vh",background:T.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}}>
       <style>{`@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}} @keyframes mic-wave{0%{height:3px}100%{height:14px}}`}</style>
       <div style={{textAlign:"center",marginBottom:32}}>
-        <div style={{width:72,height:72,borderRadius:22,background:T.brandGrad,display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,margin:"0 auto 16px",boxShadow:"0 8px 32px rgba(124,92,252,.5)",animation:"float 3s ease-in-out infinite"}}>💜</div>
+        <div style={{width:72,height:72,borderRadius:22,background:T.brandGrad,display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,margin:"0 auto 16px",boxShadow:"0 8px 32px "+T.brandMix(50),animation:"float 3s ease-in-out infinite",color:T.onBrand,fontWeight:800}}>W</div>
         <div style={{fontSize:36,fontWeight:800,color:T.text,letterSpacing:-1}}>Warmly</div>
         <div style={{fontSize:15,color:T.sub,marginTop:8,lineHeight:1.6}}>พื้นที่อบอุ่น สำหรับทุกคน<br/>หาเพื่อน คุยเล่น ไม่เหงา</div>
       </div>
@@ -808,7 +811,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
             </div>
           </div>
           {AUDIO_CONTROLS_ENABLED&&playingHere&&<button data-music-mini-mute onClick={()=>setMusicMuted(!audioPrefs.musicMuted)} aria-label={audioPrefs.musicMuted?"เปิดเสียงเพลง":"ปิดเสียงเพลง"} style={{width:34,height:34,flexShrink:0,borderRadius:"50%",border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:15,fontFamily:"inherit"}}>{audioPrefs.musicMuted?"🔇":"🔊"}</button>}
-          <button data-music-mini-open onClick={onExpand} style={{flexShrink:0,border:"1px solid "+T.borderHi,background:music.needTap||!playingHere?T.brand:"transparent",color:music.needTap||!playingHere?"#fff":T.brand2,borderRadius:20,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{music.needTap?(music.tapReason==="autoplay"?"▶ ฟัง":"▶ ฟังต่อ"):!playingHere?"▶ ฟัง":"เปิดแผง"}</button>
+          <button data-music-mini-open onClick={onExpand} style={{flexShrink:0,border:"1px solid "+T.borderHi,background:music.needTap||!playingHere?T.brand:"transparent",color:music.needTap||!playingHere?T.onBrand:T.brand2,borderRadius:20,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{music.needTap?(music.tapReason==="autoplay"?"▶ ฟัง":"▶ ฟังต่อ"):!playingHere?"▶ ฟัง":"เปิดแผง"}</button>
         </div>
       )}
       {!collapsed&&<div style={{fontSize:13,fontWeight:700,color:T.brand2,marginBottom:12,display:"flex",alignItems:"center",gap:7}}>
@@ -1031,7 +1034,7 @@ function RoomChat({roomId,user,onGift}){
           disabled={!input.trim()}
           aria-label="ส่งข้อความ"
           style={{width:54,height:54,borderRadius:"50%",background:input.trim()?T.brandGrad:T.border,border:"none",cursor:input.trim()?"pointer":"default",fontFamily:"inherit",flexShrink:0,transition:"background .15s",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:input.trim()?"0 4px 14px rgba(124,92,252,.45)":"none"}}>
-          <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" style={{marginLeft:-2,marginTop:1,color:input.trim()?"#fff":T.muted}}><path d="M22 2 2 9l9 4 4 9z" fill="currentColor"/><path d="M22 2 11 13" stroke={input.trim()?"#6A47EE":T.border} strokeWidth="1.6" strokeLinecap="round"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" style={{marginLeft:-2,marginTop:1,color:input.trim()?T.onBrand:T.muted}}><path d="M22 2 2 9l9 4 4 9z" fill="currentColor"/><path d="M22 2 11 13" stroke={input.trim()?T.brand:T.border} strokeWidth="1.6" strokeLinecap="round"/></svg>
         </button>
       </div>
     </div>
@@ -2140,7 +2143,7 @@ function HomeStrip({onJoinRoom,onGo}){
         <button onClick={()=>setInv(!inv)} style={{...chip,padding:"5px 12px",color:T.brand2,borderColor:T.borderHi}}>➕ ชวนเพื่อน</button>
       </div>
       {inv&&<div style={{padding:"0 14px 10px",display:"flex",gap:8}}>
-        <button onClick={toLine} style={{...chip,flex:1,background:T.brandGrad,border:"none",color:"#fff"}}>ส่งทาง LINE</button>
+        <button onClick={toLine} style={{...chip,flex:1,background:T.brandGrad,border:"none",color:T.onBrand}}>ส่งทาง LINE</button>
         <button onClick={copy} style={{...chip,flex:1}}>{copied?"คัดลอกแล้ว ✓":"คัดลอกลิงก์"}</button>
       </div>}
       {rooms!==null&&<div style={{display:"flex",gap:8,overflowX:"auto",padding:"0 14px 12px"}}>
@@ -2307,7 +2310,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
           const ms=m.t&&m.t.toMillis?m.t.toMillis():0;
           const mfx=resolveMessageFx(users[m.uid],m.fx); // สไตล์ที่ผู้ส่งเลือก (ตรวจกับคลังของผู้ส่ง)
           return(
-            <div key={m.id} data-mid={m.id} style={{display:"flex",gap:8,alignItems:"flex-end",flexDirection:me?"row-reverse":"row",borderRadius:14,background:flashId===m.id?"rgba(124,92,252,.22)":"transparent",transition:"background .4s"}}>
+            <div key={m.id} data-mid={m.id} style={{display:"flex",gap:8,alignItems:"flex-end",flexDirection:me?"row-reverse":"row",borderRadius:14,background:flashId===m.id?T.brandMix(22):"transparent",transition:"background .4s"}}>
               {!me&&<div data-bubble-av onClick={()=>{
                 if(avatarGift&&!user.isGuest&&m.uid){setPickTarget({uid:m.uid,name:nm});return;} // ห้องรวม: รูป = ส่งของขวัญ (เหมือนเดิม)
                 if(m.uid&&openProfileFromBubble)openProfileFromBubble(m.uid);                    // แชทส่วนตัว: รูป = เปิดโปรไฟล์
@@ -2319,7 +2322,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
                   <div style={{fontSize:12,color:T.sub,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:220}}>{m.replyTo.text||(m.replyTo.img?"📷 รูปภาพ":"")}</div>
                 </div>}
                 {m.image&&<img src={m.image} alt="" onClick={viewer.enabled?()=>viewer.open([m.image],0):undefined} style={{maxWidth:"100%",cursor:viewer.enabled?"zoom-in":undefined,borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
-                {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?"#fff":T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={newestFirst?i>=3:i<vis.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text}</div>}
+                {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:14,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?T.onBrand:T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={newestFirst?i>=3:i<vis.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text}</div>}
                 <div style={{fontSize:12,color:T.muted,margin:"2px 4px 0",display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:me?"flex-end":"flex-start",gap:4}}><span>{fmtTime(ms)}</span>{!lock&&!String(m.id).startsWith("tmp-")&&<span data-reply-btn onClick={()=>startReply(m,nm)} style={{cursor:"pointer",fontWeight:600,color:T.sub,padding:"0 2px"}}>ตอบกลับ</span>}{onDeleteMessage&&me&&!String(m.id).startsWith("tmp-")&&<MessageDeleteControl onDelete={async()=>{await onDeleteMessage(m.id);setMsgs(prev=>prev.filter(x=>x.id!==m.id));}}/>}</div>
               </div>
             </div>
@@ -2352,7 +2355,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
           <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder}
             style={{flex:1,minWidth:0,border:"1px solid "+T.border,borderRadius:23,height:46,boxSizing:"border-box",padding:"0 14px",fontSize:15,color:T.text,background:T.card,outline:"none",fontFamily:"inherit"}}
             onFocus={e=>e.target.style.borderColor=T.borderHi} onBlur={e=>e.target.style.borderColor=T.border}/>
-          <button onClick={send} aria-label="ส่งข้อความ" style={{width:80,height:46,borderRadius:23,background:(input.trim()||img)?T.brandGrad:T.border,border:"none",cursor:(input.trim()||img)?"pointer":"default",color:(input.trim()||img)?"#fff":T.muted,flexShrink:0,fontSize:16,fontWeight:800,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:0,boxShadow:(input.trim()||img)?"0 4px 14px rgba(124,92,252,.45)":"none",transition:"background .15s"}}><span>ส่ง</span><svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 2 9l9 4 4 9z" fill="currentColor"/><path d="M22 2 11 13" stroke={(input.trim()||img)?"#6A47EE":T.border} strokeWidth="1.6" strokeLinecap="round"/></svg></button>
+          <button onClick={send} aria-label="ส่งข้อความ" style={{width:80,height:46,borderRadius:23,background:(input.trim()||img)?T.brandGrad:T.border,border:"none",cursor:(input.trim()||img)?"pointer":"default",color:(input.trim()||img)?T.onBrand:T.muted,flexShrink:0,fontSize:16,fontWeight:800,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:0,boxShadow:(input.trim()||img)?"0 4px 14px "+T.brandMix(45):"none",transition:"background .15s"}}><span>ส่ง</span><svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 2 9l9 4 4 9z" fill="currentColor"/><path d="M22 2 11 13" stroke={(input.trim()||img)?T.brand:T.border} strokeWidth="1.6" strokeLinecap="round"/></svg></button>
         </div>
       </div>}
       {giftOpen&&giftTo&&<GiftPicker user={user} to={giftTo} onClose={()=>setGiftOpen(false)}/>}
@@ -2592,8 +2595,8 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
         </div>
         <div style={{padding:"0 18px 20px",position:"relative"}}>
           <div data-avatar-btn style={{position:"absolute",top:-34,left:18,cursor:"pointer"}} onClick={()=>{ if(PROFILE_PHOTOS_ENABLED&&!user.isGuest)setPhotosOpen(true); else avatarRef.current.click(); }}>
-            {avatarImg?<div style={{width:68,height:68,borderRadius:"50%",overflow:"hidden",border:"4px solid "+T.bg,boxShadow:"0 4px 16px rgba(124,92,252,.4)"}}><img src={avatarImg} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>
-            :<div style={{width:68,height:68,borderRadius:"50%",background:T.brandGrad,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:700,border:"4px solid "+T.bg,boxShadow:"0 4px 16px rgba(124,92,252,.4)"}}>{user.init}</div>}
+            {avatarImg?<div style={{width:68,height:68,borderRadius:"50%",overflow:"hidden",border:"4px solid "+T.bg,boxShadow:"0 4px 16px "+T.brandMix(40)}}><img src={avatarImg} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>
+            :<div style={{width:68,height:68,borderRadius:"50%",background:T.brandGrad,color:T.onBrand,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:700,border:"4px solid "+T.bg,boxShadow:"0 4px 16px rgba(124,92,252,.4)"}}>{user.init}</div>}
             <input ref={avatarRef} type="file" accept="image/*" style={{display:"none"}} onChange={saveAvatar}/>
             {PROFILE_PHOTOS_ENABLED&&!user.isGuest&&<div style={{position:"absolute",right:-2,bottom:-2,width:24,height:24,borderRadius:"50%",background:T.brandGrad,border:"2px solid "+T.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>📸</div>}
           </div>
@@ -2619,7 +2622,7 @@ function ProfilePage({user,posts,onUpdateName,onAppearance}){
             <div style={{display:"flex",gap:28,marginTop:16,paddingTop:14,borderTop:"1px solid "+T.border}}>
               {[[FRIENDS_ENABLED&&!user.isGuest?String(friendsCtx.friends.length):"48","เพื่อน"],[String(myPosts.length),"โพสต์"],[String((_allUsers[getUid()]&&_allUsers[getUid()].giftCount)||0),"ของขวัญ"]].map(([n,l])=>(
                 <div key={l} style={{textAlign:"center"}}>
-                  <div style={{fontSize:19,fontWeight:800,background:T.brandGrad,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{n}</div>
+                  <div style={{fontSize:19,fontWeight:800,background:T.brandText,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{n}</div>
                   <div style={{fontSize:12,color:T.muted}}>{l}</div>
                 </div>
               ))}
@@ -4052,7 +4055,7 @@ function NamePrompt({user,onDone}){
     }
   }
   return(
-    <div style={{minHeight:"100dvh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
+    <div style={{minHeight:"100dvh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"'IBM Plex Sans Thai',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
       <div style={{width:"100%",maxWidth:360,background:T.surface,border:"1px solid "+T.borderHi,borderRadius:20,padding:"26px 22px",textAlign:"center"}}>
         <div style={{fontSize:34,marginBottom:8}}>👋</div>
         <div style={{fontSize:18,fontWeight:800,color:T.text}}>ตั้งชื่อที่ใช้แสดง</div>
@@ -4341,7 +4344,7 @@ export default function App(){
   }
 
   const notif=usePostNotifs(posts,user);
-  if(!authReady)return<div style={{minHeight:"100dvh",background:T.bg,color:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif"}}>💜 กำลังโหลด...</div>;
+  if(!authReady)return<div style={{minHeight:"100dvh",background:T.bg,color:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif"}}>กำลังโหลด...</div>;
   if(giftDemo)return<GiftShowDemo soundOn={demoSound} onToggleSound={()=>{const v=!demoSound;sfx.set(v);setDemoSound(v);if(v)sfx.preload();}} items={SHOW_DEMO_ITEMS} onPlay={playDemo} onClose={()=>{setDemoFx(null);setDemoEntry(null);setGiftDemo(false);}}><GiftFx fx={demoFx}/>{demoEntry&&<EntranceFx fx={demoEntry}/>}</GiftShowDemo>;
   if(!user)return<AuthPage onLogin={setUser}/>;
   if(user.needName)return<NamePrompt user={user} onDone={u=>{ls.set("user",u);setUser(u);}}/>;
@@ -4354,12 +4357,12 @@ export default function App(){
     <ImageViewerProvider>
     <ProfileCtx.Provider value={openProfile}>
     <SocialProviders user={user} onOpenFriends={()=>{setPage("chat");setChatTabReq("friends");}} onJoinRoom={r=>{setJoinReq(r);setPage("voice");}}>
-    <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",minHeight:"100dvh",background:T.bg,display:"flex",flexDirection:"column",maxWidth:"var(--app-w)",margin:"0 auto"}}>
+    <div style={{fontFamily:"'IBM Plex Sans Thai',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",minHeight:"100dvh",background:T.bg,display:"flex",flexDirection:"column",maxWidth:"var(--app-w)",margin:"0 auto"}}>
       <style>{`:root{--app-w:480px;--nav-w:480px}@media (min-width:900px){:root{--app-w:960px;--nav-w:720px}.w-room-list{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.w-narrow{max-width:760px;width:100%;margin-left:auto;margin-right:auto}.w-chat{max-width:860px;width:100%;margin-left:auto;margin-right:auto;border-left:1px solid ${T.border};border-right:1px solid ${T.border}}}@media (min-width:1280px){:root{--app-w:1200px}}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:var(--wm-cs,dark)}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}@keyframes entryslide{0%{transform:translateY(-34px) scale(.8);opacity:0}14%{transform:translateY(0) scale(1.08);opacity:1}22%{transform:scale(1)}85%{opacity:1}100%{transform:translateY(-8px);opacity:0}}`}</style>
       <div style={{background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid "+T.border,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:30}}>
         <div style={{display:"flex",alignItems:"center",gap:9}}>
-          <div style={{width:30,height:30,borderRadius:9,background:T.brandGrad,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>💜</div>
-          <span style={{fontSize:18,fontWeight:800,background:T.brandGrad,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:-.5}}>Warmly</span>
+          <div style={{width:30,height:30,borderRadius:9,background:T.brandGrad,color:T.onBrand,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:800}}>W</div>
+          <span style={{fontSize:18,fontWeight:800,background:T.brandText,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:-.5}}>Warmly</span>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:7}}>
           {!user.isGuest&&<button onClick={()=>setShopOpen(true)} style={{border:"1px solid rgba(245,158,11,.4)",background:"rgba(245,158,11,.12)",color:T.yellow,borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🛍️ ร้านค้า · 🪙 {(users[getUid()]&&users[getUid()].coins)||0}</button>}

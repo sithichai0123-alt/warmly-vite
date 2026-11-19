@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { inviteStates } from "./logic.js";
 
-const C = { card: "var(--panel-background, #221F33)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #6B648F)", brand: "var(--primary-color, #7C6BF0)", green: "var(--success-color, #10B981)" };
+const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #6B648F)", brand: "var(--primary-color, #7C6BF0)", green: "var(--success-color, #10B981)" };
 export const sentRegistry = new Map(); // `${roomId}:${uid}` → เวลาที่เชิญล่าสุด (อยู่ข้ามการปิด/เปิดหน้าต่าง)
 
 export default function InvitePanel({ roomId, roomName, friends, memberUids, Avatar, nameOf, Name, isOnline, onInvite, onClose }) {
@@ -43,7 +43,7 @@ export default function InvitePanel({ roomId, roomName, friends, memberUids, Ava
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{Name ? <Name uid={f.uid} /> : nameOf(f.uid)}</div>
                 </div>
-                <button type="button" data-invite-btn={s.state} disabled={dis} onClick={() => go(f.uid)} style={{ background: dis ? "transparent" : C.brand, color: dis ? C.sub : "#fff", borderRadius: 14, padding: "6px 13px", fontSize: 12, fontWeight: 700, cursor: dis ? "default" : "pointer", fontFamily: "inherit", border: dis ? "1px solid " + C.border : "none" }}>{label}</button>
+                <button type="button" data-invite-btn={s.state} disabled={dis} onClick={() => go(f.uid)} style={{ background: dis ? "transparent" : C.brand, color: dis ? C.sub : C.onBrand, borderRadius: 14, padding: "6px 13px", fontSize: 12, fontWeight: 700, cursor: dis ? "default" : "pointer", fontFamily: "inherit", border: dis ? "1px solid " + C.border : "none" }}>{label}</button>
               </div>
             );
           })}

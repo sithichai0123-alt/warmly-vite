@@ -8,7 +8,7 @@ export default function RoomActions({ items, T }) {
   const list = (items || []).filter(x => x && x.show !== false);
   const cols = gridColumns(list.length);
   const tone = t => {
-    if (t === "primary") return { background: T.brandGrad, border: "1px solid transparent", color: "#fff", boxShadow: "0 2px 10px rgba(124,92,252,.3)" };
+    if (t === "primary") return { background: T.brandGrad, border: "1px solid transparent", color: T.onBrand, boxShadow: "0 2px 10px " + T.brandMix(30) };
     if (t === "warn") return { background: T.redBg, border: "1px solid " + T.red, color: T.red };
     if (t === "on") return { background: T.brandA33, border: "1px solid " + T.brand, color: T.brand2 };
     return { background: "transparent", border: "1px solid " + T.border, color: T.sub };

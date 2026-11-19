@@ -16,7 +16,7 @@ export const VAR_KEYS = [
   "--text-primary", "--text-secondary", "--text-muted",
   "--success-color", "--danger-color", "--danger-background", "--warning-color", "--glass-background",
   // ใช้ในเฟส 2 (พื้นหลังห้อง/ฟองข้อความ/สีเน้น)
-  "--page-background", "--message-bubble", "--card-shadow", "--accent-color",
+  "--page-background", "--message-bubble", "--card-shadow", "--accent-color", "--on-primary", "--brand-text-gradient",
 ];
 
 // สีโปร่งใสที่โค้ดเดิมต่อสตริง (เช่น T.brand+"22") — คำนวณจากสีของธีมให้อัตโนมัติ
@@ -45,8 +45,18 @@ export const RARITY_T = {
 const GLOW = (c, a1, a2, base, x1 = "50%", y1 = "-8%") => "radial-gradient(700px 420px at " + x1 + " " + y1 + ",rgba(" + c + "," + a1 + "),transparent 65%)" + (a2 ? ",radial-gradient(520px 380px at 0% 100%,rgba(" + c + "," + a2 + "),transparent 62%)" : "") + "," + base;
 
 export const THEMES = [
-  { id: "dark", name: "Premium Dark", th: "ม่วงเข้มพรีเมียม (ค่าเริ่มต้นของ Warmly)", cur: null, price: 0, rarity: "free", scheme: "dark", vars: null,
-    preview: ["#0F0E17", "#221F33", "#7C5CFC"] },
+  { id: "dark", name: "Midnight", th: "ดำเทามืออาชีพ สีทองอำพัน (ค่าเริ่มต้นของ Warmly)", cur: null, price: 0, rarity: "free", scheme: "dark", vars: null,
+    preview: ["#0A0B0D", "#14171B", "#E8B64C"] },
+
+  { id: "classic", name: "Classic Violet", th: "ม่วงเข้มคลาสสิก (ลุคเดิมของ Warmly)", cur: null, price: 0, rarity: "free", scheme: "dark",
+    preview: ["#0F0E17", "#221F33", "#7C5CFC"],
+    vars: {
+      "--app-background": "#0F0E17", "--surface-background": "#1A1825", "--panel-background": "#221F33", "--border-color": "#2E2A45", "--border-strong": "#4F46A8",
+      "--primary-color": "#7C5CFC", "--secondary-color": "#A78BFA", "--button-background": "linear-gradient(135deg,#7C5CFC,#A78BFA)",
+      "--text-primary": "#F0EEFF", "--text-secondary": "#9B94C4", "--text-muted": "#5C5780",
+      "--success-color": "#10B981", "--danger-color": "#F43F5E", "--danger-background": "rgba(244,63,94,.12)", "--warning-color": "#F59E0B", "--glass-background": "rgba(34,31,51,.8)",
+      "--page-background": "transparent", "--message-bubble": "#221F33", "--card-shadow": "0 4px 24px rgba(0,0,0,.3)", "--accent-color": "#A78BFA",
+    } },
 
   { id: "cozy", name: "Warm & Cozy", th: "อบอุ่นสบายตา โทนส้มน้ำตาลนุ่ม ๆ", cur: null, price: 0, rarity: "free", scheme: "dark",
     preview: ["#1B1310", "#2F211A", "#E8803A"],
@@ -150,6 +160,8 @@ export function themeStyleVars(theme, section) {
     const rgb = hexToRgb(v[src]);
     if (rgb) out[name] = "rgba(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + "," + a + ")";
   });
+  out["--brand-text-gradient"] = v["--brand-text-gradient"] || v["--button-background"] || "initial"; // ธีมเสริมใช้ไล่สีปุ่มเป็นไล่สีตัวอักษรเหมือนเดิม
+  out["--on-primary"] = v["--on-primary"] || "#fff"; // ธีมเสริมทุกตัวใช้ปุ่มสีเข้ม ตัวอักษรขาว (ค่าเริ่มต้นของแอปเป็นทอง ตัวอักษรดำเข้ม)
   out["--wm-dark"] = theme.scheme === "light" ? "0" : "1"; // บอกโทนสว่าง/มืดของหน้านี้ ให้เอฟเฟกต์ตัวอักษร (textFx) เลือกโทนสีที่อ่านชัด
   return out;
 }

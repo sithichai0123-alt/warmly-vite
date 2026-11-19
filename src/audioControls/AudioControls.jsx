@@ -4,8 +4,8 @@ import { useAudioPrefs, setMicGain, setMusicVolume, setMusicMuted, useMicStatus 
 import { MIC_GAIN_MAX } from "./config.js";
 import { isIOS } from "./ytVolume.js";
 
-const C = { card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", yellow: "var(--warning-color, #F59E0B)" };
-const range = { width: "100%", accentColor: "#A78BFA", height: 28, cursor: "pointer" };
+const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", yellow: "var(--warning-color, #F59E0B)" };
+const range = { width: "100%", accentColor: "var(--secondary-color,#A78BFA)", height: 28, cursor: "pointer" };
 
 export default function AudioControls({ micOn, onToggleMic, connected, hasMusic }) {
   const p = useAudioPrefs();
@@ -21,7 +21,7 @@ export default function AudioControls({ micOn, onToggleMic, connected, hasMusic 
           <label htmlFor="wm-mic-vol" style={{ fontSize: 12, fontWeight: 700, color: C.sub }}>🎙️ ไมค์ของฉัน {micPct}%</label>
           <div style={{ display: "flex", gap: 6 }}>
             {micPct !== 100 && <button type="button" data-ac-mic-reset onClick={() => setMicGain(1)} style={{ fontFamily: "inherit", fontSize:12, padding: "3px 9px", borderRadius: 8, border: "1px solid " + C.borderHi, background: "transparent", color: C.brand2, cursor: "pointer" }}>↺ 100%</button>}
-            <button type="button" data-ac-mic-toggle onClick={onToggleMic} disabled={!connected} style={{ fontFamily: "inherit", fontSize:12, fontWeight: 700, padding: "3px 10px", borderRadius: 8, border: "none", background: micOn ? "linear-gradient(135deg,#7C5CFC,#A78BFA)" : "#3A3555", color: "#fff", cursor: connected ? "pointer" : "default", opacity: connected ? 1 : 0.5 }}>{micOn ? "🎙️ ไมค์เปิด" : "🔇 ไมค์ปิด"}</button>
+            <button type="button" data-ac-mic-toggle onClick={onToggleMic} disabled={!connected} style={{ fontFamily: "inherit", fontSize:12, fontWeight: 700, padding: "3px 10px", borderRadius: 8, border: "none", background: micOn ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "#3A3555", color: micOn ? C.onBrand : "#fff", cursor: connected ? "pointer" : "default", opacity: connected ? 1 : 0.5 }}>{micOn ? "🎙️ ไมค์เปิด" : "🔇 ไมค์ปิด"}</button>
           </div>
         </div>
         <input id="wm-mic-vol" data-ac-mic type="range" min="0" max={Math.round(MIC_GAIN_MAX * 100)} step="5" value={micPct} onChange={e => setMicGain(Number(e.target.value) / 100)} style={range} aria-label="ระดับเสียงไมค์" />

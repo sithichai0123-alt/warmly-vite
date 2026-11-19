@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { AURAS, AURA_BY_ID, RARITY, ownsAura } from "./catalog.js";
 import { VoiceAura, useAuraMode } from "./effects.jsx";
 
-const C = { bg: "var(--app-background, #0F0E17)", card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand: "var(--primary-color, #7C5CFC)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #5C5780)", green: "var(--success-color, #10B981)", red: "var(--danger-color, #F43F5E)", yellow: "var(--warning-color, #F59E0B)", purple: "#C084FC" };
-const btn = (primary, extra) => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 12, padding: "7px 13px", borderRadius: 10, cursor: "pointer", border: primary ? "none" : "1px solid " + C.borderHi, background: primary ? "linear-gradient(135deg,#7C5CFC,#A78BFA)" : "transparent", color: primary ? "#fff" : C.brand2, ...extra });
+const C = { onBrand: "var(--on-primary, #fff)", bg: "var(--app-background, #0F0E17)", card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand: "var(--primary-color, #7C5CFC)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #5C5780)", green: "var(--success-color, #10B981)", red: "var(--danger-color, #F43F5E)", yellow: "var(--warning-color, #F59E0B)", purple: "#C084FC" };
+const btn = (primary, extra) => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 12, padding: "7px 13px", borderRadius: 10, cursor: "pointer", border: primary ? "none" : "1px solid " + C.borderHi, background: primary ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: primary ? C.onBrand : C.brand2, ...extra });
 
 function PCoin({ size = 13 }) {
   return <span style={{ display: "inline-block", width: size, height: size, borderRadius: "50%", background: "radial-gradient(circle at 30% 30%,#F3E8FF,#A855F7 55%,#6B21A8)", boxShadow: "0 0 6px rgba(168,85,247,.7)", verticalAlign: "-2px" }} />;
@@ -27,7 +27,7 @@ function MiniAvatar({ me, user, size }) {
   const init = (user && user.init) || "ME";
   const inner = img
     ? <img src={img} alt="" referrerPolicy="no-referrer" style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", display: "block" }} />
-    : <div style={{ width: size, height: size, borderRadius: "50%", background: "linear-gradient(135deg,#7C5CFC,#A78BFA)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: size * 0.32 }}>{init}</div>;
+    : <div style={{ width: size, height: size, borderRadius: "50%", background: "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))", color: C.onBrand, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: size * 0.32 }}>{init}</div>;
   return <div style={{ padding: 3, borderRadius: "50%", border: "2.5px solid " + C.border }}>{inner}</div>;
 }
 
@@ -100,7 +100,7 @@ export default function AuraShop({ me, user, onClose, api }) {
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 60, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "20px 12px" }}>
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, background: C.card, border: "1px solid " + C.borderHi, borderRadius: 20, overflow: "hidden", color: C.text }}>
-        <div style={{ padding: "16px 16px 12px", background: "linear-gradient(135deg,#7C5CFC33," + C.card + ")" }}>
+        <div style={{ padding: "16px 16px 12px", background: "linear-gradient(135deg,color-mix(in srgb,var(--primary-color,#7C5CFC) 20%,transparent)," + C.card + ")" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: 17, fontWeight: 800 }}>✨ Voice Aura</div>
             <button onClick={onClose} aria-label="ปิด" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.4)", color: "#fff", cursor: "pointer", fontFamily: "inherit" }}>✕</button>
