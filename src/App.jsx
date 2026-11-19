@@ -1738,9 +1738,13 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                 {inRoomId===r.id?<Btn onClick={leave} v="danger" sz="sm">ออก</Btn>:<Btn onClick={()=>join(r)} v="primary" sz="sm">เข้าร่วม</Btn>}
               </div>
               <div style={{display:"flex"}}>
+                {/* รูปโปรไฟล์ของคนที่อยู่ในห้อง (ไม่มีรูป = ตัวอักษรย่อ) */}
                 {(r.members||[]).slice(0,7).map((m,i)=>(
-                  <div key={i} style={{width:28,height:28,borderRadius:"50%",background:T.card,color:T.brand2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,border:"2px solid "+T.bg,marginLeft:i>0?-8:0}}>{m.init}</div>
+                  <div key={m.uid||i} title={(m.uid&&_users[m.uid]&&_users[m.uid].name)||m.name||""} style={{marginLeft:i>0?-8:0,borderRadius:"50%",boxShadow:"0 0 0 2px "+T.bg,position:"relative",zIndex:10-i}}>
+                    <Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={32}/>
+                  </div>
                 ))}
+                {(r.members||[]).length>7&&<div style={{marginLeft:-8,width:32,height:32,borderRadius:"50%",background:T.card,color:T.sub,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,boxShadow:"0 0 0 2px "+T.bg,zIndex:0}}>+{(r.members||[]).length-7}</div>}
               </div>
             </div>
           </Card>
