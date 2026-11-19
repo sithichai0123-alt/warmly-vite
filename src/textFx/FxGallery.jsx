@@ -16,7 +16,7 @@ const BGS = [
 ];
 const SAMPLES = ["สวัสดี Warmly 💜", "ชื่อยาวมาก ๆ ภาษาไทยอ่านได้ไหม"];
 
-const pill = on => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 12, padding: "6px 12px", borderRadius: 20, cursor: "pointer", border: "1px solid " + (on ? "transparent" : C.borderHi), background: on ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: on ? C.onBrand : C.brand2 });
+const pill = on => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 13, padding: "6px 12px", borderRadius: 20, cursor: "pointer", border: "1px solid " + (on ? "transparent" : C.borderHi), background: on ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: on ? C.onBrand : C.brand2 });
 
 export default function FxGallery({ onClose }) {
   const mode = useTextFxMode();
@@ -28,31 +28,31 @@ export default function FxGallery({ onClose }) {
         <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(135deg,color-mix(in srgb,var(--primary-color,#7C5CFC) 20%,transparent)," + C.card + ")" }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 800 }}>🔤 ตัวอย่างฟอนต์และเอฟเฟกต์ตัวอักษร</div>
-            <div style={{ fontSize:12, color: C.sub, marginTop: 3 }}>หน้าดูตัวอย่างเท่านั้น (ยังไม่เปิดขาย) — เทียบ ฟรี / ทอง / ม่วง</div>
+            <div style={{ fontSize:13, color: C.sub, marginTop: 3 }}>หน้าดูตัวอย่างเท่านั้น (ยังไม่เปิดขาย) — เทียบ ฟรี / ทอง / ม่วง</div>
           </div>
           <button onClick={onClose} aria-label="ปิด" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.4)", color: "#fff", cursor: "pointer", fontFamily: "inherit" }}>✕</button>
         </div>
         <div style={{ padding: "10px 14px 4px" }}>
-          <div style={{ fontSize:12, color: C.sub, marginBottom: 5, fontWeight: 700 }}>การเคลื่อนไหว</div>
+          <div style={{ fontSize:13, color: C.sub, marginBottom: 5, fontWeight: 700 }}>การเคลื่อนไหว</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{TEXTFX_MODES.map(m => <button key={m} onClick={() => setTextFxMode(m)} style={pill(mode === m)}>{MODE_LABEL[m]}</button>)}</div>
-          <div style={{ fontSize:12, color: C.sub, margin: "10px 0 5px", fontWeight: 700 }}>พื้นหลังทดสอบ (จำลองธีม)</div>
+          <div style={{ fontSize:13, color: C.sub, margin: "10px 0 5px", fontWeight: 700 }}>พื้นหลังทดสอบ (จำลองธีม)</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{BGS.map(b => <button key={b.id} onClick={() => setBgId(b.id)} style={pill(bgId === b.id)}>{b.label}</button>)}</div>
         </div>
         {["free", "gold", "purple"].map(tier => (
           <div key={tier} style={{ padding: "12px 14px 4px" }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: tier === "gold" ? C.yellow : tier === "purple" ? C.purple : C.green, marginBottom: 6 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: tier === "gold" ? C.yellow : tier === "purple" ? C.purple : C.green, marginBottom: 6 }}>
               {tier === "free" ? "🆓 " : tier === "gold" ? "🪙 " : "💜 "}ระดับ{TIER_LABEL[tier]}
             </div>
             {FX.filter(t => t.tier === tier).map(t => (
               <div key={t.id} data-fx-row={t.id} style={{ marginBottom: 10, border: "1px solid " + C.border, borderRadius: 14, overflow: "hidden" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 11px", background: C.card, fontSize: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 11px", background: C.card, fontSize: 13 }}>
                   <span style={{ fontWeight: 800 }}>{t.name} <span style={{ color: C.muted, fontWeight: 600 }}>· {KIND_LABEL[t.kind]} · {RARITY[t.rarity]}</span></span>
                   <span style={{ fontWeight: 800, color: t.cur === "gold" ? C.yellow : t.cur === "purple" ? C.purple : C.green }}>{t.cur === "gold" ? "🪙 " + t.price.toLocaleString() : t.cur === "purple" ? "💜 " + t.price : "ฟรี"}</span>
                 </div>
                 <div style={{ padding: "10px 12px", background: bg.bg, color: bg.fg, "--wm-dark": bg.dark }}>
                   <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.35 }}><TextFx fx={t.id}>{SAMPLES[0]}</TextFx></div>
-                  <div style={{ fontSize: 14, marginTop: 2, lineHeight: 1.5 }}><TextFx fx={t.id}>{SAMPLES[1]}</TextFx></div>
-                  <div style={{ fontSize:12, opacity: 0.7, marginTop: 4 }}>{t.th}</div>
+                  <div style={{ fontSize: 15, marginTop: 2, lineHeight: 1.5 }}><TextFx fx={t.id}>{SAMPLES[1]}</TextFx></div>
+                  <div style={{ fontSize:13, opacity: 0.7, marginTop: 4 }}>{t.th}</div>
                 </div>
               </div>
             ))}

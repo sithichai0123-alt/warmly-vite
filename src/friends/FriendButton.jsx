@@ -22,13 +22,13 @@ export default function FriendButton({ uid, name, Btn, hidden }) {
       </>}
       {rel === "friends" && !confirm && <Btn onClick={() => setConfirm(true)} v="ghost" sz="sm"><span data-fr-friends>✅ เป็นเพื่อนกัน</span></Btn>}
       {rel === "friends" && confirm && (
-        <span data-fr-confirm style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 12 }}>
+        <span data-fr-confirm style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13 }}>
           <span>เลิกเป็นเพื่อนกับ {name || "คนนี้"}?</span>
           <Btn onClick={() => run(() => f.remove(uid))} v="danger" sz="sm"><span data-fr-remove-yes>เลิก</span></Btn>
           <Btn onClick={() => setConfirm(false)} v="ghost" sz="sm">ยกเลิก</Btn>
         </span>
       )}
-      {err && <div data-fr-err style={{ flexBasis: "100%", fontSize:12, color: "#F59E0B" }}>⚠️ {err}</div>}
+      {err && <div data-fr-err style={{ flexBasis: "100%", fontSize:13, color: "#F59E0B" }}>⚠️ {err}</div>}
     </>
   );
 }

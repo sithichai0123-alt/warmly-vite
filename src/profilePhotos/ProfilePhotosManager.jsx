@@ -7,7 +7,7 @@ import PhotoCropper from "./PhotoCropper.jsx";
 import { emptyState, planAdd, planRemove, planSetMain, mainOf, ordered } from "./photos.js";
 
 const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", yellow: "var(--warning-color, #F59E0B)", red: "var(--danger-color, #F87171)", grad: "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" };
-const btn = (extra) => ({ fontFamily: "inherit", fontSize:12, fontWeight: 700, padding: "5px 9px", borderRadius: 8, border: "1px solid " + C.borderHi, background: "transparent", color: C.brand2, cursor: "pointer", ...extra });
+const btn = (extra) => ({ fontFamily: "inherit", fontSize:13, fontWeight: 700, padding: "5px 9px", borderRadius: 8, border: "1px solid " + C.borderHi, background: "transparent", color: C.brand2, cursor: "pointer", ...extra });
 
 export default function ProfilePhotosManager({ uid, api, legacyAvatar, onMainChange, onOpen, onClose }) {
   const [state, setState] = useState(emptyState());
@@ -82,17 +82,17 @@ export default function ProfilePhotosManager({ uid, api, legacyAvatar, onMainCha
     <div data-photos-manager onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.72)", zIndex: 80, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "20px 12px" }}>
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, background: C.card, border: "1px solid " + C.borderHi, borderRadius: 20, padding: 16, color: C.text }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontSize: 16, fontWeight: 800 }}>📸 รูปโปรไฟล์ของฉัน <span data-photos-count style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>{list.length}/{MAX_PHOTOS}</span></div>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>📸 รูปโปรไฟล์ของฉัน <span data-photos-count style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>{list.length}/{MAX_PHOTOS}</span></div>
           <button type="button" data-photos-close onClick={onClose} style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(255,255,255,.1)", color: "#fff", cursor: "pointer", fontFamily: "inherit" }}>✕</button>
         </div>
-        <div style={{ fontSize: 12, color: C.muted, margin: "4px 0 12px" }}>เพิ่มได้สูงสุด {MAX_PHOTOS} รูป • รูปหลัก (⭐) คือรูปที่ทุกคนเห็นทั่วแอป • รองรับ JPG, PNG, WebP, GIF ไม่เกิน 10 MB</div>
+        <div style={{ fontSize: 13, color: C.muted, margin: "4px 0 12px" }}>เพิ่มได้สูงสุด {MAX_PHOTOS} รูป • รูปหลัก (⭐) คือรูปที่ทุกคนเห็นทั่วแอป • รองรับ JPG, PNG, WebP, GIF ไม่เกิน 10 MB</div>
 
-        {!loaded && <div style={{ fontSize: 13, color: C.muted, padding: "20px 0", textAlign: "center" }}>กำลังโหลด...</div>}
+        {!loaded && <div style={{ fontSize: 14, color: C.muted, padding: "20px 0", textAlign: "center" }}>กำลังโหลด...</div>}
 
         {loaded && list.length === 0 && legacyAvatar && (
           <div style={{ display: "flex", gap: 10, alignItems: "center", background: C.surface, border: "1px solid " + C.border, borderRadius: 12, padding: 10, marginBottom: 10 }}>
             <img src={legacyAvatar} alt="" style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover" }} />
-            <div style={{ fontSize: 12, color: C.sub }}>รูปโปรไฟล์ปัจจุบันของคุณ — เมื่อเพิ่มรูปด้านล่าง รูปแรกจะกลายเป็นรูปหลักแทนรูปนี้</div>
+            <div style={{ fontSize: 13, color: C.sub }}>รูปโปรไฟล์ปัจจุบันของคุณ — เมื่อเพิ่มรูปด้านล่าง รูปแรกจะกลายเป็นรูปหลักแทนรูปนี้</div>
           </div>
         )}
 
@@ -104,7 +104,7 @@ export default function ProfilePhotosManager({ uid, api, legacyAvatar, onMainCha
                 <div key={p.id} data-photo={p.id} data-main={isMain ? "1" : "0"} style={{ background: C.surface, border: "2px solid " + (isMain ? C.brand2 : C.border), borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column", minWidth: 0 }}>
                   <div style={{ position: "relative", aspectRatio: "1/1", cursor: onOpen ? "zoom-in" : "default" }} onClick={() => onOpen && onOpen(srcs, srcs.indexOf(p.src))}>
                     <img src={p.src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                    {isMain && <span style={{ position: "absolute", top: 4, left: 4, fontSize:12, fontWeight: 800, background: C.grad, color: C.onBrand, borderRadius: 8, padding: "2px 6px" }}>⭐ รูปหลัก</span>}
+                    {isMain && <span style={{ position: "absolute", top: 4, left: 4, fontSize:13, fontWeight: 800, background: C.grad, color: C.onBrand, borderRadius: 8, padding: "2px 6px" }}>⭐ รูปหลัก</span>}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: 5 }}>
                     {!isMain && <button type="button" data-photo-setmain onClick={() => setMain(p.id)} disabled={busy} style={btn({ opacity: busy ? .5 : 1 })}>ตั้งเป็นรูปหลัก</button>}
@@ -116,16 +116,16 @@ export default function ProfilePhotosManager({ uid, api, legacyAvatar, onMainCha
               );
             })}
             {!full && (
-              <button type="button" data-photo-add onClick={() => fileRef.current && fileRef.current.click()} disabled={busy} style={{ aspectRatio: "1/1", borderRadius: 12, border: "2px dashed " + C.borderHi, background: "transparent", color: C.brand2, cursor: busy ? "default" : "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, opacity: busy ? .6 : 1 }}>
+              <button type="button" data-photo-add onClick={() => fileRef.current && fileRef.current.click()} disabled={busy} style={{ aspectRatio: "1/1", borderRadius: 12, border: "2px dashed " + C.borderHi, background: "transparent", color: C.brand2, cursor: busy ? "default" : "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, opacity: busy ? .6 : 1 }}>
                 <span style={{ fontSize: 26, lineHeight: 1 }}>{busy ? "⏳" : "＋"}</span>{busy ? "กำลังอัปโหลด..." : "เพิ่มรูป"}
               </button>
             )}
           </div>
         )}
-        {full && <div data-photos-full style={{ fontSize: 12, color: C.yellow, marginTop: 8 }}>ครบ {MAX_PHOTOS} รูปแล้ว — ลบรูปเดิมก่อนถึงจะเพิ่มรูปใหม่ได้</div>}
+        {full && <div data-photos-full style={{ fontSize: 13, color: C.yellow, marginTop: 8 }}>ครบ {MAX_PHOTOS} รูปแล้ว — ลบรูปเดิมก่อนถึงจะเพิ่มรูปใหม่ได้</div>}
         <input ref={fileRef} data-photos-input type="file" multiple accept={ALLOWED_TYPES.join(",")} style={{ display: "none" }} onChange={onPick} />
         {cropJob && <PhotoCropper file={cropJob.file} index={cropJob.index} total={cropJob.total} onDone={c => { cropJob.resolve(c); setCropJob(null); }} onCancel={() => { cropJob.resolve("skip"); setCropJob(null); }} />}
-        {msgs.length > 0 && <div data-photos-msgs style={{ marginTop: 10, fontSize: 12, color: C.yellow, display: "flex", flexDirection: "column", gap: 3 }}>{msgs.map((m, i) => <div key={i}>⚠️ {m}</div>)}</div>}
+        {msgs.length > 0 && <div data-photos-msgs style={{ marginTop: 10, fontSize: 13, color: C.yellow, display: "flex", flexDirection: "column", gap: 3 }}>{msgs.map((m, i) => <div key={i}>⚠️ {m}</div>)}</div>}
       </div>
     </div>
   );

@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useFriends } from "./hooks.jsx";
 
 const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", border: "var(--border-color, #2E2A45)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #6B648F)", brand: "var(--primary-color, #7C6BF0)", brand2: "var(--secondary-color, #A78BFA)", red: "var(--danger-color, #F87171)" };
-const pill = (p) => ({ border: p ? "none" : "1px solid " + C.border, background: p ? C.brand : "transparent", color: p ? C.onBrand : C.sub, borderRadius: 14, padding: "5px 11px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
-const head = { fontSize: 13, fontWeight: 700, color: C.sub, margin: "14px 0 8px" };
+const pill = (p) => ({ border: p ? "none" : "1px solid " + C.border, background: p ? C.brand : "transparent", color: p ? C.onBrand : C.sub, borderRadius: 14, padding: "5px 11px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
+const head = { fontSize: 14, fontWeight: 700, color: C.sub, margin: "14px 0 8px" };
 
 export default function FriendsPanel({ Avatar, nameOf, Name, isOnline, onProfile, onChat, onCall }) {
   const f = useFriends();
@@ -17,14 +17,14 @@ export default function FriendsPanel({ Avatar, nameOf, Name, isOnline, onProfile
     <div key={p.uid} data-fr-row={p.uid} style={{ display: "flex", gap: 11, alignItems: "center", padding: "9px 4px", borderBottom: "1px solid " + C.border }}>
       <div onClick={() => onProfile && onProfile(p.uid)} style={{ cursor: "pointer" }}><Avatar uid={p.uid} size={40}/></div>
       <div onClick={() => onProfile && onProfile(p.uid)} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{Name ? <Name uid={p.uid} /> : nameOf(p.uid)}</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{Name ? <Name uid={p.uid} /> : nameOf(p.uid)}</div>
       </div>
       <div style={{ display: "flex", gap: 6 }}>{right}</div>
     </div>
   );
   return (
     <div data-friends-panel style={{ flex: 1, overflowY: "auto", padding: "4px 14px 16px" }}>
-      {err && <div data-fr-err style={{ fontSize: 12, color: "#F59E0B", padding: "8px 0" }}>⚠️ {err}</div>}
+      {err && <div data-fr-err style={{ fontSize: 13, color: "#F59E0B", padding: "8px 0" }}>⚠️ {err}</div>}
       {f.incoming.length > 0 && (<div data-fr-incoming>
         <div style={head}>คำขอเป็นเพื่อน ({f.incoming.length})</div>
         {f.incoming.map(p => row(p, <>
@@ -33,8 +33,8 @@ export default function FriendsPanel({ Avatar, nameOf, Name, isOnline, onProfile
         </>))}
       </div>)}
       <div style={head}>เพื่อนของฉัน ({f.friends.length})</div>
-      {!f.ready && <div style={{ fontSize: 13, color: C.muted, padding: "8px 0" }}>⏳ กำลังโหลด...</div>}
-      {f.ready && f.friends.length === 0 && <div data-fr-empty style={{ fontSize: 13, color: C.muted, padding: "8px 0 14px", lineHeight: 1.6 }}>ยังไม่มีเพื่อน — เปิดโปรไฟล์ของใครสักคน (แตะรูปในแชทรวมหรือในห้องเสียง) แล้วกด ➕ เพิ่มเพื่อน</div>}
+      {!f.ready && <div style={{ fontSize: 14, color: C.muted, padding: "8px 0" }}>⏳ กำลังโหลด...</div>}
+      {f.ready && f.friends.length === 0 && <div data-fr-empty style={{ fontSize: 14, color: C.muted, padding: "8px 0 14px", lineHeight: 1.6 }}>ยังไม่มีเพื่อน — เปิดโปรไฟล์ของใครสักคน (แตะรูปในแชทรวมหรือในห้องเสียง) แล้วกด ➕ เพิ่มเพื่อน</div>}
       {order.map(p => row(p, <>
         {onChat && <button type="button" data-fr-chat onClick={() => onChat(p.uid)} style={pill(true)}>💬</button>}
         {onCall && <button type="button" data-fr-call onClick={() => onCall(p.uid)} style={pill(false)}>📞</button>}

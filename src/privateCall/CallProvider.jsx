@@ -13,7 +13,7 @@ const Ctx = createContext(OFF);
 export const useCall = () => useContext(Ctx);
 
 const C = { card: "var(--panel-background, #221F33)", border: "var(--border-strong, #4F46A8)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", brand: "var(--primary-color, #7C6BF0)", green: "var(--success-color, #10B981)", red: "var(--danger-color, #F43F5E)" };
-const btn = (bg, extra) => ({ border: "none", background: bg, color: "#fff", borderRadius: 14, padding: "10px 20px", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", ...extra });
+const btn = (bg, extra) => ({ border: "none", background: bg, color: "#fff", borderRadius: 14, padding: "10px 20px", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", ...extra });
 
 export function CallProvider({ api, uid, myName, guest, nameOf, Name, isUserGuest, Avatar, blocked, lk, fetchFn, children }) {
   const enabled = !!(api && uid && !guest && lk);
@@ -154,7 +154,7 @@ export function CallProvider({ api, uid, myName, guest, nameOf, Name, isUserGues
           <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 340, background: C.card, border: "1px solid " + C.border, borderRadius: 18, padding: 18, textAlign: "center" }}>
             <div style={{ fontSize: 34 }}>📞</div>
             <div style={{ fontSize: 16, fontWeight: 800, color: C.text, margin: "6px 0" }}>โทรส่วนตัวหา {Name ? <Name uid={confirm.peer} /> : confirm.name}?</div>
-            <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.6, marginBottom: 14 }}>เริ่มคุยเมื่อ {confirm.name} กดรับสายเท่านั้น<br/>เสียงสายแยกจากห้องเสียง — ระหว่างคุย ไมค์ห้องจะปิดและคุณจะไม่ได้ยินเสียงห้อง คนในห้องไม่ได้ยินสายนี้</div>
+            <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6, marginBottom: 14 }}>เริ่มคุยเมื่อ {confirm.name} กดรับสายเท่านั้น<br/>เสียงสายแยกจากห้องเสียง — ระหว่างคุย ไมค์ห้องจะปิดและคุณจะไม่ได้ยินเสียงห้อง คนในห้องไม่ได้ยินสายนี้</div>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
               <button type="button" data-call-confirm-yes onClick={confirmCall} style={btn(C.green)}>📞 โทร</button>
               <button type="button" data-call-confirm-no onClick={() => setConfirm(null)} style={btn("transparent", { border: "1px solid " + C.border, color: C.sub })}>ยกเลิก</button>
@@ -167,7 +167,7 @@ export function CallProvider({ api, uid, myName, guest, nameOf, Name, isUserGues
           <div style={{ width: "100%", maxWidth: 340, textAlign: "center" }}>
             <div style={{ display: "flex", justifyContent: "center" }}><Avatar uid={incoming.from} size={84}/></div>
             <div style={{ fontSize: 20, fontWeight: 800, color: C.text, marginTop: 14 }}>{Name ? <Name uid={incoming.from} /> : incoming.name}</div>
-            <div style={{ fontSize: 13, color: C.sub, margin: "4px 0 22px" }}>📞 โทรส่วนตัวหาคุณ…<br/><span style={{ fontSize: 11 }}>เสียงแยกจากห้องเสียง • ไมค์ห้องจะปิดระหว่างสาย</span></div>
+            <div style={{ fontSize: 14, color: C.sub, margin: "4px 0 22px" }}>📞 โทรส่วนตัวหาคุณ…<br/><span style={{ fontSize: 12 }}>เสียงแยกจากห้องเสียง • ไมค์ห้องจะปิดระหว่างสาย</span></div>
             <div style={{ display: "flex", gap: 14, justifyContent: "center" }}>
               <button type="button" data-call-accept onClick={acceptIncoming} style={btn(C.green)}>📞 รับสาย</button>
               <button type="button" data-call-decline onClick={declineIncoming} style={btn(C.red)}>ปฏิเสธ</button>
@@ -179,14 +179,14 @@ export function CallProvider({ api, uid, myName, guest, nameOf, Name, isUserGues
         <div data-call-bar={call.phase} style={{ position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: 70, width: "calc(100% - 20px)", maxWidth: 460, zIndex: 55, background: C.card, border: "1px solid " + (call.phase === "active" ? C.green : C.border), borderRadius: 16, padding: "10px 12px", boxShadow: "0 8px 28px rgba(0,0,0,.55)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{call.phase === "ringing" ? <>{"📞 กำลังโทรหา "}{Name ? <Name uid={call.peer} /> : peerName}{"…"}</> : <>{"📞 คุยส่วนตัวกับ "}{Name ? <Name uid={call.peer} /> : peerName}</>}</div>
-              <div style={{ fontSize:12, color: C.sub }}>{call.phase === "ringing" ? "รออีกฝ่ายรับสาย (ไมค์ยังไม่เปิด)" : <span data-call-timer>{fmtDuration(Date.now() - call.startedAt)}</span>}{call.phase === "active" && " • " + (aud.connected ? (aud.micOn ? "🎙️ ไมค์เปิด" : "🔇 ไมค์ปิด") : "⏳ กำลังเชื่อมต่อเสียง")}</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{call.phase === "ringing" ? <>{"📞 กำลังโทรหา "}{Name ? <Name uid={call.peer} /> : peerName}{"…"}</> : <>{"📞 คุยส่วนตัวกับ "}{Name ? <Name uid={call.peer} /> : peerName}</>}</div>
+              <div style={{ fontSize:13, color: C.sub }}>{call.phase === "ringing" ? "รออีกฝ่ายรับสาย (ไมค์ยังไม่เปิด)" : <span data-call-timer>{fmtDuration(Date.now() - call.startedAt)}</span>}{call.phase === "active" && " • " + (aud.connected ? (aud.micOn ? "🎙️ ไมค์เปิด" : "🔇 ไมค์ปิด") : "⏳ กำลังเชื่อมต่อเสียง")}</div>
             </div>
-            {call.phase === "active" && <button type="button" data-call-mic onClick={() => audio.current.setMic(!aud.micOn)} style={btn(aud.micOn ? C.brand : "#3A3552", { padding: "8px 12px", fontSize: 13 })}>{aud.micOn ? "🎙️" : "🔇"}</button>}
-            <button type="button" data-call-end onClick={hangup} style={btn(C.red, { padding: "8px 12px", fontSize: 13 })}>{call.phase === "ringing" ? "ยกเลิก" : "📵 วางสาย"}</button>
+            {call.phase === "active" && <button type="button" data-call-mic onClick={() => audio.current.setMic(!aud.micOn)} style={btn(aud.micOn ? C.brand : "#3A3552", { padding: "8px 12px", fontSize: 14 })}>{aud.micOn ? "🎙️" : "🔇"}</button>}
+            <button type="button" data-call-end onClick={hangup} style={btn(C.red, { padding: "8px 12px", fontSize: 14 })}>{call.phase === "ringing" ? "ยกเลิก" : "📵 วางสาย"}</button>
           </div>
-          {aud.needAudio && <div data-call-audio onClick={() => audio.current.enableAudio()} style={{ fontSize: 12, color: "#F59E0B", marginTop: 6, cursor: "pointer", fontWeight: 700 }}>🔊 แตะที่นี่เพื่อเปิดเสียงสาย</div>}
-          {aud.error && <div data-call-err style={{ fontSize:12, color: "#F59E0B", marginTop: 6 }}>⚠️ {aud.error}</div>}
+          {aud.needAudio && <div data-call-audio onClick={() => audio.current.enableAudio()} style={{ fontSize: 13, color: "#F59E0B", marginTop: 6, cursor: "pointer", fontWeight: 700 }}>🔊 แตะที่นี่เพื่อเปิดเสียงสาย</div>}
+          {aud.error && <div data-call-err style={{ fontSize:13, color: "#F59E0B", marginTop: 6 }}>⚠️ {aud.error}</div>}
         </div>
       )}
     </Ctx.Provider>

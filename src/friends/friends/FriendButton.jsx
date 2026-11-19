@@ -22,9 +22,9 @@ export default function FriendButton({ uid, name, Btn, hidden, compact }) {
             <Btn onClick={() => run(() => f.accept(uid))} v="primary" sz="sm"><span data-fr-accept>✅ ตอบรับ</span></Btn>
             <Btn onClick={() => run(() => f.remove(uid))} v="ghost" sz="sm"><span data-fr-decline>ปฏิเสธ</span></Btn>
           </>}
-          {rel === "friends" && <span data-fr-friends-badge style={{ fontSize:12, color: "#34D399", fontWeight: 700, whiteSpace: "nowrap" }}>✅ เพื่อน</span>}
+          {rel === "friends" && <span data-fr-friends-badge style={{ fontSize:13, color: "#34D399", fontWeight: 700, whiteSpace: "nowrap" }}>✅ เพื่อน</span>}
         </div>
-        {err && <div data-fr-err style={{ fontSize:12, color: "#F59E0B", maxWidth: 150, textAlign: "right" }}>⚠️ {err}</div>}
+        {err && <div data-fr-err style={{ fontSize:13, color: "#F59E0B", maxWidth: 150, textAlign: "right" }}>⚠️ {err}</div>}
       </div>
     );
   }
@@ -39,13 +39,13 @@ export default function FriendButton({ uid, name, Btn, hidden, compact }) {
       </>}
       {rel === "friends" && !confirm && <Btn onClick={() => setConfirm(true)} v="ghost" sz="sm"><span data-fr-friends>✅ เป็นเพื่อนกัน</span></Btn>}
       {rel === "friends" && confirm && (
-        <span data-fr-confirm style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 12 }}>
+        <span data-fr-confirm style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13 }}>
           <span>เลิกเป็นเพื่อนกับ {name || "คนนี้"}?</span>
           <Btn onClick={() => run(() => f.remove(uid))} v="danger" sz="sm"><span data-fr-remove-yes>เลิก</span></Btn>
           <Btn onClick={() => setConfirm(false)} v="ghost" sz="sm">ยกเลิก</Btn>
         </span>
       )}
-      {err && <div data-fr-err style={{ flexBasis: "100%", fontSize:12, color: "#F59E0B" }}>⚠️ {err}</div>}
+      {err && <div data-fr-err style={{ flexBasis: "100%", fontSize:13, color: "#F59E0B" }}>⚠️ {err}</div>}
     </>
   );
 }

@@ -9,7 +9,7 @@ import { useSectionTheme, setSectionTheme, useSharedBy } from "./store.js";
 import ThemeScope from "./ThemeScope.jsx";
 
 const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", green: "var(--success-color, #10B981)", red: "var(--danger-color, #F43F5E)", yellow: "var(--warning-color, #F59E0B)", purple: "#C084FC" };
-const btn = (primary, extra) => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 12, padding: "7px 13px", borderRadius: 10, cursor: "pointer", border: primary ? "none" : "1px solid " + C.borderHi, background: primary ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: primary ? C.onBrand : C.brand2, ...extra });
+const btn = (primary, extra) => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 13, padding: "7px 13px", borderRadius: 10, cursor: "pointer", border: primary ? "none" : "1px solid " + C.borderHi, background: primary ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: primary ? C.onBrand : C.brand2, ...extra });
 
 function Price({ t }) {
   if (!t.price) return <span style={{ color: C.green, fontWeight: 800 }}>ฟรี</span>;
@@ -19,7 +19,7 @@ function Price({ t }) {
 }
 function Chip({ t }) {
   const r = RARITY_T[t.rarity] || RARITY_T.common;
-  return <span style={{ fontSize:12, fontWeight: 800, color: r.color, border: "1px solid " + r.color + "66", background: r.color + "1A", borderRadius: 20, padding: "1px 7px" }}>{r.label}</span>;
+  return <span style={{ fontSize:13, fontWeight: 800, color: r.color, border: "1px solid " + r.color + "66", background: r.color + "1A", borderRadius: 20, padding: "1px 7px" }}>{r.label}</span>;
 }
 function Swatch({ t }) {
   const [bg, card, acc] = t.preview;
@@ -43,28 +43,28 @@ function Mock({ id }) {
       <div style={{ background: v("--page-background", v("--app-background", "#0F0E17")), borderRadius: 14, padding: 12, border: "1px solid " + C.border, transition: "background .3s" }} data-mock={t.id}>
         <div style={{ background: panel, border: "1px solid " + border, borderRadius: 14, padding: 10, boxShadow: v("--card-shadow", "0 4px 24px rgba(0,0,0,.3)") }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: grad, color: v("--on-primary", "#fff"), fontSize:12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>TO</div>
-            <div><div style={{ fontSize: 12, fontWeight: 800, color: text }}>Toi</div><div style={{ fontSize:12, color: muted }}>เมื่อกี้</div></div>
-            <div style={{ marginLeft: "auto", fontSize:12, fontWeight: 700, color: acc, border: "1px solid " + border, borderRadius: 20, padding: "1px 8px" }}>✦ สบายดี</div>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: grad, color: v("--on-primary", "#fff"), fontSize:13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>TO</div>
+            <div><div style={{ fontSize: 13, fontWeight: 800, color: text }}>Toi</div><div style={{ fontSize:13, color: muted }}>เมื่อกี้</div></div>
+            <div style={{ marginLeft: "auto", fontSize:13, fontWeight: 700, color: acc, border: "1px solid " + border, borderRadius: 20, padding: "1px 8px" }}>✦ สบายดี</div>
           </div>
-          <div style={{ fontSize: 12, color: sub, margin: "8px 0", lineHeight: 1.5 }}>วันนี้อากาศดีจัง ใครอยู่ในห้องเสียงบ้าง 🌿</div>
+          <div style={{ fontSize: 13, color: sub, margin: "8px 0", lineHeight: 1.5 }}>วันนี้อากาศดีจัง ใครอยู่ในห้องเสียงบ้าง 🌿</div>
           <div style={{ display: "flex", gap: 6 }}>
-            <span style={{ background: grad, color: v("--on-primary", "#fff"), borderRadius: 10, padding: "5px 12px", fontSize:12, fontWeight: 700 }}>ถูกใจ</span>
-            <span style={{ border: "1px solid " + border, color: sub, borderRadius: 10, padding: "5px 12px", fontSize:12, fontWeight: 600 }}>ความคิดเห็น</span>
+            <span style={{ background: grad, color: v("--on-primary", "#fff"), borderRadius: 10, padding: "5px 12px", fontSize:13, fontWeight: 700 }}>ถูกใจ</span>
+            <span style={{ border: "1px solid " + border, color: sub, borderRadius: 10, padding: "5px 12px", fontSize:13, fontWeight: 600 }}>ความคิดเห็น</span>
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, margin: "10px 0" }}>
-          <div style={{ alignSelf: "flex-start", background: v("--message-bubble", "#221F33"), border: "1px solid " + border, color: text, borderRadius: 14, padding: "6px 11px", fontSize: 12, maxWidth: "70%" }}>เข้ามาคุยกันหน่อยสิ</div>
-          <div style={{ alignSelf: "flex-end", background: grad, color: v("--on-primary", "#fff"), borderRadius: 14, padding: "6px 11px", fontSize: 12, maxWidth: "70%" }}>ไปเลย กำลังเข้าห้อง 🎙️</div>
+          <div style={{ alignSelf: "flex-start", background: v("--message-bubble", "#221F33"), border: "1px solid " + border, color: text, borderRadius: 14, padding: "6px 11px", fontSize: 13, maxWidth: "70%" }}>เข้ามาคุยกันหน่อยสิ</div>
+          <div style={{ alignSelf: "flex-end", background: grad, color: v("--on-primary", "#fff"), borderRadius: 14, padding: "6px 11px", fontSize: 13, maxWidth: "70%" }}>ไปเลย กำลังเข้าห้อง 🎙️</div>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", background: panel, border: "1px solid " + border, borderRadius: 14, padding: "8px 10px" }}>
           {["A", "B", "C"].map((x, i) => (
             <div key={x} style={{ textAlign: "center" }}>
-              <div style={{ width: 34, height: 34, borderRadius: "50%", border: "2.5px solid " + (i === 1 ? green : border), color: acc, fontWeight: 800, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", background: panel }}>{x}</div>
-              <div style={{ fontSize:12, color: muted, marginTop: 2 }}>{i === 1 ? "กำลังพูด" : "เงียบ"}</div>
+              <div style={{ width: 34, height: 34, borderRadius: "50%", border: "2.5px solid " + (i === 1 ? green : border), color: acc, fontWeight: 800, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", background: panel }}>{x}</div>
+              <div style={{ fontSize:13, color: muted, marginTop: 2 }}>{i === 1 ? "กำลังพูด" : "เงียบ"}</div>
             </div>
           ))}
-          <div style={{ marginLeft: "auto", fontSize:12, color: sub }}>🎙️ ห้องเสียง</div>
+          <div style={{ marginLeft: "auto", fontSize:13, color: sub }}>🎙️ ห้องเสียง</div>
         </div>
       </div>
     </ThemeScope>
@@ -76,7 +76,7 @@ function SectionChip({ s, active, onClick }) {
   return (
     <button onClick={onClick} style={{ ...btn(active), flex: "1 0 auto", padding: "6px 10px", textAlign: "center", lineHeight: 1.3 }}>
       <div>{SECTION_LABEL[s]}</div>
-      <div style={{ fontSize:12, fontWeight: 600, opacity: 0.85 }}>{THEME_BY_ID[id].name}</div>
+      <div style={{ fontSize:13, fontWeight: 600, opacity: 0.85 }}>{THEME_BY_ID[id].name}</div>
     </button>
   );
 }
@@ -84,7 +84,7 @@ function SectionChip({ s, active, onClick }) {
 
 function Wallet({ gold, purple }) {
   return (
-    <div style={{ display: "flex", gap: 14, alignItems: "center", fontSize: 12, fontWeight: 800 }}>
+    <div style={{ display: "flex", gap: 14, alignItems: "center", fontSize: 13, fontWeight: 800 }}>
       <span style={{ color: C.yellow }}>🪙 {gold.toLocaleString()}</span>
       <span style={{ color: C.purple }}>💜 {purple.toLocaleString()}</span>
     </div>
@@ -172,9 +172,9 @@ export default function AppearanceModal({ me, user, onClose, api, startSection, 
             <div style={{ fontSize: 17, fontWeight: 800 }}>🎨 ธีมและการแสดงผล</div>
             <button onClick={onClose} aria-label="ปิด" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.4)", color: "#fff", cursor: "pointer", fontFamily: "inherit" }}>✕</button>
           </div>
-          <div style={{ fontSize:12, color: C.sub, marginTop: 6, lineHeight: 1.5 }}>เลือกธีมแยกกันได้ในแต่ละหน้า (ส่วนหัวและเมนูล่างไม่เปลี่ยนสี) กด "ดูตัวอย่าง" ก่อนได้ — ยังไม่บันทึกจนกว่าจะกด "ใช้ธีมนี้"</div>
-          {THEME_OWNER_MODE && !THEME_SHARED_MODE && <div data-owner-note style={{ fontSize:12, color: C.brand2, marginTop: 6, lineHeight: 1.5, fontWeight: 700 }}>👥 ธีมที่คุณเลือกจะแสดงกับสิ่งที่เป็นของคุณ — ห้องเสียงที่คุณเป็นโฮสต์ • โพสต์ของคุณ • โปรไฟล์ของคุณ คนอื่นจะเห็นตามนั้น ส่วนหน้าอื่นที่คุณดูอยู่จะเป็นธีมของคุณเอง</div>}
-          {THEME_SHARED_MODE && <div data-shared-note style={{ fontSize:12, color: C.brand2, marginTop: 6, lineHeight: 1.5, fontWeight: 700 }}>🌐 ธีมที่ใช้จะเปลี่ยนให้ทุกคนในแอปเห็นเหมือนกัน{sharedBy ? " (ตั้งล่าสุดโดย " + sharedBy + ")" : ""}{!canSetShared ? " — บัญชีนี้ดูได้อย่างเดียว" : ""}</div>}
+          <div style={{ fontSize:13, color: C.sub, marginTop: 6, lineHeight: 1.5 }}>เลือกธีมแยกกันได้ในแต่ละหน้า (ส่วนหัวและเมนูล่างไม่เปลี่ยนสี) กด "ดูตัวอย่าง" ก่อนได้ — ยังไม่บันทึกจนกว่าจะกด "ใช้ธีมนี้"</div>
+          {THEME_OWNER_MODE && !THEME_SHARED_MODE && <div data-owner-note style={{ fontSize:13, color: C.brand2, marginTop: 6, lineHeight: 1.5, fontWeight: 700 }}>👥 ธีมที่คุณเลือกจะแสดงกับสิ่งที่เป็นของคุณ — ห้องเสียงที่คุณเป็นโฮสต์ • โพสต์ของคุณ • โปรไฟล์ของคุณ คนอื่นจะเห็นตามนั้น ส่วนหน้าอื่นที่คุณดูอยู่จะเป็นธีมของคุณเอง</div>}
+          {THEME_SHARED_MODE && <div data-shared-note style={{ fontSize:13, color: C.brand2, marginTop: 6, lineHeight: 1.5, fontWeight: 700 }}>🌐 ธีมที่ใช้จะเปลี่ยนให้ทุกคนในแอปเห็นเหมือนกัน{sharedBy ? " (ตั้งล่าสุดโดย " + sharedBy + ")" : ""}{!canSetShared ? " — บัญชีนี้ดูได้อย่างเดียว" : ""}</div>}
           {!guest && <div style={{ marginTop: 8 }}><Wallet gold={bal.gold} purple={bal.purple} /></div>}
           {fontsPanel && (
             <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
@@ -190,39 +190,39 @@ export default function AppearanceModal({ me, user, onClose, api, startSection, 
         </div>
 
         <div ref={mockRef} style={{ padding: "12px 14px 0" }}>
-          <div style={{ fontSize:12, color: C.sub, marginBottom: 6, fontWeight: 700 }}>ตัวอย่าง: {st.name}{pv && pv !== current ? " (ยังไม่ได้ใช้)" : ""}</div>
+          <div style={{ fontSize:13, color: C.sub, marginBottom: 6, fontWeight: 700 }}>ตัวอย่าง: {st.name}{pv && pv !== current ? " (ยังไม่ได้ใช้)" : ""}</div>
           <Mock id={shown} />
           <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
             {usable
               ? (shown === current
-                ? <span style={{ fontSize: 12, color: C.green, fontWeight: 800 }}>● ใช้อยู่ที่หน้า{SECTION_LABEL[section]}</span>
+                ? <span style={{ fontSize: 13, color: C.green, fontWeight: 800 }}>● ใช้อยู่ที่หน้า{SECTION_LABEL[section]}</span>
                 : <button disabled={busy} onClick={() => apply(section, shown === DEFAULT_THEME ? null : shown, "ใช้ " + st.name + " กับหน้า" + SECTION_LABEL[section] + " แล้ว")} style={btn(true)}>ใช้ธีมนี้กับหน้า{SECTION_LABEL[section]}</button>)
               : (!THEME_SHOP_ENABLED
-                ? <span style={{ fontSize: 12, color: C.yellow, fontWeight: 700 }}>🔒 ปิดร้านธีมชั่วคราว (ดูตัวอย่างได้)</span>
+                ? <span style={{ fontSize: 13, color: C.yellow, fontWeight: 700 }}>🔒 ปิดร้านธีมชั่วคราว (ดูตัวอย่างได้)</span>
                 : guest
-                  ? <span style={{ fontSize: 12, color: C.yellow, fontWeight: 700 }}>🔒 ล็อกอินด้วย Google ก่อนจึงจะซื้อธีมได้ (ดูตัวอย่างได้)</span>
+                  ? <span style={{ fontSize: 13, color: C.yellow, fontWeight: 700 }}>🔒 ล็อกอินด้วย Google ก่อนจึงจะซื้อธีมได้ (ดูตัวอย่างได้)</span>
                   : <button disabled={busy} onClick={() => setConfirm(shown)} style={btn(true)}>ซื้อธีมนี้ · {st.cur === "gold" ? "🪙 " + st.price.toLocaleString() : "💜 " + st.price}</button>)}
             {usable && <button disabled={busy} onClick={() => applyAll(shown === DEFAULT_THEME ? null : shown)} style={btn(false)}>ใช้กับทุกหน้า</button>}
           </div>
-          {!usable && THEME_SHOP_ENABLED && !guest && q && q.why && !confirm && <div style={{ fontSize:12, color: C.red, marginTop: 6 }}>{q.why}</div>}
+          {!usable && THEME_SHOP_ENABLED && !guest && q && q.why && !confirm && <div style={{ fontSize:13, color: C.red, marginTop: 6 }}>{q.why}</div>}
 
           {confirm && cq && (
             <div role="dialog" aria-label="ยืนยันการซื้อ" style={{ marginTop: 10, border: "1px solid " + C.borderHi, background: C.surface, borderRadius: 14, padding: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 800 }}>ยืนยันซื้อ {THEME_BY_ID[confirm].name}?</div>
-              <div style={{ fontSize: 12, color: C.sub, marginTop: 4, lineHeight: 1.6 }}>
+              <div style={{ fontSize: 14, fontWeight: 800 }}>ยืนยันซื้อ {THEME_BY_ID[confirm].name}?</div>
+              <div style={{ fontSize: 13, color: C.sub, marginTop: 4, lineHeight: 1.6 }}>
                 ราคา <Price t={THEME_BY_ID[confirm]} />
                 {cq.plan
                   ? <span> · คงเหลือหลังซื้อ {THEME_BY_ID[confirm].cur === "gold" ? <b style={{ color: C.yellow }}>🪙 {cq.plan.entry.after.gold.toLocaleString()}</b> : <b style={{ color: C.purple }}>💜 {(cq.plan.entry.after.purple + cq.plan.entry.after.purpleBought).toLocaleString()}</b>}</span>
                   : <span style={{ color: C.red }}> · {cq.why}</span>}
               </div>
-              <div style={{ fontSize:12, color: C.muted, marginTop: 4 }}>ซื้อแล้วเป็นของคุณถาวร ใช้ได้ทุกหน้า ไม่คืนเหรียญ</div>
+              <div style={{ fontSize:13, color: C.muted, marginTop: 4 }}>ซื้อแล้วเป็นของคุณถาวร ใช้ได้ทุกหน้า ไม่คืนเหรียญ</div>
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <button disabled={busy || !cq.plan} onClick={() => doBuy(confirm)} style={btn(true, { opacity: cq.plan ? 1 : 0.5 })}>{busy ? "กำลังซื้อ…" : "ยืนยันซื้อ"}</button>
                 <button disabled={busy} onClick={() => setConfirm(null)} style={btn(false)}>ยกเลิก</button>
               </div>
             </div>
           )}
-          {msg && <div role="status" style={{ fontSize: 12, color: msg.startsWith("⚠️") ? C.red : C.green, marginTop: 8, lineHeight: 1.5 }}>{msg}</div>}
+          {msg && <div role="status" style={{ fontSize: 13, color: msg.startsWith("⚠️") ? C.red : C.green, marginTop: 8, lineHeight: 1.5 }}>{msg}</div>}
         </div>
 
         <div style={{ padding: "8px 14px 10px" }}>
@@ -237,14 +237,14 @@ export default function AppearanceModal({ me, user, onClose, api, startSection, 
               <div key={t.id} data-theme-row={t.id} style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 2px", borderBottom: "1px solid " + C.border }}>
                 <Swatch t={t} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}><span style={{ fontSize: 13, fontWeight: 800 }}>{t.name}</span><Chip t={t} />{isCur && <span style={{ fontSize:12, color: C.green, fontWeight: 800 }}>● ใช้อยู่</span>}</div>
-                  <div style={{ fontSize:12, color: C.sub, marginTop: 2 }}>{t.th}</div>
-                  <div style={{ fontSize: 12, marginTop: 3 }}>{t.price && ok ? <span style={{ color: C.green, fontWeight: 800 }}>✓ เป็นเจ้าของแล้ว</span> : <Price t={t} />}{!ok && <span style={{ marginLeft: 8, fontSize:12, color: C.muted }}>🔒</span>}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}><span style={{ fontSize: 14, fontWeight: 800 }}>{t.name}</span><Chip t={t} />{isCur && <span style={{ fontSize:13, color: C.green, fontWeight: 800 }}>● ใช้อยู่</span>}</div>
+                  <div style={{ fontSize:13, color: C.sub, marginTop: 2 }}>{t.th}</div>
+                  <div style={{ fontSize: 13, marginTop: 3 }}>{t.price && ok ? <span style={{ color: C.green, fontWeight: 800 }}>✓ เป็นเจ้าของแล้ว</span> : <Price t={t} />}{!ok && <span style={{ marginLeft: 8, fontSize:13, color: C.muted }}>🔒</span>}</div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  <button onClick={() => showPreview(t.id)} style={btn(shown === t.id, { fontSize:12, padding: "5px 11px" })}>ดูตัวอย่าง</button>
-                  {ok && !isCur && tab === "mine" && <button disabled={busy} onClick={() => apply(section, t.id === DEFAULT_THEME ? null : t.id, "ใช้ " + t.name + " กับหน้า" + SECTION_LABEL[section] + " แล้ว")} style={btn(true, { fontSize:12, padding: "5px 11px" })}>ใช้</button>}
-                  {!ok && THEME_SHOP_ENABLED && !guest && <button disabled={busy} onClick={() => { setPv(t.id); setMsg(""); setConfirm(t.id); if (mockRef.current && mockRef.current.scrollIntoView) mockRef.current.scrollIntoView({ behavior: "smooth", block: "center" }); }} style={btn(true, { fontSize:12, padding: "5px 11px" })}>ซื้อ</button>}
+                  <button onClick={() => showPreview(t.id)} style={btn(shown === t.id, { fontSize:13, padding: "5px 11px" })}>ดูตัวอย่าง</button>
+                  {ok && !isCur && tab === "mine" && <button disabled={busy} onClick={() => apply(section, t.id === DEFAULT_THEME ? null : t.id, "ใช้ " + t.name + " กับหน้า" + SECTION_LABEL[section] + " แล้ว")} style={btn(true, { fontSize:13, padding: "5px 11px" })}>ใช้</button>}
+                  {!ok && THEME_SHOP_ENABLED && !guest && <button disabled={busy} onClick={() => { setPv(t.id); setMsg(""); setConfirm(t.id); if (mockRef.current && mockRef.current.scrollIntoView) mockRef.current.scrollIntoView({ behavior: "smooth", block: "center" }); }} style={btn(true, { fontSize:13, padding: "5px 11px" })}>ซื้อ</button>}
                 </div>
               </div>
             );

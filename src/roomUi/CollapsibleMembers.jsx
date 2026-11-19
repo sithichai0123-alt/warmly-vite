@@ -38,7 +38,7 @@ export default function CollapsibleMembers({ count, rows = 2, T, children }) {
       {cut && (
         <button data-members-toggle onClick={() => setOpen(o => !o)}
           style={{ marginTop: 10, width: "100%", border: "1px solid " + T.border, background: "transparent", color: T.brand2, borderRadius: 10,
-            padding: "7px 10px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            padding: "7px 10px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
           {open ? "▴ ย่อรายชื่อ" : "▾ ดูทั้งหมด (+" + cut.hidden + " คน) · ในห้อง " + count + " คน"}
         </button>
       )}

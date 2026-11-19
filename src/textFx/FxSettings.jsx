@@ -18,8 +18,8 @@ const AREA_HINT = {
   bio: "ข้อความแนะนำตัวในโปรไฟล์",
   message: "ใช้กับข้อความที่คุณเลือกส่งเอง — กดปุ่ม Aa ข้างช่องพิมพ์ในแชท (ข้อความอื่นยังเป็นปกติ)",
 };
-const btn = (primary, extra) => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 12, padding: "7px 13px", borderRadius: 10, cursor: "pointer", border: primary ? "none" : "1px solid " + C.borderHi, background: primary ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: primary ? C.onBrand : C.brand2, ...extra });
-const pill = on => ({ fontFamily: "inherit", fontWeight: 700, fontSize:12, padding: "5px 11px", borderRadius: 20, cursor: "pointer", border: "1px solid " + (on ? "transparent" : C.borderHi), background: on ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: on ? C.onBrand : C.brand2 });
+const btn = (primary, extra) => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 13, padding: "7px 13px", borderRadius: 10, cursor: "pointer", border: primary ? "none" : "1px solid " + C.borderHi, background: primary ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: primary ? C.onBrand : C.brand2, ...extra });
+const pill = on => ({ fontFamily: "inherit", fontWeight: 700, fontSize:13, padding: "5px 11px", borderRadius: 20, cursor: "pointer", border: "1px solid " + (on ? "transparent" : C.borderHi), background: on ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: on ? C.onBrand : C.brand2 });
 
 function Price({ t }) {
   if (!t.price) return <span style={{ color: C.green, fontWeight: 800 }}>ฟรี</span>;
@@ -127,25 +127,25 @@ export default function FxSettings({ me, user, api }) {
 
   return (
     <div data-fx-settings>
-      <div style={{ padding: "10px 14px 0", fontSize:12, color: C.sub, lineHeight: 1.5 }}>
+      <div style={{ padding: "10px 14px 0", fontSize:13, color: C.sub, lineHeight: 1.5 }}>
         เลือกฟอนต์/เอฟเฟกต์แยกกันได้ในแต่ละจุด คนอื่นจะเห็นตามที่คุณเลือก กด "ดูตัวอย่าง" ก่อนได้ — ยังไม่บันทึกจนกว่าจะกด "ใช้"
       </div>
       <div style={{ display: "flex", gap: 6, padding: "10px 14px 0", flexWrap: "wrap" }}>
         {TEXTFX_AREAS.map(a => (
           <button key={a} data-fx-area={a} onClick={() => { setArea(a); setPv(null); setMsg(""); setConfirm(null); setDraft(null); }} style={{ ...btn(area === a), flex: "1 0 auto", padding: "6px 10px", textAlign: "center", lineHeight: 1.3 }}>
             <div>{AREA_LABEL[a]}</div>
-            <div style={{ fontSize:12, fontWeight: 600, opacity: 0.85 }}>{FX_BY_ID[cur(a)].name}</div>
+            <div style={{ fontSize:13, fontWeight: 600, opacity: 0.85 }}>{FX_BY_ID[cur(a)].name}</div>
           </button>
         ))}
       </div>
 
       <div style={{ padding: "12px 14px 0" }}>
-        <div style={{ fontSize:12, color: C.sub, marginBottom: 6, fontWeight: 700 }}>ตัวอย่าง: {item.name}{pv && pv !== current ? " (ยังไม่ได้ใช้)" : ""}</div>
+        <div style={{ fontSize:13, color: C.sub, marginBottom: 6, fontWeight: 700 }}>ตัวอย่าง: {item.name}{pv && pv !== current ? " (ยังไม่ได้ใช้)" : ""}</div>
         <div data-fx-preview style={{ ...pvBg, borderRadius: 14, padding: "14px 14px", border: "1px solid " + C.border, minHeight: 46 }}>
           <div style={{ fontSize: SAMPLE.size, fontWeight: SAMPLE.weight, lineHeight: 1.4 }}><TextFx fx={shown} tune={usable ? tune : undefined}>{SAMPLE.text}</TextFx></div>
         </div>
         <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize:12, color: C.muted }}>{AREA_HINT[area]}</span>
+          <span style={{ fontSize:13, color: C.muted }}>{AREA_HINT[area]}</span>
         </div>
         <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
           <button onClick={() => setLight(false)} style={pill(!light)}>พื้นมืด</button>
@@ -154,28 +154,28 @@ export default function FxSettings({ me, user, api }) {
         <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
           {usable
             ? (shown === current
-              ? <span style={{ fontSize: 12, color: C.green, fontWeight: 800 }}>● ใช้อยู่ที่ {AREA_LABEL[area]}</span>
+              ? <span style={{ fontSize: 13, color: C.green, fontWeight: 800 }}>● ใช้อยู่ที่ {AREA_LABEL[area]}</span>
               : <button disabled={busy} data-fx-apply onClick={() => save(area, shown === FX_DEFAULT ? null : shown, "ใช้ " + item.name + " กับ" + AREA_LABEL[area] + " แล้ว")} style={btn(true)}>ใช้กับ{AREA_LABEL[area]}</button>)
             : (!TEXTFX_SHOP_ENABLED
-              ? <span style={{ fontSize: 12, color: C.yellow, fontWeight: 700 }}>🔒 ปิดร้านฟอนต์ชั่วคราว (ดูตัวอย่างได้)</span>
+              ? <span style={{ fontSize: 13, color: C.yellow, fontWeight: 700 }}>🔒 ปิดร้านฟอนต์ชั่วคราว (ดูตัวอย่างได้)</span>
               : guest
-                ? <span style={{ fontSize: 12, color: C.yellow, fontWeight: 700 }}>🔒 ล็อกอินด้วย Google ก่อนจึงจะซื้อฟอนต์ได้ (ดูตัวอย่างได้)</span>
+                ? <span style={{ fontSize: 13, color: C.yellow, fontWeight: 700 }}>🔒 ล็อกอินด้วย Google ก่อนจึงจะซื้อฟอนต์ได้ (ดูตัวอย่างได้)</span>
                 : <button disabled={busy} data-fx-buy onClick={() => setConfirm(shown)} style={btn(true)}>ซื้อฟอนต์นี้ · {item.cur === "gold" ? "🪙 " + item.price.toLocaleString() : "💜 " + item.price}</button>)}
           {usable && area !== "message" && <button disabled={busy} data-fx-apply-all onClick={() => saveAll(shown === FX_DEFAULT ? null : shown, "ใช้ " + item.name + " กับทุกจุดแล้ว")} style={btn(false)}>ใช้กับทุกจุด</button>}
         </div>
-        {!usable && TEXTFX_SHOP_ENABLED && !guest && !confirm && (() => { const q = quote(shown); return q.why ? <div style={{ fontSize:12, color: C.red, marginTop: 6 }}>{q.why}</div> : null; })()}
+        {!usable && TEXTFX_SHOP_ENABLED && !guest && !confirm && (() => { const q = quote(shown); return q.why ? <div style={{ fontSize:13, color: C.red, marginTop: 6 }}>{q.why}</div> : null; })()}
         {confirm && (() => {
           const ct = FX_BY_ID[confirm], cq = quote(confirm);
           return (
             <div role="dialog" aria-label="ยืนยันการซื้อ" data-fx-confirm style={{ marginTop: 10, border: "1px solid " + C.borderHi, background: C.surface, borderRadius: 14, padding: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 800 }}>ยืนยันซื้อ {ct.name}?</div>
-              <div style={{ fontSize: 12, color: C.sub, marginTop: 4, lineHeight: 1.6 }}>
+              <div style={{ fontSize: 14, fontWeight: 800 }}>ยืนยันซื้อ {ct.name}?</div>
+              <div style={{ fontSize: 13, color: C.sub, marginTop: 4, lineHeight: 1.6 }}>
                 ราคา <Price t={ct} />
                 {cq.plan
                   ? <span> · คงเหลือหลังซื้อ {ct.cur === "gold" ? <b style={{ color: C.yellow }}>🪙 {cq.plan.entry.after.gold.toLocaleString()}</b> : <b style={{ color: C.purple }}>💜 {(cq.plan.entry.after.purple + cq.plan.entry.after.purpleBought).toLocaleString()}</b>}</span>
                   : <span style={{ color: C.red }}> · {cq.why}</span>}
               </div>
-              <div style={{ fontSize:12, color: C.muted, marginTop: 4 }}>ซื้อแล้วเป็นของคุณถาวร ใช้ได้ทุกจุด ไม่คืนเหรียญ</div>
+              <div style={{ fontSize:13, color: C.muted, marginTop: 4 }}>ซื้อแล้วเป็นของคุณถาวร ใช้ได้ทุกจุด ไม่คืนเหรียญ</div>
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <button disabled={busy || !cq.plan} data-fx-confirm-yes onClick={() => doBuy(confirm)} style={btn(true, { opacity: cq.plan ? 1 : 0.5 })}>{busy ? "กำลังซื้อ…" : "ยืนยันซื้อ"}</button>
                 <button disabled={busy} onClick={() => setConfirm(null)} style={btn(false)}>ยกเลิก</button>
@@ -183,15 +183,15 @@ export default function FxSettings({ me, user, api }) {
             </div>
           );
         })()}
-        {msg && <div role="status" style={{ fontSize: 12, color: msg.startsWith("⚠️") ? C.red : C.green, marginTop: 8, lineHeight: 1.5 }}>{msg}</div>}
+        {msg && <div role="status" style={{ fontSize: 13, color: msg.startsWith("⚠️") ? C.red : C.green, marginTop: 8, lineHeight: 1.5 }}>{msg}</div>}
       </div>
 
       {usable && !guest && shown !== FX_DEFAULT && (caps.speed || caps.glow || caps.hue) && (
         <div data-fx-tune style={{ padding: "12px 14px 0" }}>
-          <div style={{ fontSize:12, color: C.sub, marginBottom: 6, fontWeight: 700 }}>ปรับแต่ง · {AREA_LABEL[area]} <span style={{ fontWeight: 500, color: C.muted }}>(คนอื่นเห็นตามที่คุณบันทึก)</span></div>
+          <div style={{ fontSize:13, color: C.sub, marginBottom: 6, fontWeight: 700 }}>ปรับแต่ง · {AREA_LABEL[area]} <span style={{ fontWeight: 500, color: C.muted }}>(คนอื่นเห็นตามที่คุณบันทึก)</span></div>
           {[["s", "ความเร็ว", SPEED_LABEL, caps.speed], ["g", "เรืองแสง", GLOW_LABEL, caps.glow], ["h", "โทนสี", HUE_LABEL, caps.hue]].filter(r => r[3]).map(([k, label, opts]) => (
             <div key={k} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
-              <span style={{ fontSize:12, color: C.sub, width: 58 }}>{label}</span>
+              <span style={{ fontSize:13, color: C.sub, width: 58 }}>{label}</span>
               {opts.map((o, i) => (
                 <button key={i} type="button" data-fx-tune-opt={k + i} onClick={() => setDraft({ ...tune, [k]: i })} style={pill(tune[k] === i)}>
                   {k === "h" && <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 4, background: "#FF6FB5", marginRight: 4, filter: "hue-rotate(" + HUE_STEPS[i] + "deg)", verticalAlign: "middle" }} />}{o}
@@ -204,38 +204,38 @@ export default function FxSettings({ me, user, api }) {
             {draft && <button disabled={busy} data-fx-tune-cancel onClick={() => setDraft(null)} style={btn(false)}>ยกเลิก</button>}
             {!isDefaultTune(savedTune) && !draft && <button disabled={busy} data-fx-tune-reset onClick={() => saveTune(TUNE_DEFAULT, "กลับเป็นค่าเดิมของเอฟเฟกต์แล้ว")} style={btn(false)}>↺ ค่าเดิมของเอฟเฟกต์</button>}
           </div>
-          <div style={{ fontSize:12, color: C.muted, marginTop: 6 }}>การปรับแต่งใช้กับทุกเอฟเฟกต์ของ "{AREA_LABEL[area]}" ที่คุณใช้ ความเร็วไม่ถี่เกินรอบละ 1.5 วินาที และโทนสีอ่านออกบนทุกธีม</div>
+          <div style={{ fontSize:13, color: C.muted, marginTop: 6 }}>การปรับแต่งใช้กับทุกเอฟเฟกต์ของ "{AREA_LABEL[area]}" ที่คุณใช้ ความเร็วไม่ถี่เกินรอบละ 1.5 วินาที และโทนสีอ่านออกบนทุกธีม</div>
         </div>
       )}
 
       <div style={{ padding: "12px 14px 0" }}>
-        <div style={{ fontSize:12, color: C.sub, marginBottom: 5, fontWeight: 700 }}>การเคลื่อนไหว (เฉพาะเครื่องนี้ — มีผลกับสิ่งที่คุณเห็น)</div>
+        <div style={{ fontSize:13, color: C.sub, marginBottom: 5, fontWeight: 700 }}>การเคลื่อนไหว (เฉพาะเครื่องนี้ — มีผลกับสิ่งที่คุณเห็น)</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{TEXTFX_MODES.map(m => <button key={m} onClick={() => setTextFxMode(m)} style={pill(mode === m)}>{MODE_LABEL[m]}</button>)}</div>
       </div>
 
       <div style={{ padding: "8px 14px 10px" }}>
-        {!guest && <div data-fx-balance style={{ fontSize: 12, fontWeight: 800, display: "flex", gap: 14, padding: "2px 0 4px" }}><span style={{ color: C.yellow }}>🪙 {bal.gold.toLocaleString()}</span><span style={{ color: C.purple }}>💜 {bal.purple.toLocaleString()}</span></div>}
+        {!guest && <div data-fx-balance style={{ fontSize: 13, fontWeight: 800, display: "flex", gap: 14, padding: "2px 0 4px" }}><span style={{ color: C.yellow }}>🪙 {bal.gold.toLocaleString()}</span><span style={{ color: C.purple }}>💜 {bal.purple.toLocaleString()}</span></div>}
         <div style={{ display: "flex", gap: 6, padding: "6px 0 2px" }}>
           <button data-fx-tab="shop" onClick={() => setTab("shop")} style={btn(tab === "shop", { flex: 1 })}>🛍️ ร้านฟอนต์</button>
           <button data-fx-tab="mine" onClick={() => setTab("mine")} style={btn(tab === "mine", { flex: 1 })}>🎒 ฟอนต์ของฉัน ({FX.filter(t => canUseFx(meX, t.id)).length})</button>
         </div>
         {["free", "gold", "purple"].map(tier => FX.some(t => t.tier === tier && (tab === "shop" || canUseFx(meX, t.id))) && (
           <div key={tier}>
-            <div style={{ fontSize: 12, fontWeight: 800, margin: "12px 0 2px", color: tier === "gold" ? C.yellow : tier === "purple" ? C.purple : C.green }}>{tier === "free" ? "🆓 " : tier === "gold" ? "🪙 " : "💜 "}ระดับ{TIER_LABEL[tier]}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, margin: "12px 0 2px", color: tier === "gold" ? C.yellow : tier === "purple" ? C.purple : C.green }}>{tier === "free" ? "🆓 " : tier === "gold" ? "🪙 " : "💜 "}ระดับ{TIER_LABEL[tier]}</div>
             {FX.filter(t => t.tier === tier && (tab === "shop" || canUseFx(meX, t.id))).map(t => {
               const ok = canUseFx(meX, t.id);
               const isCur = current === t.id;
               return (
                 <div key={t.id} data-fx-row={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 2px", borderBottom: "1px solid " + C.border }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4, color: C.text }}><TextFx fx={t.id} lite>{myName}</TextFx></div>
-                    <div style={{ fontSize:12, color: C.sub }}>{t.name} · {KIND_LABEL[t.kind]} · {RARITY[t.rarity]}{isCur ? <b style={{ color: C.green }}> ● ใช้อยู่</b> : null}</div>
-                    <div style={{ fontSize: 12, marginTop: 2 }}>{t.price && ok ? <span style={{ color: C.green, fontWeight: 800 }}>✓ เป็นเจ้าของแล้ว</span> : <Price t={t} />}{!ok && <span style={{ marginLeft: 8, fontSize:12, color: C.muted }}>🔒</span>}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.4, color: C.text }}><TextFx fx={t.id} lite>{myName}</TextFx></div>
+                    <div style={{ fontSize:13, color: C.sub }}>{t.name} · {KIND_LABEL[t.kind]} · {RARITY[t.rarity]}{isCur ? <b style={{ color: C.green }}> ● ใช้อยู่</b> : null}</div>
+                    <div style={{ fontSize: 13, marginTop: 2 }}>{t.price && ok ? <span style={{ color: C.green, fontWeight: 800 }}>✓ เป็นเจ้าของแล้ว</span> : <Price t={t} />}{!ok && <span style={{ marginLeft: 8, fontSize:13, color: C.muted }}>🔒</span>}</div>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    <button onClick={() => { setPv(t.id); setMsg(""); setConfirm(null); }} style={btn(shown === t.id, { fontSize:12, padding: "5px 11px" })}>ดูตัวอย่าง</button>
-                    {ok && !isCur && <button disabled={busy} onClick={() => save(area, t.id === FX_DEFAULT ? null : t.id, "ใช้ " + t.name + " กับ" + AREA_LABEL[area] + " แล้ว")} style={btn(true, { fontSize:12, padding: "5px 11px" })}>ใช้</button>}
-                    {!ok && TEXTFX_SHOP_ENABLED && !guest && <button disabled={busy} data-fx-row-buy onClick={() => { setPv(t.id); setMsg(""); setConfirm(t.id); }} style={btn(true, { fontSize:12, padding: "5px 11px" })}>ซื้อ</button>}
+                    <button onClick={() => { setPv(t.id); setMsg(""); setConfirm(null); }} style={btn(shown === t.id, { fontSize:13, padding: "5px 11px" })}>ดูตัวอย่าง</button>
+                    {ok && !isCur && <button disabled={busy} onClick={() => save(area, t.id === FX_DEFAULT ? null : t.id, "ใช้ " + t.name + " กับ" + AREA_LABEL[area] + " แล้ว")} style={btn(true, { fontSize:13, padding: "5px 11px" })}>ใช้</button>}
+                    {!ok && TEXTFX_SHOP_ENABLED && !guest && <button disabled={busy} data-fx-row-buy onClick={() => { setPv(t.id); setMsg(""); setConfirm(t.id); }} style={btn(true, { fontSize:13, padding: "5px 11px" })}>ซื้อ</button>}
                   </div>
                 </div>
               );

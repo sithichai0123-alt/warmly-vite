@@ -93,9 +93,9 @@ export function BackgroundAudioKeeper({ callActive = false }) {
 // แผงข้อมูล 🌙: บอกสถานะจริง + ข้อจำกัดของเครื่องนี้ + สวิตช์กันจอดับ
 const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", green: "var(--success-color, #34D399)", yellow: "var(--warning-color, #F59E0B)", brand: "var(--primary-color, #7C6BF0)" };
 const Row = ({ ok, label, hint }) => (
-  <div data-bg-row style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "6px 0", fontSize: 13, color: C.text }}>
+  <div data-bg-row style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "6px 0", fontSize: 14, color: C.text }}>
     <span style={{ width: 18, textAlign: "center", color: ok === true ? C.green : ok === false ? C.yellow : C.sub }}>{ok === true ? "✅" : ok === false ? "⚠️" : "•"}</span>
-    <div style={{ flex: 1 }}>{label}{hint && <div style={{ fontSize:12, color: C.sub }}>{hint}</div>}</div>
+    <div style={{ flex: 1 }}>{label}{hint && <div style={{ fontSize:13, color: C.sub }}>{hint}</div>}</div>
   </div>
 );
 export function BackgroundAudioPanel({ onClose }) {
@@ -113,14 +113,14 @@ export function BackgroundAudioPanel({ onClose }) {
           <button type="button" data-bg-close onClick={onClose} style={{ border: "none", background: "transparent", color: C.sub, fontSize: 18, cursor: "pointer" }}>✕</button>
         </div>
         <div data-bg-notice={notice.level} style={{ background: notice.level === "ok" ? "rgba(52,211,153,.10)" : "rgba(245,158,11,.12)", border: "1px solid " + (notice.level === "ok" ? "rgba(52,211,153,.35)" : "rgba(245,158,11,.4)"), borderRadius: 12, padding: "10px 12px", margin: "8px 0 10px" }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{notice.title}</div>
-          {notice.lines.map((l, i) => <div key={i} style={{ fontSize: 12, color: C.sub, marginTop: 4, lineHeight: 1.45 }}>• {l}</div>)}
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{notice.title}</div>
+          {notice.lines.map((l, i) => <div key={i} style={{ fontSize: 13, color: C.sub, marginTop: 4, lineHeight: 1.45 }}>• {l}</div>)}
         </div>
         <Row ok={st.keepAlive} label="เสียงเงียบกันระบบหยุดหน้าเว็บ" hint={st.keepAlive ? "ทำงานอยู่" : "ยังไม่เริ่ม — แตะหน้าจอหนึ่งครั้ง (เบราว์เซอร์ต้องการให้ผู้ใช้แตะก่อน)"} />
         <Row ok={st.mediaSession} label="ชื่อห้อง/ปุ่มบนหน้าจอล็อก" hint={st.mediaSession ? "ปุ่มหยุด = ปิดไมค์ (ไม่ออกจากห้อง)" : "เบราว์เซอร์นี้ไม่รองรับ"} />
         <Row ok={wlSupported ? (prefs.wake ? st.wakeLock : null) : false} label="กันจอดับขณะอยู่ในห้อง" hint={wlSupported ? (prefs.wake ? (st.wakeLock ? "ทำงานอยู่" : "ขอไม่สำเร็จ (อาจเปิดโหมดประหยัดแบต)") : "ปิดอยู่") : "เครื่องนี้ไม่รองรับ"} />
-        {wlSupported && <button type="button" data-bg-wake onClick={() => setBgPrefs({ wake: !prefs.wake })} style={{ marginTop: 8, width: "100%", border: "1px solid " + C.borderHi, background: prefs.wake ? C.brand : "transparent", color: prefs.wake ? C.onBrand : C.text, borderRadius: 10, padding: "10px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{prefs.wake ? "🔆 กันจอดับ: เปิดอยู่ (แตะเพื่อปิด)" : "🔅 เปิดกันจอดับ (กินแบตมากขึ้น)"}</button>}
-        <div style={{ fontSize:12, color: C.sub, marginTop: 12, lineHeight: 1.5 }}>ถ้าระบบตัดการเชื่อมต่อตอนอยู่เบื้องหลัง แอปจะเชื่อมต่อห้องให้ใหม่เมื่อคุณกลับมา (ไมค์ที่ปิดไว้จะยังปิดอยู่) เพลง/วิดีโอ YouTube ในห้อง: บนมือถือ YouTube จะหยุดเองเมื่อสลับแอปหรือล็อกจอ (YouTube สงวนการเล่นเบื้องหลังไว้ให้ YouTube Premium) เมื่อกลับมา แอปจะเล่นต่อให้ตรงกับที่ห้องกำลังเล่นอยู่ และระหว่างเพลงเล่น จอจะไม่ดับเอง (ปิดได้ที่ใต้ตัวเล่นเพลง)</div>
+        {wlSupported && <button type="button" data-bg-wake onClick={() => setBgPrefs({ wake: !prefs.wake })} style={{ marginTop: 8, width: "100%", border: "1px solid " + C.borderHi, background: prefs.wake ? C.brand : "transparent", color: prefs.wake ? C.onBrand : C.text, borderRadius: 10, padding: "10px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{prefs.wake ? "🔆 กันจอดับ: เปิดอยู่ (แตะเพื่อปิด)" : "🔅 เปิดกันจอดับ (กินแบตมากขึ้น)"}</button>}
+        <div style={{ fontSize:13, color: C.sub, marginTop: 12, lineHeight: 1.5 }}>ถ้าระบบตัดการเชื่อมต่อตอนอยู่เบื้องหลัง แอปจะเชื่อมต่อห้องให้ใหม่เมื่อคุณกลับมา (ไมค์ที่ปิดไว้จะยังปิดอยู่) เพลง/วิดีโอ YouTube ในห้อง: บนมือถือ YouTube จะหยุดเองเมื่อสลับแอปหรือล็อกจอ (YouTube สงวนการเล่นเบื้องหลังไว้ให้ YouTube Premium) เมื่อกลับมา แอปจะเล่นต่อให้ตรงกับที่ห้องกำลังเล่นอยู่ และระหว่างเพลงเล่น จอจะไม่ดับเอง (ปิดได้ที่ใต้ตัวเล่นเพลง)</div>
       </div>
     </div>
   );
