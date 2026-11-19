@@ -1,10 +1,10 @@
 // DM Tools — การตั้งค่าเสียงแจ้งเตือน (เก็บในเครื่องนี้)
 //   soundOn = เปิด/ปิดเสียงทั้งหมด, tone = เสียงที่เลือก, volume 0..1, customSound = ไฟล์เสียงของฉัน (data URL),
-//   mutedPeers = ปิดเสียงเฉพาะแชทกับบางคน
+//   mutedPeers = ปิดเสียงเฉพาะแชทกับบางคน · readReceipts = ส่งสถานะ "อ่านแล้ว" ให้อีกฝ่ายเห็น (ปิด = เขาไม่เห็นว่าเราอ่านแล้ว)
 import { useSyncExternalStore } from "react";
 
 const KEY = "wm_dmPrefs";
-const DEFAULTS = { soundOn: true, tone: "pop", volume: 0.7, customSound: "", mutedPeers: {} };
+const DEFAULTS = { soundOn: true, tone: "pop", volume: 0.7, customSound: "", mutedPeers: {}, readReceipts: true };
 let state = { ...DEFAULTS };
 const listeners = new Set();
 let loaded = false;
@@ -18,7 +18,7 @@ function sanitize(o) {
   const custom = typeof x.customSound === "string" && x.customSound.startsWith("data:audio/") ? x.customSound : "";
   let tone = TONE_IDS.includes(x.tone) ? x.tone : "pop";
   if (tone === "custom" && !custom) tone = "pop";
-  return { soundOn: x.soundOn !== false, tone, volume: Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.7, customSound: custom, mutedPeers: muted };
+  return { soundOn: x.soundOn !== false, tone, volume: Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.7, customSound: custom, mutedPeers: muted, readReceipts: x.readReceipts !== false };
 }
 function load() { if (loaded) return; loaded = true; try { const raw = window.localStorage.getItem(KEY); if (raw) state = sanitize(JSON.parse(raw)); } catch (e) { /* ค่าเริ่มต้น */ } }
 function save() { try { window.localStorage.setItem(KEY, JSON.stringify(state)); return true; } catch (e) { return false; } }
