@@ -530,10 +530,10 @@ function Av({init,bg,tc,size=40,online,grad,isSelf,uid}){
   </div>);
 }
 
-// โลโก้ Warmly: ตัว W เส้นหนามนพร้อมจุดประกาย (วาดเอง ไม่ใช้ฟอนต์) — สีตามธีม (พื้นปุ่มหลัก + ตัวอักษรบนปุ่มหลัก)
+// โลโก้ Warmly: ตัว W เส้นหนามนพร้อมหัวใจเหนือตัว W (วาดเอง ไม่ใช้ฟอนต์) — สีตามธีม (พื้นปุ่มหลัก + ตัวอักษรบนปุ่มหลัก)
 function WLogo({size=30,radius,style}){
   return <div role="img" aria-label="Warmly" style={{width:size,height:size,borderRadius:radius||Math.round(size*.3),background:T.brandGrad,color:T.onBrand,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,...style}}>
-    <svg width={Math.round(size*.72)} height={Math.round(size*.72)} viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M4.2 9 9.8 24.4 16 12.2 22.2 24.4 27.8 9" stroke="currentColor" strokeWidth="5.4" strokeLinecap="round" strokeLinejoin="round"/><circle cx="16" cy="5.4" r="2.7" fill="currentColor"/></svg>
+    <svg width={Math.round(size*.78)} height={Math.round(size*.78)} viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M6.56 13.24 11.04 25.56 16.00 15.80 20.96 25.56 25.44 13.24" stroke="currentColor" strokeWidth="4.32" strokeLinecap="round" strokeLinejoin="round"/><path transform="translate(16 7.98) scale(0.62)" d="M0 8C-9 2 -8 -6 -3 -6 C-1.5 -6 0 -4.8 0 -3.4 C0 -4.8 1.5 -6 3 -6 C8 -6 9 2 0 8Z" fill="currentColor"/></svg>
   </div>;
 }
 
