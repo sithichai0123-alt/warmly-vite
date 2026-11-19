@@ -530,8 +530,15 @@ function Av({init,bg,tc,size=40,online,grad,isSelf,uid}){
   </div>);
 }
 
-// จำนวนเหรียญแบบย่อให้พอดีแถบบน: 7,135 · 123K · 1.2M (เต็มดูได้ที่ร้านค้า)
-function fmtCoins(n){n=Math.max(0,Math.floor(Number(n)||0));if(n<100000)return n.toLocaleString("en-US");if(n<1000000)return Math.floor(n/1000)+"K";return (Math.floor(n/100000)/10)+"M";}
+// โลโก้ Warmly: ตัว W เส้นหนามนพร้อมจุดประกาย (วาดเอง ไม่ใช้ฟอนต์) — สีตามธีม (พื้นปุ่มหลัก + ตัวอักษรบนปุ่มหลัก)
+function WLogo({size=30,radius,style}){
+  return <div role="img" aria-label="Warmly" style={{width:size,height:size,borderRadius:radius||Math.round(size*.3),background:T.brandGrad,color:T.onBrand,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,...style}}>
+    <svg width={Math.round(size*.72)} height={Math.round(size*.72)} viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M4.2 9 9.8 24.4 16 12.2 22.2 24.4 27.8 9" stroke="currentColor" strokeWidth="5.4" strokeLinecap="round" strokeLinejoin="round"/><circle cx="16" cy="5.4" r="2.7" fill="currentColor"/></svg>
+  </div>;
+}
+
+// จำนวนเหรียญแบบย่อให้พอดีแถบบน: ตั้งแต่หลักพัน = 7K · 123K · 1.2M (เต็มดูได้ที่ title/ร้านค้า)
+function fmtCoins(n){n=Math.max(0,Math.floor(Number(n)||0));if(n<1000)return String(n);if(n<1000000)return Math.floor(n/1000)+"K";return (Math.floor(n/100000)/10)+"M";}
 
 // ชื่อผู้ใช้ (ใช้ชื่อล่าสุด + สีชื่อ + ป้ายที่ใส่ไว้)
 function Nm({uid,name,own,style,area,compact}){
@@ -692,7 +699,7 @@ function AuthPage({onLogin}){
     <div style={{minHeight:"100vh",background:T.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}}>
       <style>{`@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}} @keyframes mic-wave{0%{height:3px}100%{height:14px}}`}</style>
       <div style={{textAlign:"center",marginBottom:32}}>
-        <div style={{width:72,height:72,borderRadius:22,background:T.brandGrad,display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,margin:"0 auto 16px",boxShadow:"0 8px 32px "+T.brandMix(50),animation:"float 3s ease-in-out infinite",color:T.onBrand,fontWeight:800}}>W</div>
+        <WLogo size={72} radius={22} style={{margin:"0 auto 16px",boxShadow:"0 8px 32px "+T.brandMix(50),animation:"float 3s ease-in-out infinite"}}/>
         <div style={{fontSize:36,fontWeight:800,color:T.text,letterSpacing:-1}}>Warmly</div>
         <div style={{fontSize:16,color:T.sub,marginTop:8,lineHeight:1.6}}>พื้นที่อบอุ่น สำหรับทุกคน<br/>หาเพื่อน คุยเล่น ไม่เหงา</div>
       </div>
@@ -4443,10 +4450,10 @@ export default function App(){
     <ProfileCtx.Provider value={openProfile}>
     <SocialProviders user={user} onOpenFriends={()=>{setPage("chat");setChatTabReq("friends");}} onJoinRoom={r=>{setJoinReq(r);setPage("voice");}}>
     <div style={{fontFamily:"'IBM Plex Sans Thai',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",minHeight:"100dvh",background:T.bg,display:"flex",flexDirection:"column",maxWidth:"var(--app-w)",margin:"0 auto"}}>
-      <style>{`:root{--app-w:480px;--nav-w:480px}@media (max-width:430px){.hd-word{display:none}}@media (min-width:900px){:root{--app-w:960px;--nav-w:720px}.w-room-list{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.w-narrow{max-width:760px;width:100%;margin-left:auto;margin-right:auto}.w-chat{max-width:860px;width:100%;margin-left:auto;margin-right:auto;border-left:1px solid ${T.border};border-right:1px solid ${T.border}}}@media (min-width:1280px){:root{--app-w:1200px}}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:var(--wm-cs,dark)}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}@keyframes entryslide{0%{transform:translateY(-34px) scale(.8);opacity:0}14%{transform:translateY(0) scale(1.08);opacity:1}22%{transform:scale(1)}85%{opacity:1}100%{transform:translateY(-8px);opacity:0}}`}</style>
+      <style>{`:root{--app-w:480px;--nav-w:480px}@media (max-width:379px){.hd-word{display:none}}@media (min-width:900px){:root{--app-w:960px;--nav-w:720px}.w-room-list{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.w-narrow{max-width:760px;width:100%;margin-left:auto;margin-right:auto}.w-chat{max-width:860px;width:100%;margin-left:auto;margin-right:auto;border-left:1px solid ${T.border};border-right:1px solid ${T.border}}}@media (min-width:1280px){:root{--app-w:1200px}}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:var(--wm-cs,dark)}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}@keyframes entryslide{0%{transform:translateY(-34px) scale(.8);opacity:0}14%{transform:translateY(0) scale(1.08);opacity:1}22%{transform:scale(1)}85%{opacity:1}100%{transform:translateY(-8px);opacity:0}}`}</style>
       <div style={{background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid "+T.border,padding:"10px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,position:"sticky",top:0,zIndex:30}}>
         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-          <div style={{width:30,height:30,borderRadius:9,background:T.brandGrad,color:T.onBrand,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:800}}>W</div>
+          <WLogo size={30} radius={9}/>
           <span style={{fontSize:18,fontWeight:800,background:T.brandText,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:-.5,whiteSpace:"nowrap"}} className="hd-word">Warmly</span>
         </div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:6,minWidth:0,flex:1}}>
