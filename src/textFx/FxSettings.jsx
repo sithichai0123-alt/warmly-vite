@@ -9,7 +9,7 @@ import { planBuyFx } from "./wallet.js";
 import { TEXTFX_MODES, useTextFxMode, setTextFxMode } from "./store.js";
 import TextFx from "./TextFx.jsx";
 
-const C = { card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", green: "var(--success-color, #10B981)", red: "var(--danger-color, #F43F5E)", yellow: "var(--warning-color, #F59E0B)", purple: "#C084FC" };
+const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", green: "var(--success-color, #10B981)", red: "var(--danger-color, #F43F5E)", yellow: "var(--warning-color, #F59E0B)", purple: "#C084FC" };
 const MODE_LABEL = { full: "เคลื่อนไหว", reduced: "ลดแอนิเมชัน", off: "ปิดเอฟเฟกต์" };
 const AREA_HINT = {
   name: "ชื่อของคุณในโปรไฟล์ โพสต์ และแชท",
@@ -18,8 +18,8 @@ const AREA_HINT = {
   bio: "ข้อความแนะนำตัวในโปรไฟล์",
   message: "ใช้กับข้อความที่คุณเลือกส่งเอง — กดปุ่ม Aa ข้างช่องพิมพ์ในแชท (ข้อความอื่นยังเป็นปกติ)",
 };
-const btn = (primary, extra) => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 12, padding: "7px 13px", borderRadius: 10, cursor: "pointer", border: primary ? "none" : "1px solid " + C.borderHi, background: primary ? "linear-gradient(135deg,#7C5CFC,#A78BFA)" : "transparent", color: primary ? "#fff" : C.brand2, ...extra });
-const pill = on => ({ fontFamily: "inherit", fontWeight: 700, fontSize:12, padding: "5px 11px", borderRadius: 20, cursor: "pointer", border: "1px solid " + (on ? "transparent" : C.borderHi), background: on ? "linear-gradient(135deg,#7C5CFC,#A78BFA)" : "transparent", color: on ? "#fff" : C.brand2 });
+const btn = (primary, extra) => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 12, padding: "7px 13px", borderRadius: 10, cursor: "pointer", border: primary ? "none" : "1px solid " + C.borderHi, background: primary ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: primary ? C.onBrand : C.brand2, ...extra });
+const pill = on => ({ fontFamily: "inherit", fontWeight: 700, fontSize:12, padding: "5px 11px", borderRadius: 20, cursor: "pointer", border: "1px solid " + (on ? "transparent" : C.borderHi), background: on ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: on ? C.onBrand : C.brand2 });
 
 function Price({ t }) {
   if (!t.price) return <span style={{ color: C.green, fontWeight: 800 }}>ฟรี</span>;

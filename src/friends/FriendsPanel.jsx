@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useFriends } from "./hooks.jsx";
 
-const C = { card: "var(--panel-background, #221F33)", border: "var(--border-color, #2E2A45)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #6B648F)", brand: "var(--primary-color, #7C6BF0)", brand2: "var(--secondary-color, #A78BFA)", red: "var(--danger-color, #F87171)" };
-const pill = (p) => ({ border: p ? "none" : "1px solid " + C.border, background: p ? C.brand : "transparent", color: p ? "#fff" : C.sub, borderRadius: 14, padding: "5px 11px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
+const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", border: "var(--border-color, #2E2A45)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #6B648F)", brand: "var(--primary-color, #7C6BF0)", brand2: "var(--secondary-color, #A78BFA)", red: "var(--danger-color, #F87171)" };
+const pill = (p) => ({ border: p ? "none" : "1px solid " + C.border, background: p ? C.brand : "transparent", color: p ? C.onBrand : C.sub, borderRadius: 14, padding: "5px 11px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
 const head = { fontSize: 13, fontWeight: 700, color: C.sub, margin: "14px 0 8px" };
 
 export default function FriendsPanel({ Avatar, nameOf, Name, isOnline, onProfile, onChat, onCall }) {

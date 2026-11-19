@@ -6,7 +6,7 @@ import { validateSoundFile } from "./logic.js";
 import { MAX_CUSTOM_SOUND_BYTES, MAX_CUSTOM_SOUND_SECONDS, ALLOWED_SOUND_TYPES } from "./config.js";
 
 const C = { card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", yellow: "var(--warning-color, #F59E0B)", red: "var(--danger-color, #F87171)", grad: "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" };
-const chip = on => ({ fontFamily: "inherit", fontSize: 12, fontWeight: 700, padding: "6px 11px", borderRadius: 20, border: "1px solid " + (on ? C.brand2 : C.border), background: on ? "rgba(124,92,252,.25)" : "transparent", color: on ? C.text : C.sub, cursor: "pointer" });
+const chip = on => ({ fontFamily: "inherit", fontSize: 12, fontWeight: 700, padding: "6px 11px", borderRadius: 20, border: "1px solid " + (on ? C.brand2 : C.border), background: on ? "color-mix(in srgb,var(--primary-color,#7C5CFC) 25%,transparent)" : "transparent", color: on ? C.text : C.sub, cursor: "pointer" });
 
 function readDataUrl(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onerror = () => rej(new Error("read")); r.onload = () => res(r.result); r.readAsDataURL(file); }); }
 function audioDuration(url) {
@@ -50,7 +50,7 @@ export default function DmSettings({ blocks, users, onClose }) {
         <div style={{ marginTop: 14, background: C.surface, border: "1px solid " + C.border, borderRadius: 14, padding: 12 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
             <div><div style={{ fontSize: 14, fontWeight: 700 }}>🔔 เสียงแจ้งเตือนข้อความใหม่</div><div style={{ fontSize:12, color: C.muted }}>ดังเมื่อมีข้อความส่วนตัวใหม่เข้ามา (เฉพาะเครื่องนี้)</div></div>
-            <div data-dms-sound-toggle data-on={p.soundOn ? "1" : "0"} onClick={() => setDmPrefs({ soundOn: !p.soundOn })} style={{ width: 46, height: 26, borderRadius: 13, cursor: "pointer", background: p.soundOn ? "#7C5CFC" : "#333", position: "relative", flexShrink: 0 }}><div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: p.soundOn ? 23 : 3, transition: "left .2s" }} /></div>
+            <div data-dms-sound-toggle data-on={p.soundOn ? "1" : "0"} onClick={() => setDmPrefs({ soundOn: !p.soundOn })} style={{ width: 46, height: 26, borderRadius: 13, cursor: "pointer", background: p.soundOn ? "var(--primary-color,#7C5CFC)" : "#333", position: "relative", flexShrink: 0 }}><div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: p.soundOn ? 23 : 3, transition: "left .2s" }} /></div>
           </div>
           <div style={{ opacity: p.soundOn ? 1 : 0.45, pointerEvents: p.soundOn ? "auto" : "none" }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.sub, margin: "12px 0 6px" }}>เลือกเสียง</div>

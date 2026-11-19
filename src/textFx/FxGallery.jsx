@@ -5,7 +5,7 @@ import { FX, TIER_LABEL, KIND_LABEL, RARITY } from "./catalog.js";
 import { TEXTFX_MODES, useTextFxMode, setTextFxMode } from "./store.js";
 import TextFx from "./TextFx.jsx";
 
-const C = { card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", green: "var(--success-color, #10B981)", yellow: "var(--warning-color, #F59E0B)", purple: "#C084FC" };
+const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", green: "var(--success-color, #10B981)", yellow: "var(--warning-color, #F59E0B)", purple: "#C084FC" };
 const MODE_LABEL = { full: "เคลื่อนไหว", reduced: "ลดแอนิเมชัน", off: "ปิดเอฟเฟกต์" };
 // พื้นหลังจำลองธีมต่าง ๆ ของ Warmly (dark=1 พื้นเข้ม, 0 พื้นสว่าง)
 const BGS = [
@@ -16,7 +16,7 @@ const BGS = [
 ];
 const SAMPLES = ["สวัสดี Warmly 💜", "ชื่อยาวมาก ๆ ภาษาไทยอ่านได้ไหม"];
 
-const pill = on => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 12, padding: "6px 12px", borderRadius: 20, cursor: "pointer", border: "1px solid " + (on ? "transparent" : C.borderHi), background: on ? "linear-gradient(135deg,#7C5CFC,#A78BFA)" : "transparent", color: on ? "#fff" : C.brand2 });
+const pill = on => ({ fontFamily: "inherit", fontWeight: 700, fontSize: 12, padding: "6px 12px", borderRadius: 20, cursor: "pointer", border: "1px solid " + (on ? "transparent" : C.borderHi), background: on ? "var(--button-background, linear-gradient(135deg,#7C5CFC,#A78BFA))" : "transparent", color: on ? C.onBrand : C.brand2 });
 
 export default function FxGallery({ onClose }) {
   const mode = useTextFxMode();
@@ -25,7 +25,7 @@ export default function FxGallery({ onClose }) {
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 70, overflowY: "auto", padding: "16px 10px" }}>
       <div onClick={e => e.stopPropagation()} style={{ maxWidth: 460, margin: "0 auto", background: C.surface, border: "1px solid " + C.borderHi, borderRadius: 20, overflow: "hidden", color: C.text, fontFamily: "inherit" }}>
-        <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(135deg,#7C5CFC33," + C.card + ")" }}>
+        <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(135deg,color-mix(in srgb,var(--primary-color,#7C5CFC) 20%,transparent)," + C.card + ")" }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 800 }}>🔤 ตัวอย่างฟอนต์และเอฟเฟกต์ตัวอักษร</div>
             <div style={{ fontSize:12, color: C.sub, marginTop: 3 }}>หน้าดูตัวอย่างเท่านั้น (ยังไม่เปิดขาย) — เทียบ ฟรี / ทอง / ม่วง</div>

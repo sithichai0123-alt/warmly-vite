@@ -1,7 +1,7 @@
 // แถบแจ้งเตือนลอยด้านบนจอ (คำขอเป็นเพื่อน / คำเชิญเข้าห้อง) — กดปุ่มในแถบได้เลย
 import { useBanners, hideBanner } from "./bus.js";
 
-const C = { card: "var(--panel-background, #221F33)", border: "var(--border-strong, #4F46A8)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", brand: "var(--primary-color, #7C6BF0)", red: "var(--danger-color, #F87171)" };
+const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", border: "var(--border-strong, #4F46A8)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", brand: "var(--primary-color, #7C6BF0)", red: "var(--danger-color, #F87171)" };
 
 export default function BannerStack() {
   const list = useBanners();
@@ -16,7 +16,7 @@ export default function BannerStack() {
           </div>
           <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
             {(b.actions || []).map((a, i) => (
-              <button key={i} type="button" data-banner-action={a.id || String(i)} onClick={() => { try { a.onClick && a.onClick(); } finally { if (a.keep !== true) hideBanner(b.key); } }} style={{ border: a.primary ? "none" : "1px solid " + C.border, background: a.primary ? C.brand : "transparent", color: a.primary ? "#fff" : C.sub, borderRadius: 10, padding: "6px 11px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{a.label}</button>
+              <button key={i} type="button" data-banner-action={a.id || String(i)} onClick={() => { try { a.onClick && a.onClick(); } finally { if (a.keep !== true) hideBanner(b.key); } }} style={{ border: a.primary ? "none" : "1px solid " + C.border, background: a.primary ? C.brand : "transparent", color: a.primary ? C.onBrand : C.sub, borderRadius: 10, padding: "6px 11px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{a.label}</button>
             ))}
             <button type="button" aria-label="ปิด" data-banner-close onClick={() => { try { b.onClose && b.onClose(); } finally { hideBanner(b.key); } }} style={{ border: "none", background: "transparent", color: C.sub, fontSize: 14, cursor: "pointer", padding: "0 2px", fontFamily: "inherit" }}>✕</button>
           </div>
