@@ -2222,6 +2222,10 @@ function fmtTime(ms){
   try{return new Date(ms).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"});}catch(e){return"";}
 }
 
+// ไอคอนเส้นบางสำหรับเมนูข้อความ (ตอบกลับ / คัดลอก / ลบ)
+const MENU_ICON={reply:<><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v3"/></>,copy:<><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></>,trash:<><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h7.4a1.5 1.5 0 0 0 1.5-1.4L18 7"/><path d="M10 11v6M14 11v6"/></>};
+function MenuIcon({n,color,size=17}){return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{flexShrink:0}}>{MENU_ICON[n]}</svg>;}
+
 // ── แชทแบบฟองข้อความ (ใช้ทั้งห้องรวมและแชทส่วนตัว) ────────
 function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo,avatarGift,sinceMs,blockedUids,lock,onDeleteMessage,newestFirst,peerReadMs}){
   const users=useContext(UsersCtx);
@@ -2312,8 +2316,9 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
   }
   function renderMenu(m,nm,me){
     const canReply=!lock,canDel=!!onDeleteMessage&&me;
-    const item=(key,ic,label,onClick,color)=><button key={key} type="button" data-msg-menu-item={key} onClick={onClick} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"8px 16px",border:"none",background:"transparent",color:color||T.text,fontSize:13,fontFamily:"inherit",cursor:"pointer"}}><span style={{fontSize:18,lineHeight:1}}>{ic}</span>{label}</button>;
-    const box={margin:"0 2px 6px",background:T.card,border:"1px solid "+T.borderHi,borderRadius:14,boxShadow:"0 8px 24px rgba(0,0,0,.4)"};
+    const item=(key,ic,label,onClick,color)=><button key={key} type="button" data-msg-menu-item={key} onClick={onClick} style={{display:"flex",alignItems:"center",gap:7,padding:"9px 13px",border:"none",background:"transparent",color:color||T.text,fontSize:14,fontFamily:"inherit",cursor:"pointer",whiteSpace:"nowrap"}}><MenuIcon n={ic} color={color||T.text}/>{label}</button>;
+    const sep=k=><div key={k} style={{width:1,height:18,background:T.border}}/>;
+    const box={margin:"0 2px 6px",background:T.card,border:"1px solid "+T.border,borderRadius:12,boxShadow:"0 8px 22px rgba(0,0,0,.4)"};
     if(delSt.step!=="idle")return(
       <div data-msg-menu data-msg-del-confirm style={{...box,padding:"10px 12px",maxWidth:250}}>
         <div style={{fontSize:14,fontWeight:700,color:T.text}}>ลบข้อความนี้?</div>
@@ -2325,11 +2330,12 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
         {delSt.err&&<div data-msg-del-err style={{fontSize:13,color:T.yellow,marginTop:6}}>⚠️ {delSt.err}</div>}
       </div>);
     return(
-      <div data-msg-menu style={{...box,display:"flex",alignItems:"stretch"}}>
-        {canReply&&item("reply","↩","ตอบกลับ",()=>{startReply(m,nm);setMenuFor(null);})}
-        {m.text&&item("copy","📋",copied?"คัดลอกแล้ว":"คัดลอก",()=>copyText(m.text))}
-        {canDel&&<div style={{width:1,background:T.border,margin:"8px 0"}}/>}
-        {canDel&&item("del","🗑️","ลบ",()=>setDelSt({step:"confirm",err:""}),T.red)}
+      <div data-msg-menu style={{...box,display:"flex",alignItems:"center"}}>
+        {canReply&&item("reply","reply","ตอบกลับ",()=>{startReply(m,nm);setMenuFor(null);})}
+        {canReply&&m.text&&sep("s1")}
+        {m.text&&item("copy","copy",copied?"คัดลอกแล้ว":"คัดลอก",()=>copyText(m.text))}
+        {canDel&&(canReply||m.text)&&sep("s2")}
+        {canDel&&item("del","trash","ลบ",()=>setDelSt({step:"confirm",err:""}),T.red)}
       </div>);
   }
   function startReply(m,nm){
@@ -2381,7 +2387,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
                 {m.image&&<img src={m.image} alt="" data-msg-bubble onClick={()=>{if(lpFired.current){lpFired.current=false;return;}if(viewer.enabled)viewer.open([m.image],0);}} onContextMenu={e=>{if(!canMenu(m))return;e.preventDefault();setMenuFor(m.id);}} onTouchStart={()=>startLP(m)} onTouchEnd={cancelLP} onTouchMove={cancelLP} onTouchCancel={cancelLP} style={{maxWidth:"min(260px,100%)",cursor:viewer.enabled?"zoom-in":undefined,borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
                 {m.text&&<div data-msg-bubble onClick={()=>{if(canMenu(m))setMenuFor(id=>id===m.id?null:m.id);}} style={{cursor:canMenu(m)?"pointer":"default",boxShadow:menuFor===m.id?"0 0 0 2px "+T.brandMix(55):"none",padding:"8px 13px",borderRadius:16,fontSize:15,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?T.onBrand:T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={newestFirst?i>=3:i<vis.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text}</div>}
                   </div>
-                  <div data-msg-meta style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start",fontSize:11,color:T.muted,lineHeight:1.35,paddingBottom:2}}>{readMarkId===m.id&&<span data-read-receipt>อ่านแล้ว</span>}<span>{fmtTime(ms)}</span></div>
+                  <div data-msg-meta style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start",fontSize:10,color:T.muted,lineHeight:1.3,paddingBottom:2}}>{readMarkId===m.id&&<span data-read-receipt>อ่านแล้ว</span>}<span>{fmtTime(ms)}</span></div>
                 </div>
               </div>
             </div>
