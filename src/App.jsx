@@ -530,8 +530,11 @@ function Av({init,bg,tc,size=40,online,grad,isSelf,uid}){
   </div>);
 }
 
+// จำนวนเหรียญแบบย่อให้พอดีแถบบน: 7,135 · 123K · 1.2M (เต็มดูได้ที่ร้านค้า)
+function fmtCoins(n){n=Math.max(0,Math.floor(Number(n)||0));if(n<100000)return n.toLocaleString("en-US");if(n<1000000)return Math.floor(n/1000)+"K";return (Math.floor(n/100000)/10)+"M";}
+
 // ชื่อผู้ใช้ (ใช้ชื่อล่าสุด + สีชื่อ + ป้ายที่ใส่ไว้)
-function Nm({uid,name,own,style,area}){
+function Nm({uid,name,own,style,area,compact}){
   const users=useContext(UsersCtx);
   const u=uid?users[uid]:null;
   const nm=own?(name||(u&&u.name)):((u&&u.name)||name);
@@ -539,7 +542,9 @@ function Nm({uid,name,own,style,area}){
   const badge=u&&u.badge&&BADGES[u.badge];
   const pbadge=u&&u.badge&&PREMIUM_BADGES[u.badge];
   const fx=resolveTextFx(u,area||"name"); // ฟอนต์/เอฟเฟกต์ที่เจ้าของชื่อเลือกไว้ (ไม่มี = แบบเดิมทุกอย่าง)
-  return <span style={style}>{fx?<TextFx fx={fx} tune={resolveTune(u,area||"name")}>{nm||"ผู้ใช้"}</TextFx>:<span style={col||undefined}>{nm||"ผู้ใช้"}</span>}{badge&&<span style={{marginLeft:4}}>{badge}</span>}{pbadge&&<BadgePill b={pbadge}/>}</span>;
+  const nameEl=fx?<TextFx fx={fx} tune={resolveTune(u,area||"name")}>{nm||"ผู้ใช้"}</TextFx>:<span style={col||undefined}>{nm||"ผู้ใช้"}</span>;
+  // compact = แถบบน: ชื่อยาวตัดด้วย … ป้ายอยู่บรรทัดเดียวกันเสมอ ไม่ตกบรรทัด
+  return <span style={compact?{display:"inline-flex",alignItems:"center",minWidth:0,whiteSpace:"nowrap",...style}:style}>{compact?<span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis"}}>{nameEl}</span>:nameEl}{badge&&<span style={{marginLeft:4,flexShrink:0}}>{badge}</span>}{pbadge&&<BadgePill b={pbadge} style={compact?{flexShrink:0}:undefined}/>}</span>;
 }
 
 // ครอบข้อความด้วยสไตล์ของเจ้าของ (uid) ตามจุดที่ระบุ — ไม่มีสไตล์ = แสดง children/fallback เหมือนเดิมทุกอย่าง
@@ -4438,17 +4443,17 @@ export default function App(){
     <ProfileCtx.Provider value={openProfile}>
     <SocialProviders user={user} onOpenFriends={()=>{setPage("chat");setChatTabReq("friends");}} onJoinRoom={r=>{setJoinReq(r);setPage("voice");}}>
     <div style={{fontFamily:"'IBM Plex Sans Thai',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",minHeight:"100dvh",background:T.bg,display:"flex",flexDirection:"column",maxWidth:"var(--app-w)",margin:"0 auto"}}>
-      <style>{`:root{--app-w:480px;--nav-w:480px}@media (min-width:900px){:root{--app-w:960px;--nav-w:720px}.w-room-list{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.w-narrow{max-width:760px;width:100%;margin-left:auto;margin-right:auto}.w-chat{max-width:860px;width:100%;margin-left:auto;margin-right:auto;border-left:1px solid ${T.border};border-right:1px solid ${T.border}}}@media (min-width:1280px){:root{--app-w:1200px}}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:var(--wm-cs,dark)}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}@keyframes entryslide{0%{transform:translateY(-34px) scale(.8);opacity:0}14%{transform:translateY(0) scale(1.08);opacity:1}22%{transform:scale(1)}85%{opacity:1}100%{transform:translateY(-8px);opacity:0}}`}</style>
-      <div style={{background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid "+T.border,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:30}}>
-        <div style={{display:"flex",alignItems:"center",gap:9}}>
+      <style>{`:root{--app-w:480px;--nav-w:480px}@media (max-width:430px){.hd-word{display:none}}@media (min-width:900px){:root{--app-w:960px;--nav-w:720px}.w-room-list{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.w-narrow{max-width:760px;width:100%;margin-left:auto;margin-right:auto}.w-chat{max-width:860px;width:100%;margin-left:auto;margin-right:auto;border-left:1px solid ${T.border};border-right:1px solid ${T.border}}}@media (min-width:1280px){:root{--app-w:1200px}}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{background:${T.bg};margin:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}input,textarea,select{color-scheme:var(--wm-cs,dark)}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes mic-wave{0%{height:3px}100%{height:14px}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}@keyframes giftfly{0%{transform:scale(.3) translateY(60px);opacity:0}25%{transform:scale(1.25) translateY(0);opacity:1}75%{transform:scale(1) translateY(-20px);opacity:1}100%{transform:scale(.9) translateY(-130px);opacity:0}}@keyframes giftpop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}@keyframes entryslide{0%{transform:translateY(-34px) scale(.8);opacity:0}14%{transform:translateY(0) scale(1.08);opacity:1}22%{transform:scale(1)}85%{opacity:1}100%{transform:translateY(-8px);opacity:0}}`}</style>
+      <div style={{background:T.glass,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:"1px solid "+T.border,padding:"10px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,position:"sticky",top:0,zIndex:30}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
           <div style={{width:30,height:30,borderRadius:9,background:T.brandGrad,color:T.onBrand,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:800}}>W</div>
-          <span style={{fontSize:18,fontWeight:800,background:T.brandText,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:-.5}}>Warmly</span>
+          <span style={{fontSize:18,fontWeight:800,background:T.brandText,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:-.5,whiteSpace:"nowrap"}} className="hd-word">Warmly</span>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:7}}>
-          {!user.isGuest&&<button onClick={()=>setShopOpen(true)} style={{border:"1px solid rgba(245,158,11,.4)",background:"rgba(245,158,11,.12)",color:T.yellow,borderRadius:20,padding:"3px 10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🛍️ ร้านค้า · 🪙 {(users[getUid()]&&users[getUid()].coins)||0}</button>}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:6,minWidth:0,flex:1}}>
+          {!user.isGuest&&<button onClick={()=>setShopOpen(true)} aria-label="ร้านค้า" title={"ร้านค้า · เหรียญทอง "+(((users[getUid()]&&users[getUid()].coins)||0).toLocaleString("en-US"))} style={{border:"1px solid rgba(245,158,11,.4)",background:"rgba(245,158,11,.12)",color:T.yellow,borderRadius:20,padding:"4px 10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0,display:"inline-flex",alignItems:"center",gap:5,fontVariantNumeric:"tabular-nums"}}><span>🛍️</span><span>🪙 {fmtCoins((users[getUid()]&&users[getUid()].coins)||0)}</span></button>}
           {APP_MODE_ENABLED&&<button data-app-mode onClick={toggleAppMode} aria-label={appMode==="light"?"สลับเป็นโหมดมืด":"สลับเป็นโหมดสว่าง"} title={appMode==="light"?"โหมดมืด":"โหมดสว่าง"} style={{width:30,height:30,borderRadius:"50%",border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:16,lineHeight:1,padding:0,flexShrink:0,fontFamily:"inherit"}}>{appMode==="light"?"🌙":"☀️"}</button>}
-          <Nm uid={getUid()} name={user.name} own style={{fontSize:14,color:T.sub,fontWeight:500}}/>
-          {user.isGuest&&<span style={{fontSize:13,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 7px",fontWeight:700}}>Guest</span>}
+          <Nm uid={getUid()} name={user.name} own compact style={{fontSize:14,color:T.sub,fontWeight:500}}/>
+          {user.isGuest&&<span style={{fontSize:13,background:"rgba(245,158,11,.15)",color:T.yellow,borderRadius:20,padding:"2px 7px",fontWeight:700,flexShrink:0}}>Guest</span>}
         </div>
       </div>
       <ThemeScope section={THEME_PAGE[page]||null}>
