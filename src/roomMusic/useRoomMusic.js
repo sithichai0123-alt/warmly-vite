@@ -99,6 +99,20 @@ export function useRoomMusicKeeper(iframeRef, { active, songKey, startedAt, onEn
   }, [iframeRef]);
   useEffect(() => () => { hsTimers.current.forEach(clearTimeout); clearTimeout(tapTimer.current); clearTimeout(autoTimer.current); }, []);
 
+  // iPhone/iPad ไม่ยอมให้เปิดเสียงเองจนกว่าผู้ใช้จะแตะหน้าจอ → แตะตรงไหนก็ได้ในแอป (ครั้งแรกที่ตัวเล่นยังไม่เริ่ม) แล้วสั่งเล่นให้เลย
+  //   ไม่ต้องหาปุ่ม ▶ บนวิดีโอเอง (ใช้เฉพาะตอนตัวเล่นยังไม่เคยเริ่ม — ถ้าผู้ใช้กดหยุดเอง จะไม่สั่งเล่นซ้ำ)
+  useEffect(() => {
+    if (!active) return undefined;
+    const kick = () => {
+      const t = tracker.current;
+      if (t.playing) return;
+      if (t.state === YT.UNSTARTED || t.state === YT.CUED || needTapRef.current) cmd(iframeRef.current, "playVideo");
+    };
+    document.addEventListener("touchend", kick, { passive: true });
+    document.addEventListener("click", kick, { passive: true });
+    return () => { document.removeEventListener("touchend", kick); document.removeEventListener("click", kick); };
+  }, [active, iframeRef]);
+
   // ออกจากแอป / กลับมา
   useEffect(() => {
     if (!active) return undefined;

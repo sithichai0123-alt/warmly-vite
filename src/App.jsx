@@ -733,7 +733,7 @@ function YoutubePlaylist({playlist,nowPlaying,songStartedAt,onAdd,onRemove,onPla
   // ปรับเสียงเพลง (เฉพาะเครื่องนี้): ส่งคำสั่งเข้าตัวเล่น YouTube — ไม่กระทบเสียงพูดของใคร
   const ytRef=useRef(null);const ytCancel=useRef(null);
   const audioPrefs=useAudioPrefs();
-  const ytApi=(AUDIO_CONTROLS_ENABLED||ROOM_MUSIC_BG_ENABLED)?"&enablejsapi=1&origin="+encodeURIComponent(window.location.origin):"";
+  const ytApi=(AUDIO_CONTROLS_ENABLED||ROOM_MUSIC_BG_ENABLED)?"&enablejsapi=1&playsinline=1&origin="+encodeURIComponent(window.location.origin):"&playsinline=1"; // playsinline=1: ให้ iPhone เล่นในหน้าเดิม ไม่เด้งเต็มจอ (ไม่งั้น iOS ไม่ยอมเล่นเอง)
   const onYtLoad=()=>{if(ROOM_MUSIC_BG_ENABLED)music.onLoad();if(!AUDIO_CONTROLS_ENABLED)return;if(ytCancel.current)ytCancel.current();ytCancel.current=applyYtVolumeWhenReady(ytRef.current,getAudioPrefs);};
   useEffect(()=>{if(AUDIO_CONTROLS_ENABLED&&ytRef.current)applyYtVolume(ytRef.current,audioPrefs.music,audioPrefs.musicMuted);},[audioPrefs.music,audioPrefs.musicMuted]);
   useEffect(()=>()=>{if(ytCancel.current)ytCancel.current();},[]);
