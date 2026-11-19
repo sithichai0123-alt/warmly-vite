@@ -2215,7 +2215,7 @@ function fmtTime(ms){
 }
 
 // ── แชทแบบฟองข้อความ (ใช้ทั้งห้องรวมและแชทส่วนตัว) ────────
-function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo,avatarGift,sinceMs,blockedUids,lock,onDeleteMessage,newestFirst}){
+function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อความ...",onSent,giftTo,avatarGift,sinceMs,blockedUids,lock,onDeleteMessage,newestFirst,peerReadMs}){
   const users=useContext(UsersCtx);
   const openProfileFromBubble=useContext(ProfileCtx); // กดรูป/ชื่อในฟองข้อความ → เปิดโปรไฟล์
   const viewer=useImageViewer();
@@ -2254,6 +2254,8 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
 
   useEffect(()=>{if(newestFirst){const el=listRef.current;if(el)el.scrollTo({top:0,behavior:"smooth"});return;}endRef.current?.scrollIntoView({behavior:"smooth"});},[msgs.length]); // eslint-disable-line
   const vis=blockedUids&&blockedUids.size?msgs.filter(m=>!blockedUids.has(m.uid)):msgs; // ข้อความของคนที่บล็อกไว้ไม่แสดง
+  // แชทส่วนตัว: ข้อความล่าสุดของเราที่อีกฝ่ายอ่านแล้ว → ขึ้น "อ่านแล้ว" ใต้ข้อความนั้น (ห้องรวมไม่ใช้ — ไม่ส่ง peerReadMs มา)
+  const readMarkId=(()=>{ if(!peerReadMs)return null; let id=null,best=-1; for(const m of vis){ if(m.uid!==myUid||m.gift||String(m.id).startsWith("tmp-"))continue; const t=m.t&&m.t.toMillis?m.t.toMillis():0; if(t>0&&t<=peerReadMs&&t>best){best=t;id=m.id;} } return id; })();
 
   async function send(){
     const txt=input.trim();
@@ -2323,7 +2325,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
                 </div>}
                 {m.image&&<img src={m.image} alt="" onClick={viewer.enabled?()=>viewer.open([m.image],0):undefined} style={{maxWidth:"100%",cursor:viewer.enabled?"zoom-in":undefined,borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
                 {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:15,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?T.onBrand:T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={newestFirst?i>=3:i<vis.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text}</div>}
-                <div style={{fontSize:13,color:T.muted,margin:"2px 4px 0",display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:me?"flex-end":"flex-start",gap:4}}><span>{fmtTime(ms)}</span>{!lock&&!String(m.id).startsWith("tmp-")&&<span data-reply-btn onClick={()=>startReply(m,nm)} style={{cursor:"pointer",fontWeight:600,color:T.sub,padding:"0 2px"}}>ตอบกลับ</span>}{onDeleteMessage&&me&&!String(m.id).startsWith("tmp-")&&<MessageDeleteControl onDelete={async()=>{await onDeleteMessage(m.id);setMsgs(prev=>prev.filter(x=>x.id!==m.id));}}/>}</div>
+                <div style={{fontSize:13,color:T.muted,margin:"2px 4px 0",display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:me?"flex-end":"flex-start",gap:4}}><span>{fmtTime(ms)}</span>{readMarkId===m.id&&<span data-read-receipt style={{color:T.brand2,fontWeight:600}}>✓ อ่านแล้ว</span>}{!lock&&!String(m.id).startsWith("tmp-")&&<span data-reply-btn onClick={()=>startReply(m,nm)} style={{cursor:"pointer",fontWeight:600,color:T.sub,padding:"0 2px"}}>ตอบกลับ</span>}{onDeleteMessage&&me&&!String(m.id).startsWith("tmp-")&&<MessageDeleteControl onDelete={async()=>{await onDeleteMessage(m.id);setMsgs(prev=>prev.filter(x=>x.id!==m.id));}}/>}</div>
               </div>
             </div>
           );
@@ -2393,6 +2395,21 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
 
   const pairId=uid=>[myUid,uid].sort().join("_");
   const openPairUnread=!!(peer&&dmu.isUnread(pairId(peer)));
+  // อ่านแล้ว (แชทส่วนตัว): เปิดห้องนี้อยู่และมีข้อความจากอีกฝ่ายที่ยังไม่เคยบอกว่าอ่าน → เขียน readAt ครั้งเดียวต่อข้อความล่าสุด (ไม่สร้างห้องใหม่ถ้ายังไม่เคยคุยกัน)
+  const curConv=peer?convs.find(c=>c.id===pairId(peer)):null;
+  const toMsT=t=>t&&typeof t.toMillis==="function"?t.toMillis():0;
+  const peerReadMs=curConv&&curConv.readAt?toMsT(curConv.readAt[peer])||undefined:undefined;
+  const myReadMs=curConv&&curConv.readAt?toMsT(curConv.readAt[myUid]):0;
+  const curLastT=curConv?toMsT(curConv.lastT):0, curLastFrom=curConv?curConv.lastFrom:null;
+  const markedRef=useRef({});
+  useEffect(()=>{
+    if(!(tab==="dm"&&peer&&DM_TOOLS_ENABLED&&dmPrefs.readReceipts&&curConv&&curLastT&&curLastFrom&&curLastFrom!==myUid))return;
+    if(myReadMs>=curLastT||markedRef.current[curConv.id]===curLastT)return;
+    const mark=()=>{ if(typeof document!=="undefined"&&document.visibilityState==="hidden")return; markedRef.current[curConv.id]=curLastT; dmApi.markRead(myUid,peer).catch(e=>{console.error("markRead",e);delete markedRef.current[curConv.id];}); };
+    mark();
+    document.addEventListener("visibilitychange",mark);
+    return()=>document.removeEventListener("visibilitychange",mark);
+  },[tab,peer,curLastT,curLastFrom,myReadMs,dmPrefs.readReceipts]); // eslint-disable-line
   useEffect(()=>{ if(tab==="dm"&&peer)dmu.markRead(pairId(peer)); },[tab,peer,openPairUnread]); // eslint-disable-line -- เปิดห้องนี้อยู่ = อ่านแล้ว (รวมข้อความที่เข้ามาระหว่างเปิดอยู่)
   const usersApi=useContext(UsersApiCtx);
   const peopleQ=usePeopleList({enabled:USERS_LAZY_ENABLED&&tab==="dm"&&!peer,myUid,search,fb:SCALE_FB,seed:usersApi.seed}); // รายชื่อ "เริ่มแชทกับ..." ล่าสุด 50 คน + ค้นหาที่เซิร์ฟเวอร์
@@ -2503,7 +2520,7 @@ function ChatPage({user,openPeer,onPeerOpened,openTab,onTabOpened}){
             {FRIENDS_ENABLED&&!user.isGuest&&!pu.isGuest&&<div data-dm-header-friend style={{flexShrink:0}}><FriendButton uid={peer} name={pu.name} Btn={Btn} compact/></div>}
             {DM_TOOLS_ENABLED&&<DmMenu peerName={pu.name||"ผู้ใช้นี้"} muted={!!dmPrefs.mutedPeers[peer]} blocked={blocks.isBlocked(peer)} onToggleMute={()=>setPeerMuted(peer,!dmPrefs.mutedPeers[peer])} onClear={()=>dmApi.clearHistory(myUid,peer)} onDeleteAll={CHAT_DELETE_ENABLED&&!user.isGuest?()=>chatDeleteApi.deleteAll(peer):undefined} onToggleBlock={()=>blocks.isBlocked(peer)?blocks.unblock(peer):blocks.block(peer)}/>}
           </div>
-          <BubbleChat path={["dms",pairId(peer),"messages"]} user={user} giftTo={{uid:peer,name:pu.name||"เพื่อน"}} placeholder={"ข้อความถึง "+(pu.name||"เพื่อน")+"..."} onSent={onDmSent}
+          <BubbleChat path={["dms",pairId(peer),"messages"]} peerReadMs={peerReadMs} user={user} giftTo={{uid:peer,name:pu.name||"เพื่อน"}} placeholder={"ข้อความถึง "+(pu.name||"เพื่อน")+"..."} onSent={onDmSent}
             onDeleteMessage={CHAT_DELETE_ENABLED&&!user.isGuest?(id=>chatDeleteApi.deleteOne(peer,id)):undefined}
             sinceMs={DM_TOOLS_ENABLED?clearedAtMs(convs.find(c=>c.id===pairId(peer)),myUid):0}
             blockedUids={DM_TOOLS_ENABLED?blocks.set:undefined}

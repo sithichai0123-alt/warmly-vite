@@ -13,6 +13,10 @@ export function makeDmApi({ db, doc, setDoc, onSnapshot, collection, query, wher
     clearHistory(myUid, peerUid) {
       return setDoc(doc(db, "dms", pairIdOf(myUid, peerUid)), { uids: [myUid, peerUid].sort(), clearedAt: { [myUid]: serverTimestamp() } }, { merge: true });
     },
+    // บอกอีกฝ่ายว่า "เราอ่านแล้ว" (เก็บเวลาที่ dms/{pair}.readAt[uid]) — เรียกเฉพาะเมื่อห้องแชทมีอยู่จริงแล้ว
+    markRead(myUid, peerUid) {
+      return setDoc(doc(db, "dms", pairIdOf(myUid, peerUid)), { uids: [myUid, peerUid].sort(), readAt: { [myUid]: serverTimestamp() } }, { merge: true });
+    },
     subscribeBlocks(uid, cb, onErr) {
       return onSnapshot(doc(db, BLOCKS_COLLECTION, uid), sn => cb(normalizeBlocks(sn.exists() ? sn.data() : null)), e => { try { onErr && onErr(e); } catch (x) { /* ignore */ } });
     },

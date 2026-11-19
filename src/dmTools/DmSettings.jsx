@@ -62,7 +62,7 @@ export default function DmSettings({ blocks, users, onClose }) {
               <label htmlFor="wm-dm-vol" style={{ fontSize: 13, fontWeight: 700, color: C.sub }}>ความดัง {Math.round(p.volume * 100)}%</label>
               <button type="button" data-dms-test onClick={() => playNotification(p)} style={{ fontFamily: "inherit", fontSize:13, fontWeight: 700, padding: "4px 10px", borderRadius: 8, border: "1px solid " + C.borderHi, background: "transparent", color: C.brand2, cursor: "pointer" }}>▶ ทดลองฟัง</button>
             </div>
-            <input id="wm-dm-vol" data-dms-volume type="range" min="0" max="100" step="5" value={Math.round(p.volume * 100)} onChange={e => setDmPrefs({ volume: Number(e.target.value) / 100 })} style={{ width: "100%", accentColor: "#A78BFA", height: 28 }} />
+            <input id="wm-dm-vol" data-dms-volume type="range" min="0" max="100" step="5" value={Math.round(p.volume * 100)} onChange={e => setDmPrefs({ volume: Number(e.target.value) / 100 })} style={{ width: "100%", accentColor: "var(--secondary-color,#A78BFA)", height: 28 }} />
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
               <button type="button" data-dms-upload onClick={() => fileRef.current && fileRef.current.click()} disabled={busy} style={chip(false)}>{busy ? "⏳ กำลังตรวจไฟล์..." : "⬆️ อัปโหลดเสียงของฉัน"}</button>
               {p.customSound && <button type="button" data-dms-remove-custom onClick={() => setDmPrefs({ customSound: "", tone: p.tone === "custom" ? "pop" : p.tone })} style={{ ...chip(false), color: C.red, borderColor: "#5B2A35" }}>ลบเสียงของฉัน</button>}
@@ -71,6 +71,13 @@ export default function DmSettings({ blocks, users, onClose }) {
             <input ref={fileRef} data-dms-file type="file" accept={ALLOWED_SOUND_TYPES.join(",") + ",.mp3,.wav,.ogg,.m4a"} style={{ display: "none" }} onChange={onFile} />
           </div>
           {msg && <div data-dms-msg style={{ marginTop: 8, fontSize: 13, color: C.yellow }}>⚠️ {msg}</div>}
+        </div>
+
+        <div style={{ marginTop: 10, background: C.surface, border: "1px solid " + C.border, borderRadius: 14, padding: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div><div style={{ fontSize: 15, fontWeight: 700 }}>✓ ส่งสถานะ "อ่านแล้ว"</div><div style={{ fontSize: 13, color: C.muted }}>เปิด = อีกฝ่ายเห็นว่าคุณอ่านข้อความแล้ว (ปิดได้ แต่คุณก็ยังเห็นสถานะของเขา)</div></div>
+            <div data-dms-receipt-toggle data-on={p.readReceipts ? "1" : "0"} onClick={() => setDmPrefs({ readReceipts: !p.readReceipts })} style={{ width: 46, height: 26, borderRadius: 13, cursor: "pointer", background: p.readReceipts ? "var(--primary-color,#7C5CFC)" : "#333", position: "relative", flexShrink: 0, transition: "background .2s" }}><div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: p.readReceipts ? 23 : 3, transition: "left .2s" }} /></div>
+          </div>
         </div>
 
         <div style={{ marginTop: 12, background: C.surface, border: "1px solid " + C.border, borderRadius: 14, padding: 12 }}>
