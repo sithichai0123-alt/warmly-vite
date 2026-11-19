@@ -3,9 +3,30 @@
 import { useAudioPrefs, setMicGain, setMusicVolume, setMusicMuted, useMicStatus } from "./store.js";
 import { MIC_GAIN_MAX } from "./config.js";
 import { isIOS } from "./ytVolume.js";
+import { AUDIO_ROUTE_ENABLED, useRouteState, setRoutePref, audioRoute } from "../audioRoute/index.js";
 
 const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", yellow: "var(--warning-color, #F59E0B)" };
 const range = { width: "100%", accentColor: "var(--secondary-color,#A78BFA)", height: 28, cursor: "pointer" };
+
+// เสียงออก: เลือกลำโพง/หูฟังบลูทูธ (เฉพาะเบราว์เซอร์ที่รองรับ) — "อัตโนมัติ" = ใช้บลูทูธ/หูฟังเมื่อเชื่อมต่อ
+function OutputPicker({ ios }) {
+  const r = useRouteState();
+  const active = r.outputs.find(o => o.id === r.activeId);
+  return (
+    <div data-ac-output style={{ marginTop: 10 }}>
+      <label htmlFor="wm-out-sel" style={{ fontSize: 13, fontWeight: 700, color: C.sub }}>🔊 เสียงออก</label>
+      {r.supported ? (<>
+        <select id="wm-out-sel" data-ac-output-select value={r.pref} onChange={e => { setRoutePref(e.target.value); audioRoute.refresh(); }} style={{ width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 10, border: "1px solid " + C.border, background: C.card, color: C.text, fontFamily: "inherit", fontSize: 14 }}>
+          <option value="auto">อัตโนมัติ (ใช้บลูทูธ/หูฟังเมื่อเชื่อมต่อ)</option>
+          {r.outputs.map(o => <option key={o.id} value={o.id}>{(o.kind === "bluetooth" ? "🎧 " : o.kind === "external" ? "🎧 " : "🔈 ") + o.label}</option>)}
+        </select>
+        <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>{active ? "กำลังส่งเสียงไป: " + active.label : "ตอนนี้ใช้ลำโพง/หูฟังตามที่เครื่องเลือก (ยังไม่พบบลูทูธที่เชื่อมต่อ)"}</div>
+      </>) : (
+        <div style={{ fontSize: 13, color: C.yellow, marginTop: 2, lineHeight: 1.5 }}>{ios ? "⚠️ iPhone/iPad ให้เว็บเลือกเสียงออกเองไม่ได้ — เลือกบลูทูธ/AirPlay จากศูนย์ควบคุมของเครื่อง (ปัดจากมุมขวาบน แล้วแตะไอคอนเสียง)" : "⚠️ เบราว์เซอร์นี้เลือกเสียงออกจากเว็บไม่ได้ — ใช้ Chrome หรือเลือกอุปกรณ์เสียงที่ตัวเครื่อง"}</div>
+      )}
+    </div>
+  );
+}
 
 export default function AudioControls({ micOn, onToggleMic, connected, hasMusic }) {
   const p = useAudioPrefs();
@@ -38,6 +59,7 @@ export default function AudioControls({ micOn, onToggleMic, connected, hasMusic 
         {!hasMusic && <div style={{ fontSize:13, color: C.muted }}>ยังไม่มีเพลงเล่นในห้อง — ค่าที่ตั้งไว้จะใช้ตอนมีเพลง</div>}
         {ios && <div style={{ fontSize:13, color: C.yellow }}>⚠️ iPhone/iPad ไม่อนุญาตให้เว็บปรับเสียงเพลง — ใช้ปุ่มเสียงข้างเครื่องแทน</div>}
       </div>
+      {AUDIO_ROUTE_ENABLED && connected && <OutputPicker ios={ios} />}
     </div>
   );
 }
