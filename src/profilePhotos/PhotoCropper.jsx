@@ -66,24 +66,24 @@ export default function PhotoCropper({ file, index = 1, total = 1, aspect = 1, c
     <div data-photo-cropper style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.82)", zIndex: 90, display: "flex", alignItems: "center", justifyContent: "center", padding: 12, overflowY: "auto" }}>
       <div style={{ width: "100%", maxWidth: F + 40, background: C.card, border: "1px solid " + C.borderHi, borderRadius: 20, padding: 16, color: C.text }}>
         <div style={{ fontSize: 16, fontWeight: 800 }}>✂️ {title}{total > 1 ? " (" + index + "/" + total + ")" : ""}</div>
-        <div style={{ fontSize: 12, color: C.muted, margin: "4px 0 10px", lineHeight: 1.6 }}>ลากรูปเพื่อย้าย • เลื่อนแถบเพื่อซูม{hint ? <><br />{hint}</> : null}</div>
+        <div style={{ fontSize: 13, color: C.muted, margin: "4px 0 10px", lineHeight: 1.6 }}>ลากรูปเพื่อย้าย • เลื่อนแถบเพื่อซูม{hint ? <><br />{hint}</> : null}</div>
         <div
           onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
           style={{ position: "relative", width: F, height: FH, margin: "0 auto", overflow: "hidden", borderRadius: 12, background: "#000", touchAction: "none", cursor: "grab", userSelect: "none" }}
         >
           {dim && url && <img src={url} alt="" draggable={false} style={{ position: "absolute", left: off.x, top: off.y, width: dim.w * scale, height: dim.h * scale, maxWidth: "none", pointerEvents: "none" }} />}
-          {!dim && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: C.muted }}>กำลังโหลด...</div>}
+          {!dim && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: C.muted }}>กำลังโหลด...</div>}
           {circle && <div style={{ position: "absolute", inset: 0, borderRadius: "50%", boxShadow: "0 0 0 999px rgba(0,0,0,.5)", border: "2px solid rgba(255,255,255,.7)", pointerEvents: "none" }} />}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "14px 4px 0" }}>
-          <span style={{ fontSize: 13, color: C.muted }}>ซูม</span>
+          <span style={{ fontSize: 14, color: C.muted }}>ซูม</span>
           <input type="range" min={1} max={MAX_ZOOM} step={0.01} value={z} onChange={e => changeZoom(parseFloat(e.target.value))} disabled={!dim} style={{ flex: 1 }} />
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-          <button type="button" onClick={onCancel} style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "1px solid " + C.borderHi, background: "transparent", color: C.brand2, fontFamily: "inherit", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>ข้ามรูปนี้</button>
-          <button type="button" onClick={confirm} disabled={!dim} style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: C.grad, color: C.onBrand, fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: dim ? 1 : .5 }}>ใช้รูปนี้</button>
+          <button type="button" onClick={onCancel} style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "1px solid " + C.borderHi, background: "transparent", color: C.brand2, fontFamily: "inherit", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>ข้ามรูปนี้</button>
+          <button type="button" onClick={confirm} disabled={!dim} style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: C.grad, color: C.onBrand, fontFamily: "inherit", fontSize: 15, fontWeight: 700, cursor: "pointer", opacity: dim ? 1 : .5 }}>ใช้รูปนี้</button>
         </div>
-        <button type="button" onClick={() => onDone(null)} style={{ width: "100%", marginTop: 8, padding: "8px 0", border: "none", background: "transparent", color: C.muted, fontFamily: "inherit", fontSize: 13, cursor: "pointer" }}>ไม่ครอป ใช้ทั้งรูป</button>
+        <button type="button" onClick={() => onDone(null)} style={{ width: "100%", marginTop: 8, padding: "8px 0", border: "none", background: "transparent", color: C.muted, fontFamily: "inherit", fontSize: 14, cursor: "pointer" }}>ไม่ครอป ใช้ทั้งรูป</button>
       </div>
     </div>
   );

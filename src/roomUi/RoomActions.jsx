@@ -20,7 +20,7 @@ export default function RoomActions({ items, T }) {
           style={{ position: "relative", minWidth: 0, height: 50, padding: "5px 2px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit",
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, transition: "background .15s,border-color .15s", ...tone(x.tone) }}>
           <span aria-hidden="true" style={{ fontSize: 17, lineHeight: 1 }}>{x.ic}</span>
-          <span style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2, maxWidth: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{x.l}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2, maxWidth: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{x.l}</span>
           {x.dot && <span data-room-action-dot style={{ position: "absolute", top: 5, right: 6, width: 7, height: 7, borderRadius: "50%", background: T.green, boxShadow: "0 0 0 2px " + T.card }} />}
         </button>
       ))}

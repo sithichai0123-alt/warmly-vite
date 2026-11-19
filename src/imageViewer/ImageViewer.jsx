@@ -56,7 +56,7 @@ function Viewer({ list, start, onClose }) {
     <div data-image-viewer role="dialog" aria-modal="true" aria-label="ดูรูปเต็มจอ" onClick={onClose} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
       style={{ position: "fixed", inset: 0, zIndex: 100000, background: "rgba(0,0,0,.94)", display: "flex", alignItems: "center", justifyContent: "center", touchAction: "pan-y pinch-zoom" }}>
       {bad
-        ? <div style={{ color: "#fff", fontSize: 14, padding: 24, textAlign: "center" }}>โหลดรูปนี้ไม่ได้</div>
+        ? <div style={{ color: "#fff", fontSize: 15, padding: 24, textAlign: "center" }}>โหลดรูปนี้ไม่ได้</div>
         : <img data-iv-img src={list[i]} alt="" onClick={e => e.stopPropagation()} onError={() => setBad(true)} draggable={false}
             style={{ maxWidth: "100vw", maxHeight: "100dvh", width: "auto", height: "auto", objectFit: "contain", display: "block", userSelect: "none" }} />}
       <button ref={closeRef} type="button" data-iv-close aria-label="ปิด" onClick={e => { e.stopPropagation(); onClose(); }}
@@ -64,7 +64,7 @@ function Viewer({ list, start, onClose }) {
       {n > 1 && (
         <>
           {arrow("prev", -1)}{arrow("next", 1)}
-          <div data-iv-count style={{ position: "absolute", bottom: "max(14px, env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", color: "#fff", fontSize: 13, background: "rgba(0,0,0,.55)", borderRadius: 20, padding: "4px 12px" }}>{i + 1} / {n}</div>
+          <div data-iv-count style={{ position: "absolute", bottom: "max(14px, env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", color: "#fff", fontSize: 14, background: "rgba(0,0,0,.55)", borderRadius: 20, padding: "4px 12px" }}>{i + 1} / {n}</div>
         </>
       )}
     </div>

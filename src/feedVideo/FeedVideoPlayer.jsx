@@ -68,7 +68,7 @@ export default function FeedVideoPlayer({ src, single = false, manager = feedVid
   const box = single
     ? { position: "relative", width: "100%", aspectRatio: String(ar), maxHeight: "min(" + MAX_HEIGHT_VH + "vh," + MAX_HEIGHT_PX + "px)", background: "#000" }
     : { position: "relative", width: "100%", height: "100%", minHeight: 130, background: "#000" };
-  if (failed) return <div data-feedvideo-failed style={{ ...box, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary,#9B94C4)", fontSize: 12, aspectRatio: undefined, minHeight: 100 }}>เล่นวิดีโอนี้ไม่ได้</div>;
+  if (failed) return <div data-feedvideo-failed style={{ ...box, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary,#9B94C4)", fontSize: 13, aspectRatio: undefined, minHeight: 100 }}>เล่นวิดีโอนี้ไม่ได้</div>;
   return (
     <div data-feedvideo={idRef.current} style={box}>
       <video ref={ref} src={url} controls loop playsInline preload="metadata" muted={muted}
