@@ -11,7 +11,7 @@ import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, cr
 import { audioRoute } from "./audioRoute/index.js"; // ส่งเสียงไปหูฟังบลูทูธเมื่อเชื่อมต่ออยู่ (ปิดได้ที่ audioRoute/config.js)
 import { ImageViewerProvider, useImageViewer } from "./imageViewer/index.js"; // ดูรูปเต็มจอ (แยกไฟล์ — ปิดได้ที่ imageViewer/config.js)
 import { PRESENCE_ENABLED, PRESENCE_WINDOW_ENABLED, useOnlineCount, DOT_MIN_SIZE, PresenceProvider, PresenceDot, PresenceText, makePresenceApi, usePresencePrefs, setPresencePrefs, useIsOnline, usePresenceStateOf } from "./presence/index.js"; // สถานะออนไลน์ จุดเขียว/เทา (แยกไฟล์ — ปิดได้ที่ presence/config.js)
-import { CHAT_DELETE_ENABLED, makeChatDeleteApi, makeClientFallback, MessageDeleteControl } from "./chatDelete/index.js"; // ลบข้อความแชทส่วนตัว (ทีละข้อความ/ทั้งหมด) ผ่าน Backend — ปิดได้ที่ chatDelete/config.js
+import { CHAT_DELETE_ENABLED, makeChatDeleteApi, makeClientFallback } from "./chatDelete/index.js"; // ลบข้อความแชทส่วนตัว (ทีละข้อความ/ทั้งหมด) ผ่าน Backend — ปิดได้ที่ chatDelete/config.js
 import { DM_UNREAD_ENABLED, DM_UNREAD_FOR_GUESTS, DmUnreadProvider, useDmUnread, UnreadBadge, UnreadDot } from "./dmUnread/index.js"; // จุด/ตัวเลขข้อความใหม่ในแชทส่วนตัว — ปิดได้ที่ dmUnread/config.js
 import { FRIENDS_ENABLED, makeFriendsApi, FriendsProvider, useFriends, FriendButton, FriendsPanel } from "./friends/index.js"; // ระบบเพื่อน — ปิดได้ที่ friends/config.js
 import { ROOM_INVITE_ENABLED, makeInviteApi, InvitePanel, InviteNotifier } from "./roomInvite/index.js"; // เชิญเพื่อนเข้าห้องเสียง — ปิดได้ที่ roomInvite/config.js
@@ -2288,6 +2288,50 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
       setErr("ส่งไม่ได้ ("+(e.code||e.message)+")");
     }
   }
+  // เมนูแตะที่ข้อความ (แบบ LINE): ตอบกลับ / คัดลอก / ลบ (ลบได้เฉพาะข้อความของเรา)
+  const [menuFor,setMenuFor]=useState(null);
+  const [delSt,setDelSt]=useState({step:"idle",err:""});
+  const [copied,setCopied]=useState(false);
+  const lpFired=useRef(false),lpTimer=useRef(null);
+  const canMenu=m=>!m.gift&&!String(m.id).startsWith("tmp-");
+  const startLP=m=>{lpFired.current=false;clearTimeout(lpTimer.current);lpTimer.current=setTimeout(()=>{if(canMenu(m)){lpFired.current=true;setMenuFor(m.id);}},500);}; // กดค้างที่รูป = เมนู (แตะธรรมดา = เปิดดูรูป)
+  const cancelLP=()=>clearTimeout(lpTimer.current);
+  useEffect(()=>{setMenuFor(null);setDelSt({step:"idle",err:""});},[pathKey]);
+  useEffect(()=>{
+    if(!menuFor)return undefined;
+    setDelSt({step:"idle",err:""});setCopied(false);
+    const h=e=>{const t=e.target;if(t&&t.closest&&(t.closest("[data-msg-menu]")||t.closest("[data-msg-bubble]")))return;setMenuFor(null);};
+    document.addEventListener("pointerdown",h,true);
+    return()=>document.removeEventListener("pointerdown",h,true);
+  },[menuFor]);
+  async function copyText(t){try{await navigator.clipboard.writeText(t);}catch(e){try{window.prompt("คัดลอกข้อความนี้",t);}catch(x){}}setCopied(true);setTimeout(()=>{setCopied(false);setMenuFor(null);},700);}
+  async function doDelete(m){
+    setDelSt({step:"busy",err:""});
+    try{await onDeleteMessage(m.id);setMsgs(prev=>prev.filter(x=>x.id!==m.id));setMenuFor(null);}
+    catch(e){setDelSt({step:"confirm",err:(e&&e.message)||"ลบไม่สำเร็จ"});}
+  }
+  function renderMenu(m,nm,me){
+    const canReply=!lock,canDel=!!onDeleteMessage&&me;
+    const item=(key,ic,label,onClick,color)=><button key={key} type="button" data-msg-menu-item={key} onClick={onClick} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"8px 16px",border:"none",background:"transparent",color:color||T.text,fontSize:13,fontFamily:"inherit",cursor:"pointer"}}><span style={{fontSize:18,lineHeight:1}}>{ic}</span>{label}</button>;
+    const box={margin:"0 2px 6px",background:T.card,border:"1px solid "+T.borderHi,borderRadius:14,boxShadow:"0 8px 24px rgba(0,0,0,.4)"};
+    if(delSt.step!=="idle")return(
+      <div data-msg-menu data-msg-del-confirm style={{...box,padding:"10px 12px",maxWidth:250}}>
+        <div style={{fontSize:14,fontWeight:700,color:T.text}}>ลบข้อความนี้?</div>
+        <div style={{fontSize:13,color:T.sub,margin:"2px 0 8px"}}>อีกฝ่ายจะไม่เห็นข้อความนี้อีก และกู้คืนไม่ได้</div>
+        <div style={{display:"flex",gap:6}}>
+          <button type="button" data-msg-del-yes disabled={delSt.step==="busy"} onClick={()=>doDelete(m)} style={{border:"none",borderRadius:8,padding:"6px 12px",background:T.red,color:"#fff",fontWeight:700,fontSize:13,fontFamily:"inherit",cursor:"pointer",opacity:delSt.step==="busy"?.6:1}}>{delSt.step==="busy"?"กำลังลบ...":"ลบเลย"}</button>
+          <button type="button" data-msg-del-no disabled={delSt.step==="busy"} onClick={()=>setDelSt({step:"idle",err:""})} style={{border:"1px solid "+T.border,borderRadius:8,padding:"6px 12px",background:"transparent",color:T.sub,fontSize:13,fontFamily:"inherit",cursor:"pointer"}}>ยกเลิก</button>
+        </div>
+        {delSt.err&&<div data-msg-del-err style={{fontSize:13,color:T.yellow,marginTop:6}}>⚠️ {delSt.err}</div>}
+      </div>);
+    return(
+      <div data-msg-menu style={{...box,display:"flex",alignItems:"stretch"}}>
+        {canReply&&item("reply","↩","ตอบกลับ",()=>{startReply(m,nm);setMenuFor(null);})}
+        {m.text&&item("copy","📋",copied?"คัดลอกแล้ว":"คัดลอก",()=>copyText(m.text))}
+        {canDel&&<div style={{width:1,background:T.border,margin:"8px 0"}}/>}
+        {canDel&&item("del","🗑️","ลบ",()=>setDelSt({step:"confirm",err:""}),T.red)}
+      </div>);
+  }
   function startReply(m,nm){
     setReplyTo({id:m.id,uid:m.uid,name:nm,text:(m.text||"").slice(0,80),img:!!m.image});
     setTimeout(()=>{try{inputRef.current&&inputRef.current.focus();}catch(e){}},50);
@@ -2325,16 +2369,20 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
                 if(avatarGift&&!user.isGuest&&m.uid){setPickTarget({uid:m.uid,name:nm});return;} // ห้องรวม: รูป = ส่งของขวัญ (เหมือนเดิม)
                 if(m.uid&&openProfileFromBubble)openProfileFromBubble(m.uid);                    // แชทส่วนตัว: รูป = เปิดโปรไฟล์
               }} style={{cursor:(avatarGift&&!user.isGuest)||m.uid?"pointer":"default"}}><Av uid={m.uid} init={(m.init||"??").slice(0,2)} bg={T.card} tc={T.brand2} size={28}/></div>}
-              <div style={{maxWidth:"74%",display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start"}}>
+              <div style={{maxWidth:"86%",minWidth:0,display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start"}}>
                 {head&&<div data-bubble-name onClick={()=>{if(m.uid&&openProfileFromBubble)openProfileFromBubble(m.uid);}} style={{fontSize:13,fontWeight:700,color:T.brand2,margin:"0 0 3px 4px",cursor:m.uid?"pointer":"default"}}><Nm uid={m.uid} name={m.author}/></div>}
                 {m.replyTo&&m.replyTo.id&&<div data-reply-quote onClick={()=>jumpTo(m.replyTo.id)} style={{maxWidth:"100%",marginBottom:3,padding:"5px 10px",borderRadius:10,background:T.brandA22,borderLeft:"3px solid "+T.brand2,cursor:"pointer",textAlign:"left",boxSizing:"border-box"}}>
                   <div style={{fontSize:13,fontWeight:700,color:T.brand2}}>{(m.replyTo.uid&&users[m.replyTo.uid]&&users[m.replyTo.uid].name)||m.replyTo.name||"ผู้ใช้"}</div>
                   <div style={{fontSize:13,color:T.sub,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:220}}>{m.replyTo.text||(m.replyTo.img?"📷 รูปภาพ":"")}</div>
                 </div>}
-                {m.image&&<img src={m.image} alt="" onClick={viewer.enabled?()=>viewer.open([m.image],0):undefined} style={{maxWidth:"100%",cursor:viewer.enabled?"zoom-in":undefined,borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
-                {m.text&&<div style={{padding:"8px 13px",borderRadius:16,fontSize:15,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?T.onBrand:T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={newestFirst?i>=3:i<vis.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text}</div>}
-                <div style={{fontSize:13,color:T.muted,margin:"2px 4px 0",display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:me?"flex-end":"flex-start",gap:4}}><span>{fmtTime(ms)}</span>{!lock&&!String(m.id).startsWith("tmp-")&&<span data-reply-btn onClick={()=>startReply(m,nm)} style={{cursor:"pointer",fontWeight:600,color:T.sub,padding:"0 2px"}}>ตอบกลับ</span>}{onDeleteMessage&&me&&!String(m.id).startsWith("tmp-")&&<MessageDeleteControl onDelete={async()=>{await onDeleteMessage(m.id);setMsgs(prev=>prev.filter(x=>x.id!==m.id));}}/>}</div>
-                {readMarkId===m.id&&<div data-read-receipt style={{fontSize:11,color:T.muted,margin:"0 4px"}}>อ่านแล้ว</div>}
+                {menuFor===m.id&&renderMenu(m,nm,me)}
+                <div style={{display:"flex",flexDirection:me?"row-reverse":"row",alignItems:"flex-end",gap:6,minWidth:0,maxWidth:"100%"}}>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start",minWidth:0}}>
+                {m.image&&<img src={m.image} alt="" data-msg-bubble onClick={()=>{if(lpFired.current){lpFired.current=false;return;}if(viewer.enabled)viewer.open([m.image],0);}} onContextMenu={e=>{if(!canMenu(m))return;e.preventDefault();setMenuFor(m.id);}} onTouchStart={()=>startLP(m)} onTouchEnd={cancelLP} onTouchMove={cancelLP} onTouchCancel={cancelLP} style={{maxWidth:"min(260px,100%)",cursor:viewer.enabled?"zoom-in":undefined,borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
+                {m.text&&<div data-msg-bubble onClick={()=>{if(canMenu(m))setMenuFor(id=>id===m.id?null:m.id);}} style={{cursor:canMenu(m)?"pointer":"default",boxShadow:menuFor===m.id?"0 0 0 2px "+T.brandMix(55):"none",padding:"8px 13px",borderRadius:16,fontSize:15,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?T.onBrand:T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={newestFirst?i>=3:i<vis.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text}</div>}
+                  </div>
+                  <div data-msg-meta style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start",fontSize:11,color:T.muted,lineHeight:1.35,paddingBottom:2}}>{readMarkId===m.id&&<span data-read-receipt>อ่านแล้ว</span>}<span>{fmtTime(ms)}</span></div>
+                </div>
               </div>
             </div>
           );
