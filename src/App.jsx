@@ -2150,8 +2150,9 @@ function HomeStrip({onJoinRoom,onGo}){
   },[]);
   const online=PRESENCE_ENABLED?((PRESENCE_WINDOW_ENABLED||USERS_LAZY_ENABLED)?onlineCount:Object.keys(users).filter(id=>isOnline(id)).length):0; // ผู้ใช้ไม่ได้โหลดทุกคนแล้ว → นับจากสถานะออนไลน์โดยตรง
   const live=(rooms||[]).map(r=>({...r,n:Array.isArray(r.members)?r.members.length:0})).filter(r=>r.n>0).sort((a,b)=>b.n-a.n).slice(0,5);
-  const url=(typeof window!=="undefined"&&window.location.origin)||"https://warmly-vite.vercel.app";
-  const text="มาคุยกันที่ Warmly 💜 พื้นที่อบอุ่น หาเพื่อน คุยเล่น ไม่เหงา\n"+url;
+  // ลิงก์ที่แชร์มี ?v=2 ต่อท้าย: LINE/Facebook จำรูปตัวอย่างตามลิงก์ — ลิงก์ใหม่จึงดึงรูป/ข้อความใหม่ (ไม่ค้างรูปหัวใจม่วงเดิม) ถ้าแก้รูปอีกให้เพิ่มเลข v
+  const url=((typeof window!=="undefined"&&window.location.origin)||"https://warmly-vite.vercel.app")+"/?v=2";
+  const text="มาคุยกันที่ Warmly พื้นที่อบอุ่น หาเพื่อน คุยเล่น ไม่เหงา\n"+url;
   const toLine=()=>{ window.open("https://line.me/R/share?text="+encodeURIComponent(text),"_blank","noopener"); };
   const copy=async()=>{ try{ await navigator.clipboard.writeText(text); setCopied(true); setTimeout(()=>setCopied(false),2000);}catch(e){ window.prompt("คัดลอกข้อความนี้ไปส่งให้เพื่อน",text); } };
   const chip={border:"1px solid "+T.border,background:T.surface,color:T.text,borderRadius:20,padding:"6px 12px",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0};
