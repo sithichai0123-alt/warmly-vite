@@ -2289,8 +2289,8 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
     if(stickRef.current||(last&&last.uid===myUid))endRef.current?.scrollIntoView({behavior:"smooth"});
   },[msgs.length]); // eslint-disable-line
   const vis=blockedUids&&blockedUids.size?msgs.filter(m=>!blockedUids.has(m.uid)):msgs; // ข้อความของคนที่บล็อกไว้ไม่แสดง
-  // แชทส่วนตัว: ข้อความล่าสุดของเราที่อีกฝ่ายอ่านแล้ว → ขึ้น "อ่านแล้ว" ใต้ข้อความนั้น (ห้องรวมไม่ใช้ — ไม่ส่ง peerReadMs มา)
-  const readMarkId=(()=>{ if(!peerReadMs)return null; let id=null,best=-1; for(const m of vis){ if(m.uid!==myUid||m.gift||String(m.id).startsWith("tmp-"))continue; const t=m.t&&m.t.toMillis?m.t.toMillis():0; if(t>0&&t<=peerReadMs&&t>best){best=t;id=m.id;} } return id; })();
+  // แชทส่วนตัว: ทุกข้อความของเราที่อีกฝ่ายอ่านแล้ว (เวลาข้อความ <= เวลาที่เขาอ่านล่าสุด) ขึ้น "อ่านแล้ว" ครบทุกอัน (ห้องรวมไม่ใช้ — ไม่ส่ง peerReadMs มา)
+  const isReadMsg=m=>{ if(!peerReadMs||m.uid!==myUid||m.gift||String(m.id).startsWith("tmp-"))return false; const t=m.t&&m.t.toMillis?m.t.toMillis():0; return t>0&&t<=peerReadMs; };
 
   async function send(){
     const txt=input.trim();
@@ -2410,7 +2410,7 @@ function BubbleChat({path,user,showNames,placeholder="พิมพ์ข้อ�
                 {m.image&&<img src={m.image} alt="" onLoad={()=>{if(!newestFirst&&stickRef.current){const el=listRef.current;if(el)el.scrollTop=el.scrollHeight;}}} data-msg-bubble onClick={()=>{if(lpFired.current){lpFired.current=false;return;}if(viewer.enabled)viewer.open([m.image],0);}} onContextMenu={e=>{if(!canMenu(m))return;e.preventDefault();setMenuFor(m.id);}} onTouchStart={()=>startLP(m)} onTouchEnd={cancelLP} onTouchMove={cancelLP} onTouchCancel={cancelLP} style={{maxWidth:"min(260px,100%)",cursor:viewer.enabled?"zoom-in":undefined,borderRadius:14,display:"block",border:"1px solid "+T.border,marginBottom:m.text?4:0}}/>}
                 {m.text&&<div data-msg-bubble onClick={()=>{if(canMenu(m))setMenuFor(id=>id===m.id?null:m.id);}} style={{cursor:canMenu(m)?"pointer":"default",boxShadow:menuFor===m.id?"0 0 0 2px "+T.brandMix(55):"none",padding:"8px 13px",borderRadius:16,fontSize:15,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap",background:me&&!mfx?T.brandGrad:T.bubble,color:me&&!mfx?T.onBrand:T.text,border:me&&!mfx?"none":"1px solid "+T.border,borderBottomLeftRadius:!me?4:16,borderBottomRightRadius:me?4:16}}>{mfx?<TextFx fx={mfx} lite={newestFirst?i>=3:i<vis.length-3} tune={resolveTune(users[m.uid],"message")}>{m.text}</TextFx>:m.text}</div>}
                   </div>
-                  <div data-msg-meta style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start",fontSize:10,color:T.muted,lineHeight:1.3,paddingBottom:2}}>{readMarkId===m.id&&<span data-read-receipt>อ่านแล้ว</span>}<span>{fmtTime(ms)}</span></div>
+                  <div data-msg-meta style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:me?"flex-end":"flex-start",fontSize:10,color:T.muted,lineHeight:1.3,paddingBottom:2}}>{isReadMsg(m)&&<span data-read-receipt>อ่านแล้ว</span>}<span>{fmtTime(ms)}</span></div>
                 </div>
               </div>
             </div>
