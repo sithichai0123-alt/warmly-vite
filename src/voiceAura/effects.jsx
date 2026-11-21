@@ -56,6 +56,19 @@ const AURA_CSS = `
 .wm-spin{animation:wm-spin var(--d,3s) linear infinite;will-change:transform}
 .wm-spin-r{animation:wm-spin var(--d,3s) linear infinite reverse}
 @keyframes wm-spin{to{transform:rotate(360deg)}}
+/* กรอบรูปวาดด้วย SVG (cat/daisy/frost/moon) — ขยับพลิ้วแบบนุ่ม ๆ; โหมด calm ปิดแอนิเมชันอัตโนมัติ */
+.wmf-ear{transform-box:fill-box;transform-origin:50% 100%;animation:wmf-twitch 2.2s ease-in-out infinite}
+.wmf-ear.r{animation-delay:-1.11s}
+@keyframes wmf-twitch{0%,58%,100%{transform:rotate(0)}64%{transform:rotate(-8deg)}70%{transform:rotate(3deg)}78%{transform:rotate(-2.5deg)}88%{transform:rotate(.5deg)}}
+.wmf-bell{transform-box:fill-box;transform-origin:50% 0;animation:wmf-swing 1.8s cubic-bezier(.36,.07,.19,.97) infinite}
+@keyframes wmf-swing{0%{transform:rotate(0)}14%{transform:rotate(10deg)}30%{transform:rotate(-8deg)}46%{transform:rotate(5deg)}62%{transform:rotate(-3deg)}78%,100%{transform:rotate(0)}}
+.wmf-fl{transform-box:fill-box;transform-origin:50% 62%;animation:wmf-sway 3.2s ease-in-out infinite;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+@keyframes wmf-sway{0%,100%{transform:rotate(-7deg) scale(.96)}50%{transform:rotate(7deg) scale(1.08)}}
+.wmf-tw{transform-box:fill-box;transform-origin:center;animation:wmf-twk 2.4s ease-in-out infinite}
+@keyframes wmf-twk{0%,100%{opacity:.4;transform:scale(.85) rotate(-8deg)}50%{opacity:1;transform:scale(1.12) rotate(14deg)}}
+.wmf-drift{transform-origin:50% 50%;transform-box:view-box;animation:wmf-drift 5.5s ease-in-out infinite alternate}
+@keyframes wmf-drift{from{transform:rotate(-2deg)}to{transform:rotate(2deg)}}
+
 @keyframes wm-breath{from{transform:scale(1)}to{transform:scale(1.045)}}
 @keyframes wm-flicker{0%{opacity:.55;transform:scale(1)}100%{opacity:.95;transform:scale(1.06)}}
 .wm-flick{animation:wm-flicker .45s ease-in-out infinite alternate}
@@ -496,6 +509,116 @@ StarryOrbit.Front = function StarryOrbitFront({ calm }) {
   );
 };
 
+// ── กรอบรูปวาดด้วย SVG (วาดทั้งหมดเป็นชั้นบน Front เพื่อให้ดอกไม้/ดาวทับขอบรูปได้) ──
+// พิกัด 0–100 ตามแบบร่าง: วงหลักรัศมี 37.5 → viewBox 75 ทำให้วงหลักตรงกับขอบรูปพอดี ส่วนที่ยื่นออกไปได้สัดส่วนเดิม
+function FrameSvg({ drift, children }) {
+  return (
+    <svg viewBox="12.5 12.5 75 75" width="100%" height="100%" style={{ position: "absolute", inset: 0, overflow: "visible" }}>
+      {drift ? <g className="wmf-drift">{children}</g> : children}
+    </svg>
+  );
+}
+const frameFx = Front => { const Fx = () => null; Fx.Front = Front; return Fx; };
+const dl = i => ({ animationDelay: "-" + (i * 0.5 + 0.01).toFixed(2) + "s" });
+
+function CatEarsFront() {
+  return (
+    <FrameSvg>
+      <defs><linearGradient id="wmf-cr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fed7aa" /><stop offset="1" stopColor="#fb923c" /></linearGradient></defs>
+      <circle cx="50" cy="50" r="37.5" fill="none" stroke="url(#wmf-cr)" strokeWidth="5" />
+      <circle cx="50" cy="50" r="34.6" fill="none" stroke="#fff7ed" strokeWidth="1.4" opacity=".8" />
+      <g className="wmf-ear">
+        <polygon points="18.97,29.85 15.29,8.63 35.54,15.94" fill="#fb923c" stroke="#fb923c" strokeWidth="3.2" strokeLinejoin="round" />
+        <polygon points="23.59,27.04 20.43,14.76 31.97,20.00" fill="#fda4af" stroke="#fda4af" strokeWidth="1.6" strokeLinejoin="round" />
+      </g>
+      <g className="wmf-ear r">
+        <polygon points="64.46,15.94 84.71,8.63 81.03,29.85" fill="#fb923c" stroke="#fb923c" strokeWidth="3.2" strokeLinejoin="round" />
+        <polygon points="68.03,20.00 79.57,14.76 76.41,27.04" fill="#fda4af" stroke="#fda4af" strokeWidth="1.6" strokeLinejoin="round" />
+      </g>
+      <g className="wmf-bell">
+        <polygon points="50,86 41,82 41,92" fill="#f472b6" /><polygon points="50,86 59,82 59,92" fill="#f472b6" />
+        <circle cx="50" cy="87" r="2.6" fill="#ec4899" />
+        <circle cx="50" cy="94" r="3.4" fill="#fde047" stroke="#f59e0b" strokeWidth=".9" />
+        <path d="M47.6 94 H52.4" stroke="#b45309" strokeWidth=".7" />
+      </g>
+    </FrameSvg>
+  );
+}
+const CatEars = frameFx(CatEarsFront);
+
+const DAISIES = [[0, 1], [60, 0.756], [125, 0.865], [190, 0.701], [255, 0.891], [305, 0.73]];
+function Daisy({ s }) {
+  return (
+    <g transform={`scale(${s})`}>
+      {[0, 45, 90, 135, 180, 225, 270, 315].map(r => <ellipse key={r} cx="0" cy="-5.33" rx="2.22" ry="3.85" fill="#fff" stroke="#e5e7eb" strokeWidth=".4" transform={`rotate(${r})`} />)}
+      <circle r="2.37" fill="#fbbf24" /><circle r="1.04" cx="-.59" cy="-.59" fill="#fde68a" />
+    </g>
+  );
+}
+function DaisyWreathFront() {
+  const pt = (a, r) => { const t = a * Math.PI / 180; return [50 + r * Math.sin(t), 50 - r * Math.cos(t)]; };
+  return (
+    <FrameSvg drift>
+      <circle cx="50" cy="50" r="37" fill="none" stroke="#16a34a" strokeWidth="2.6" opacity=".9" />
+      <circle cx="50" cy="50" r="37" fill="none" stroke="#86efac" strokeWidth="1" opacity=".7" strokeDasharray="2 3" />
+      {Array.from({ length: 10 }, (_, i) => { const a = 28 + 36 * i, [x, y] = pt(a, 37); return <ellipse key={i} cx={x} cy={y} rx="2.2" ry="5" fill="#22c55e" opacity=".9" transform={`rotate(${a} ${x} ${y})`} />; })}
+      {DAISIES.map(([a, s], i) => { const [x, y] = pt(a, 38); return <g key={i} transform={`translate(${x.toFixed(2)} ${y.toFixed(2)})`}><g className="wmf-fl" style={dl(i)}><Daisy s={s} /></g></g>; })}
+    </FrameSvg>
+  );
+}
+const DaisyWreath = frameFx(DaisyWreathFront);
+
+const CRYSTALS = [[37, 14.29, -20, 13], [69, 17.09, 30, 9], [17.09, 69, 240, 10], [79.11, 74.43, 130, 8]];
+const SNOWS = [[56.95, 10.61, 5], [89.39, 56.95, 4], [43.05, 89.39, 5.5], [13.75, 33.1, 4.2]];
+function IceSnowFront() {
+  return (
+    <FrameSvg drift>
+      <defs><linearGradient id="wmf-ir" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#e0f2fe" /><stop offset=".5" stopColor="#7dd3fc" /><stop offset="1" stopColor="#38bdf8" /></linearGradient></defs>
+      <circle cx="50" cy="50" r="37.5" fill="none" stroke="url(#wmf-ir)" strokeWidth="4.6" />
+      <circle cx="50" cy="50" r="35.5" fill="none" stroke="#fff" strokeWidth="1" opacity=".7" />
+      {CRYSTALS.map(([x, y, a, h], i) => (
+        <g key={i} transform={`translate(${x} ${y}) rotate(${a})`}>
+          <polygon points={`0,-${h} 3.2,-2 0,3 -3.2,-2`} fill="#bae6fd" stroke="#fff" strokeWidth=".7" strokeLinejoin="round" />
+          <polygon points={`0,-${h} 3.2,-2 0,-2`} fill="#fff" opacity=".6" />
+        </g>
+      ))}
+      {SNOWS.map(([x, y, k], i) => (
+        <g key={i} transform={`translate(${x} ${y})`}>
+          <g className="wmf-tw" style={{ animationDelay: "-" + (i * 0.8 + 0.01).toFixed(2) + "s" }}>
+            <g stroke="#fff" strokeWidth="1.1" strokeLinecap="round" fill="none">
+              {[0, 60, 120].map(r => <line key={r} x1="0" y1={-k} x2="0" y2={k} transform={`rotate(${r})`} />)}
+            </g>
+          </g>
+        </g>
+      ))}
+    </FrameSvg>
+  );
+}
+const IceSnow = frameFx(IceSnowFront);
+
+const MOON_STARS = [
+  "43.05,6.41 44.16,9.08 47.05,9.31 44.85,11.19 45.52,14.01 43.05,12.50 40.59,14.01 41.26,11.19 39.06,9.31 41.94,9.08",
+  "89.60,57.21 90.50,59.37 92.84,59.56 91.06,61.08 91.60,63.36 89.60,62.14 87.60,63.36 88.15,61.08 86.37,59.56 88.70,59.37",
+  "30.00,80.04 31.22,82.97 34.37,83.22 31.97,85.28 32.70,88.36 30.00,86.71 27.30,88.36 28.03,85.28 25.63,83.22 28.78,82.97",
+  "11.47,32.98 12.27,34.89 14.33,35.05 12.76,36.39 13.24,38.40 11.47,37.33 9.71,38.40 10.19,36.39 8.62,35.05 10.68,34.89",
+];
+const MOON_DOTS = [[91.35, 34.95], [65.39, 92.29], [7.5, 61.39], [34.95, 8.65]];
+function MoonStarsFront() {
+  return (
+    <FrameSvg drift>
+      <defs><linearGradient id="wmf-mr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#818cf8" /><stop offset=".6" stopColor="#6366f1" /><stop offset="1" stopColor="#4c1d95" /></linearGradient></defs>
+      <circle cx="50" cy="50" r="37.2" fill="none" stroke="url(#wmf-mr)" strokeWidth="3.4" />
+      <circle cx="50" cy="50" r="35.4" fill="none" stroke="#c7d2fe" strokeWidth=".8" opacity=".6" />
+      <g className="wmf-tw" style={{ animationDelay: "-0.41s" }}>
+        <path transform="translate(76.77 20.27) rotate(-20)" d="M0 -9 A9 9 0 1 0 8 6 A7 7 0 1 1 0 -9 Z" fill="#fde68a" stroke="#fff7d6" strokeWidth=".5" />
+      </g>
+      {MOON_STARS.map((pts, i) => <g key={i} className="wmf-tw" style={{ animationDelay: "-" + (i + 0.01).toFixed(2) + "s" }}><polygon points={pts} fill="#fde68a" stroke="#fff7d6" strokeWidth=".4" strokeLinejoin="round" /></g>)}
+      {MOON_DOTS.map(([x, y], i) => <circle key={i} className="wmf-tw" style={{ animationDelay: "-" + (i * 0.7 + 0.01).toFixed(2) + "s" }} cx={x} cy={y} r="1.2" fill="#e0e7ff" />)}
+    </FrameSvg>
+  );
+}
+const MoonStars = frameFx(MoonStarsFront);
+
 export const EFFECTS = {
   fire: FireRing,
   hearts: FloatingHearts,
@@ -504,6 +627,10 @@ export const EFFECTS = {
   sakura: SakuraBloom,
   galaxy: GalaxyStars,
   orbit: StarryOrbit,
+  cat: CatEars,
+  daisy: DaisyWreath,
+  frost: IceSnow,
+  moon: MoonStars,
   lightning: LightningRing,
   butterfly: ButterflyDream,
   phoenix: GoldenPhoenix,
