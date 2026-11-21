@@ -510,7 +510,7 @@ function agoLabel(ms){
 function timeAgo(ts){return agoLabel(ts?ts.toMillis():0);}
 
 // ── Shared UI ─────────────────────────────────────────────
-function Av({init,bg,tc,size=40,online,grad,isSelf,uid}){
+function Av({init,bg,tc,size=40,online,grad,isSelf,uid,dotK}){
   const _users=useContext(UsersCtx);
   const _u=uid?_users[uid]:null;
   // รูปของตัวเอง/คนอื่นดึงจากฐานข้อมูล (ทุกคนเห็นเหมือนกัน) สำรองจากเครื่องตัวเอง
@@ -526,7 +526,7 @@ function Av({init,bg,tc,size=40,online,grad,isSelf,uid}){
           : <div style={{padding:Math.max(2,Math.round(size*.07)),borderRadius:"50%",background:frame.bg,boxShadow:frame.glow,display:"inline-block",lineHeight:0}}>{core}</div>)
       : core}
     {online?<div style={{position:"absolute",bottom:1,right:1,width:Math.max(8,size*.2),height:Math.max(8,size*.2),borderRadius:"50%",background:T.green,border:"2px solid "+T.bg}}/>
-      :(PRESENCE_ENABLED&&uid&&size>=DOT_MIN_SIZE?<PresenceDot uid={uid} size={size} bg={T.bg}/>:null)}
+      :(PRESENCE_ENABLED&&uid&&size>=DOT_MIN_SIZE?<PresenceDot uid={uid} size={size} bg={T.bg} {...(dotK?{k:dotK}:null)}/>:null)}
   </div>);
 }
 
@@ -1629,10 +1629,10 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                 const tap=memberTap(m,isMe,key);
                 const avatarBtn=(
                     <div data-member-avatar={key} onClick={tap||undefined} style={{cursor:tap?"pointer":"default",padding:3,borderRadius:"50%",
-                      border:"2.5px solid "+(isSpeaking&&!auraId?T.green:T.border),
+                      border:"2.5px solid "+(isSpeaking&&!auraId?T.green:"transparent"), // ไม่แสดงเส้นวงบาง ๆ รอบรูปตอนไม่ได้พูด
                       boxShadow:isSpeaking&&!auraId?"0 0 16px rgba(16,185,129,.5)":"none",
                       transition:"all .2s"}}>
-                      <Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} grad={isMe} isSelf={isMe} size={48}/>
+                      <Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} grad={isMe} isSelf={isMe} size={48} dotK={0.17}/>
                     </div>
                 );
                 return(
