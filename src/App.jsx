@@ -510,7 +510,7 @@ function agoLabel(ms){
 function timeAgo(ts){return agoLabel(ts?ts.toMillis():0);}
 
 // ── Shared UI ─────────────────────────────────────────────
-function Av({init,bg,tc,size=40,online,grad,isSelf,uid,dotK}){
+function Av({init,bg,tc,size=40,online,grad,isSelf,uid,dotK,noDot}){
   const _users=useContext(UsersCtx);
   const _u=uid?_users[uid]:null;
   // รูปของตัวเอง/คนอื่นดึงจากฐานข้อมูล (ทุกคนเห็นเหมือนกัน) สำรองจากเครื่องตัวเอง
@@ -526,7 +526,7 @@ function Av({init,bg,tc,size=40,online,grad,isSelf,uid,dotK}){
           : <div style={{padding:Math.max(2,Math.round(size*.07)),borderRadius:"50%",background:frame.bg,boxShadow:frame.glow,display:"inline-block",lineHeight:0}}>{core}</div>)
       : core}
     {online?<div style={{position:"absolute",bottom:1,right:1,width:Math.max(8,size*.2),height:Math.max(8,size*.2),borderRadius:"50%",background:T.green,border:"2px solid "+T.bg}}/>
-      :(PRESENCE_ENABLED&&uid&&size>=DOT_MIN_SIZE?<PresenceDot uid={uid} size={size} bg={T.bg} {...(dotK?{k:dotK}:null)}/>:null)}
+      :(PRESENCE_ENABLED&&!noDot&&uid&&size>=DOT_MIN_SIZE?<PresenceDot uid={uid} size={size} bg={T.bg} {...(dotK?{k:dotK}:null)}/>:null)}
   </div>);
 }
 
@@ -1632,7 +1632,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                       border:"2.5px solid "+(isSpeaking&&!auraId?T.green:"transparent"), // ไม่แสดงเส้นวงบาง ๆ รอบรูปตอนไม่ได้พูด
                       boxShadow:isSpeaking&&!auraId?"0 0 16px rgba(16,185,129,.5)":"none",
                       transition:"all .2s"}}>
-                      <Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} grad={isMe} isSelf={isMe} size={48} dotK={0.17}/>
+                      <Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} grad={isMe} isSelf={isMe} size={48} noDot/>
                     </div>
                 );
                 return(
@@ -1670,7 +1670,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                 const listener=(m,i)=>{const isMe2=isMeM(m);const key=m.uid||m.init;const tap=memberTap(m,isMe2,key);const rl=stageRole(inRoom,m);return(
                   <div key={"l"+key+i} data-listener={key} onClick={tap||undefined} style={{width:48,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:tap?"pointer":"default"}}>
                     <div style={{position:"relative"}}>
-                      <Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} grad={isMe2} isSelf={isMe2} size={38}/>
+                      <Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} grad={isMe2} isSelf={isMe2} size={38} noDot/>
                       {typeof m.hand==="number"&&<span data-hand style={{position:"absolute",top:-7,right:-7,fontSize:16,lineHeight:1}}>✋</span>}
                     </div>
                     <div style={{fontSize:12,color:isMe2?T.brand2:T.sub,fontWeight:isMe2?700:400,maxWidth:48,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{rl==="cohost"?"🛡️":""}{isMe2?"คุณ":(m.name||"ผู้ใช้")}</div>
@@ -1685,7 +1685,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                       {stage.speakers.map(renderTile)}
                       <EmptySeat free={stage.free} canTake={amListener} onTake={()=>moveToStage(me.uid||me.init,false)} T={T}/>
                     </div>
-                    {isMod&&<RequestsPanel requests={stage.requests} free={stage.free} max={STAGE_MAX} T={T} avatar={m=><Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} size={30}/>} onApprove={m=>moveToStage(m.uid||m.init,true)} onDeny={m=>denyHand(m.uid||m.init)}/>}
+                    {isMod&&<RequestsPanel requests={stage.requests} free={stage.free} max={STAGE_MAX} T={T} avatar={m=><Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} size={30} noDot/>} onApprove={m=>moveToStage(m.uid||m.init,true)} onDeny={m=>denyHand(m.uid||m.init)}/>}
                     {stage.audience.length>0&&<div data-audience style={{borderTop:"1px solid "+T.border,paddingTop:10}}>
                       <div style={{fontSize:14,fontWeight:800,color:T.sub,marginBottom:8}}>👥 ผู้ฟัง {stage.audience.length} คน <span style={{fontWeight:400,color:T.muted,fontSize:13}}>· พิมพ์แชทได้</span></div>
                       {ROOM_MEMBERS_COLLAPSE_ENABLED
