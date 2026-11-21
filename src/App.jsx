@@ -1647,7 +1647,7 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                     {auraId
                       ?<VoiceAura aura={auraId} active={isSpeaking&&showMicOn} lite={memberList.length>AURA_LITE_ROOM_SIZE}>{avatarBtn}</VoiceAura>
                       :avatarBtn}
-                    <div style={{fontSize:13,color:T.brand2,fontWeight:700,maxWidth:56,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",position:"relative",zIndex:1,...(resolveTextFx(m.uid?_users[m.uid]:null,"voiceName")?{padding:"4px 8px",margin:"-4px -8px"}:null)}}><FxT uid={m.uid} area="voiceName" fallback={isMe?"คุณ":m.name}>{m.name}</FxT></div>
+                    <div style={{fontSize:11,color:T.brand2,fontWeight:700,maxWidth:62,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",position:"relative",zIndex:1,...(resolveTextFx(m.uid?_users[m.uid]:null,"voiceName")?{padding:"4px 8px",margin:"-4px -8px"}:null)}}><FxT uid={m.uid} area="voiceName" fallback={isMe?"คุณ":m.name}>{m.name}</FxT></div>
                     {/* ไม่แสดงไอคอนไมค์/คลื่นเสียงใต้ชื่อแล้ว — เหลือเฉพาะ 🔇 เมื่อปิดไมค์ */}
                     {!showMicOn&&!isSpeaking&&<span style={{fontSize:13,color:T.muted,lineHeight:1}}>🔇</span>}
                   </div>
