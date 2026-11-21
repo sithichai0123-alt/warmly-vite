@@ -1,7 +1,7 @@
 // Voice Aura — ตัวแสดงแอนิเมชันรอบรูปโปรไฟล์ (CSS ล้วน ไม่มีเสียง ไม่ตรวจจับเสียงเอง)
 // ทำงานจากสถานะ "กำลังพูด" ที่ LiveKit รายงานอยู่แล้ว (speaking map ของ useVoice) เท่านั้น
 import { useState, useEffect } from "react";
-import { VOICE_AURA_ENABLED, AURA_FADE_MS } from "./config.js";
+import { VOICE_AURA_ENABLED, AURA_FADE_MS, AURA_SCALE } from "./config.js";
 import { AURA_BY_ID, equippedAura } from "./catalog.js";
 
 // ── โหมดของผู้ชม: full / reduced / off (เก็บในเครื่องผู้ชมเอง ไม่กระทบคนอื่น) ──
@@ -45,7 +45,8 @@ export function resolveAura(userDoc, mode) {
 
 // ── CSS (ฉีดครั้งเดียว) ─────────────────────────────────────
 const AURA_CSS = `
-.wm-aura{position:absolute;inset:-6px;pointer-events:none;z-index:0;opacity:0;transition:opacity ${AURA_FADE_MS}ms ease}
+/* วงหลักอยู่ห่างรูป 4px; ชั้นเอฟเฟกต์ถูกขยายพื้นที่ 1/s เท่าแล้วย่อ s เท่า → วงหลักตำแหน่งเดิม ส่วนที่ยื่นออกไปเล็กลง s เท่า */
+.wm-aura{position:absolute;inset:calc(-3px - ${((1 / AURA_SCALE - 1) / 2).toFixed(4)} * (100% + 6px));transform:scale(${AURA_SCALE});pointer-events:none;z-index:0;opacity:0;transition:opacity ${AURA_FADE_MS}ms ease}
 .wm-aura.on{opacity:1}
 .wm-aura-core{position:absolute;inset:0;animation:wm-breath 1.1s ease-in-out infinite alternate;will-change:transform}
 .wm-aura.calm .wm-aura-core,.wm-aura.calm .wm-aura-core *{animation:none!important}
