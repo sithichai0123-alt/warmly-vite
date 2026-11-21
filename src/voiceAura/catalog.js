@@ -29,6 +29,8 @@ export const AURAS = [
     desc: "กลีบซากุระปลิวรอบรูปโปรไฟล์", c: ["#FBCFE8", "#F472B6"] },
   { id: "rainbow",   name: "Rainbow Aura",    th: "ออร่าสายรุ้ง",      cur: "gold",   price: 1000, rarity: "rare",
     desc: "วงแสงสายรุ้งเรืองรองหมุนวน", c: ["#F43F5E", "#FACC15", "#22D3EE", "#A78BFA"] },
+  { id: "orbit",     name: "Starry Orbit",    th: "วงโคจรดวงดาว",      cur: "gold",   price: 1800, rarity: "epic",
+    desc: "ดวงดาวโคจรผ่านหน้าและหลังรูปโปรไฟล์ เหมือนวงโคจร 3 มิติ", c: ["#38BDF8", "#818CF8"] },
   { id: "lightning", name: "Lightning Ring",  th: "วงสายฟ้า",         cur: "gold",   price: 1500, rarity: "epic",
     desc: "สายฟ้าแลบวิ่งรอบรูปโปรไฟล์", c: ["#93C5FD", "#FDE047"] },
   { id: "butterfly", name: "Butterfly Dream", th: "ผีเสื้อในฝัน",      cur: "gold",   price: 2000, rarity: "epic",
