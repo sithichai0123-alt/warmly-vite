@@ -127,6 +127,23 @@ const AURA_CSS = `
 .wm-pearl{position:absolute;inset:-11px;border-radius:50%;border:1.5px dashed rgba(255,255,255,.75)}
 .wm-halo{position:absolute;inset:-8px;border-radius:50%;background:radial-gradient(circle,rgba(216,180,254,0) 58%,rgba(216,180,254,.32) 74%,rgba(216,180,254,0) 100%);animation:wm-flicker .9s ease-in-out infinite alternate}
 @media (prefers-reduced-motion:reduce){.wm-aura-core,.wm-aura-core *{animation:none!important}}
+/* ── เอฟเฟกต์แบบ 3 มิติ (วงนูน เงา ประกาย) — ใช้หน่วย cqw ของชั้นเอฟเฟกต์ ขนาดจึงสัมพันธ์กับรูปทุกขนาด ── */
+.wm-aura{container-type:size}
+.wm-flame{position:absolute;background:linear-gradient(to top,#ff6d00,#ffd54f 70%,rgba(255,236,150,0));border-radius:60% 60% 50% 50%/80% 80% 30% 30%;transform-origin:50% 100%;animation:wm-flame var(--t,.5s) ease-in-out infinite alternate}
+@keyframes wm-flame{0%{transform:scaleY(.85) translateY(1px);opacity:.75}100%{transform:scaleY(1.15) translateY(-1px);opacity:1}}
+.wm-feather{position:absolute;background:linear-gradient(to top,#ea580c,#fbbf24 70%,rgba(254,243,199,0));border-radius:60% 60% 40% 40%/90% 90% 20% 20%;transform-origin:50% 100%;animation:wm-flame var(--t,.5s) ease-in-out infinite alternate}
+.wm-flame-glow{background:radial-gradient(circle,rgba(255,90,0,0),rgba(255,110,0,.4));filter:blur(3px);animation:wm-flame .5s ease-in-out infinite alternate}
+.wm-fire3d{background:conic-gradient(#b71c1c,#ff3d00 12%,#ff9100 28%,#ffe082 40%,#ff9100 52%,#ff3d00 66%,#b71c1c 82%,#ff3d00);filter:drop-shadow(0 0 5px rgba(255,100,0,.9))}
+.wm-ember3{position:absolute;width:3.7cqw;height:3.7cqw;border-radius:50%;background:#ffd54f;box-shadow:0 0 4px #ff9100;opacity:0;animation:wm-ember var(--t,1.3s) ease-out infinite;animation-delay:var(--dl,0s)}
+.wm-neon3{background:linear-gradient(135deg,#f472b6,#a78bfa 50%,#22d3ee);filter:drop-shadow(0 0 4px #f472b6) drop-shadow(0 0 9px rgba(34,211,238,.7))}
+.wm-pulse3{background:linear-gradient(135deg,#f472b6,#22d3ee);opacity:0;animation:wm-pulse3 1.6s ease-out infinite;animation-delay:var(--dl,0s)}
+@keyframes wm-pulse3{0%{transform:scale(.97);opacity:.8}100%{transform:scale(1.2);opacity:0}}
+.wm-crystal3{background:conic-gradient(from 20deg,#bae6fd,#e9d5ff,#fff,#fbcfe8,#a5f3fc,#bae6fd)}
+.wm-galaxy3{background:conic-gradient(#312e81,#6366f1 22%,#f0abfc 42%,#818cf8 60%,#1e1b4b 80%,#312e81);filter:drop-shadow(0 0 4px rgba(129,140,248,.8))}
+.wm-galaxy-halo{background:radial-gradient(circle,rgba(240,171,252,0),rgba(129,140,248,.35));filter:blur(2px)}
+.wm-gold3{background:conic-gradient(from 210deg,#fff3b0,#f5b942 18%,#a86a10 36%,#ffe082 52%,#f5b942 68%,#8a5208 84%,#fff3b0);filter:drop-shadow(0 1px 3px rgba(0,0,0,.6)) drop-shadow(0 0 6px rgba(245,185,66,.6))}
+.wm-gold3b{background:conic-gradient(from 30deg,#8a5208,#ffe9a8 25%,#c98a1c 55%,#fff3b0 80%,#8a5208);opacity:.9}
+.wm-gem{position:absolute;transform:translateX(-50%) rotate(45deg);background:linear-gradient(135deg,#fff,#fde68a 50%,#f59e0b);border:1px solid #fff3b0;border-radius:2px;box-shadow:0 0 7px #fbbf24}
 `;
 if (typeof document !== "undefined" && !document.getElementById("wm-aura-css")) {
   const s = document.createElement("style");
@@ -138,17 +155,24 @@ if (typeof document !== "undefined" && !document.getElementById("wm-aura-css")) 
 // ── เอฟเฟกต์ (แต่ละตัวรับ calm = ไม่มีอนุภาค/ไม่มีเบลอ) ──────────
 const HEART_PATH = "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z";
 
+// หน่วยของเอฟเฟกต์ 3 มิติ: 1 หน่วย = 1.4706cqw → วงหลักรัศมี 34 หน่วย = ครึ่งหนึ่งของชั้นเอฟเฟกต์ (ขนาดตามสัดส่วนของรูป)
+const U = n => (n * 1.4706).toFixed(2) + "cqw";
+const NU = n => "-" + U(n);
+const polar = (ang, r, child, key) => (
+  <div key={key} style={{ position: "absolute", left: "50%", top: "50%", width: 0, height: 0, transform: `rotate(${ang}deg) translateY(${NU(r)})` }}>{child}</div>
+);
+
 function FireRing({ calm }) {
-  const embers = calm ? [] : [
-    { l: "18%", dx: "-6px", dl: "0s", t: "1.3s" }, { l: "36%", dx: "5px", dl: ".35s", t: "1.1s" },
-    { l: "55%", dx: "-4px", dl: ".7s", t: "1.4s" }, { l: "72%", dx: "7px", dl: ".15s", t: "1.2s" },
-    { l: "84%", dx: "-3px", dl: ".95s", t: "1.3s" },
-  ];
+  const flames = calm ? [] : [-70, -45, -20, 5, 30, 55, 80, 200, 160];
+  const embers = calm ? [] : [[25, -4], [48, 3], [70, -2], [58, 5]];
   return (
     <>
-      {!calm && <div className="wm-ring wm-fire-ring wm-fire-glow wm-flick" style={{ "--w": "9px", inset: -2 }} />}
-      <div className="wm-ring wm-fire-ring wm-spin" style={{ "--w": "5px", "--d": "2.6s" }} />
-      {embers.map((e, i) => <span key={i} className="wm-ember" style={{ left: e.l, top: "2%", "--dx": e.dx, "--dl": e.dl, "--t": e.t }} />)}
+      {!calm && <div className="wm-ring wm-flame-glow" style={{ inset: NU(2), "--w": U(10) }} />}
+      {flames.map((ang, i) => polar(ang, 37, <div className="wm-flame" style={{ left: NU(2.5), top: NU(7 + (i % 3) * 3), width: U(5), height: U(7 + (i % 3) * 3), "--t": (0.35 + i * 0.06).toFixed(2) + "s" }} />, i))}
+      <div className="wm-ring wm-fire3d wm-spin" style={{ "--w": U(5), "--d": "3s" }} />
+      <div className="wm-ring" style={{ inset: U(5), "--w": U(2), background: "rgba(90,10,0,.75)" }} />
+      <div className="wm-ring wm-spin-r" style={{ "--w": U(1.6), "--d": "2.4s", background: "conic-gradient(transparent 0 70%,rgba(255,255,230,.95) 82%,transparent 92%)" }} />
+      {embers.map(([x, dx], i) => <span key={i} className="wm-ember3" style={{ left: x + "%", top: "8%", "--dx": dx + "px", "--t": (1.2 + i * 0.2).toFixed(1) + "s", "--dl": i * 0.35 + "s" }} />)}
     </>
   );
 }
@@ -182,13 +206,13 @@ function RainbowAura({ calm }) {
 
 
 function NeonPulse({ calm }) {
-  if (calm) return <div className="wm-neon wm-neon-base" />;
   return (
     <>
-      <div className="wm-neon wm-neon-base" style={{ opacity: 0.55 }} />
-      <div className="wm-neon" style={{ "--c": "#22d3ee", "--dl": "0s" }} />
-      <div className="wm-neon" style={{ "--c": "#e879f9", "--dl": ".4s" }} />
-      <div className="wm-neon" style={{ "--c": "#22d3ee", "--dl": ".8s" }} />
+      <div className="wm-ring" style={{ inset: U(1.2), "--w": U(3.2), background: "rgba(0,0,0,.55)", filter: "blur(1.2px)" }} />
+      {!calm && [0, 0.8].map(d => <div key={d} className="wm-ring wm-pulse3" style={{ "--w": U(1.5), "--dl": d + "s" }} />)}
+      <div className="wm-ring wm-neon3" style={{ "--w": U(3.8) }} />
+      <div className="wm-ring" style={{ inset: U(1.3), "--w": U(1.3), background: "rgba(255,255,255,.95)" }} />
+      <div className="wm-ring" style={{ inset: U(4), "--w": U(1.2), background: "conic-gradient(from 270deg,rgba(255,255,255,.5) 0 18%,transparent 25%)" }} />
     </>
   );
 }
@@ -216,11 +240,19 @@ const STAR_POS = (() => {
   return out;
 })();
 function GalaxyStars({ calm }) {
+  const st = calm ? [] : [[8, 26, 0], [88, 30, 0.5], [78, 86, 1.0], [16, 80, 0.3]];
   return (
     <>
-      <div className="wm-ring wm-galaxy-ring wm-spin" style={{ "--w": "4px", "--d": "6s" }} />
-      {!calm && STAR_POS.map((s, i) => <span key={i} className="wm-star" style={{ left: s.l, top: s.t, marginLeft: -3, marginTop: -3, "--dl": s.dl, "--t": s.t2 }} />)}
-      {!calm && <div className="wm-orbit wm-spin" style={{ "--d": "3.4s" }}><i /></div>}
+      <div className="wm-ring wm-galaxy-halo" style={{ inset: NU(3), "--w": U(3) }} />
+      <div className="wm-ring wm-galaxy3 wm-spin" style={{ "--w": U(4.2), "--d": "7s" }} />
+      <div className="wm-ring" style={{ inset: U(4.2), "--w": U(1.4), background: "rgba(15,10,50,.8)" }} />
+      <div className="wm-ring wm-spin-r" style={{ "--w": U(1.5), "--d": "3.6s", background: "conic-gradient(transparent 0 72%,rgba(255,255,255,.9) 84%,transparent 94%)" }} />
+      {!calm && [[4.5, "#f0abfc", false], [6.5, "#93c5fd", true]].map(([d, c, rev], i) => (
+        <div key={i} className={rev ? "wm-spin-r" : "wm-spin"} style={{ position: "absolute", inset: 0, "--d": d + "s" }}>
+          {polar(0, 34, <i style={{ position: "absolute", left: NU(2), top: NU(2), width: U(4), height: U(4), borderRadius: "50%", background: "#fff", boxShadow: "0 0 6px " + c }} />, "o")}
+        </div>
+      ))}
+      {st.map(([x, y, d], i) => <span key={i} className="wm-star" style={{ left: x + "%", top: y + "%", marginLeft: -3, marginTop: -3, "--dl": d + "s", "--t": "1.8s" }} />)}
     </>
   );
 }
@@ -295,37 +327,42 @@ function Wing({ side, variant }) {
 }
 
 function GoldenPhoenix({ calm }) {
-  const sp = calm ? [] : [
-    { l: "10%", dx: "-8px", dl: "0s", t: "1.4s" }, { l: "30%", dx: "6px", dl: ".4s", t: "1.2s" }, { l: "52%", dx: "-3px", dl: ".8s", t: "1.5s" },
-    { l: "74%", dx: "8px", dl: ".2s", t: "1.3s" }, { l: "90%", dx: "-6px", dl: ".6s", t: "1.6s" },
-  ];
+  const feathers = calm ? [] : [-80, -58, -36, -14, 14, 36, 58, 80];
+  const embers = calm ? [] : [[30, -3], [52, 3], [70, -2]];
   return (
     <>
-      {!calm && <div className="wm-ring wm-gold-ring wm-fire-glow wm-flick" style={{ "--w": "9px", inset: -2 }} />}
-      <div className="wm-wingmask"><div className="wm-wingbox"><Wing side="l" variant="flame" /><Wing side="r" variant="flame" /></div></div>
-      <div className="wm-ring wm-gold-ring wm-spin" style={{ "--w": "4px", "--d": "3s" }} />
-      {sp.map((e, i) => <span key={i} className="wm-spark" style={{ left: e.l, top: "0%", "--dx": e.dx, "--dl": e.dl, "--t": e.t }} />)}
+      {feathers.map((a, i) => polar(a, 37.7, <div className="wm-feather" style={{ left: NU(3), top: NU(11 + (Math.abs(a) % 3) * 2), width: U(6), height: U(11 + (Math.abs(a) % 3) * 2), "--t": (0.45 + Math.abs(a) / 300).toFixed(2) + "s" }} />, i))}
+      <div className="wm-ring wm-gold3" style={{ "--w": U(5.5) }} />
+      <div className="wm-ring wm-gold3b" style={{ inset: U(3), "--w": U(1.9) }} />
+      {!calm && <div className="wm-ring wm-spin" style={{ "--w": U(5.5), "--d": "3.6s", background: "conic-gradient(transparent 0 80%,rgba(255,255,255,.9) 90%,transparent 97%)" }} />}
+      <div className="wm-gem" style={{ left: "50%", top: NU(4), width: U(8.2), height: U(8.2) }} />
+      {embers.map(([x, dx], i) => <span key={i} className="wm-ember3" style={{ left: x + "%", top: "6%", "--dx": dx + "px", "--t": (1.3 + i * 0.25).toFixed(2) + "s", "--dl": i * 0.4 + "s", background: "#fde68a" }} />)}
     </>
   );
 }
 
 function CrystalCrown({ calm }) {
-  const tw = calm ? [] : [{ l: "26%", t: "-18px", dl: "0s" }, { l: "50%", t: "-22px", dl: ".5s" }, { l: "74%", t: "-18px", dl: "1s" }, { l: "10%", t: "30%", dl: ".8s" }, { l: "92%", t: "55%", dl: ".3s" }];
+  const st = calm ? [] : [[12, 34, 0], [88, 44, 0.7], [80, 82, 1.2]];
   return (
     <>
-      <div className="wm-ring wm-crystal-ring wm-spin" style={{ "--w": "3px", "--d": "5s" }} />
-      <div className="wm-crown">
-        <svg viewBox="0 0 30 20">
+      <div className="wm-ring wm-crystal3" style={{ "--w": U(5.5) }} />
+      <div className="wm-ring" style={{ inset: U(5.5), "--w": U(1.4), background: "rgba(80,100,140,.55)" }} />
+      {!calm && <div className="wm-ring wm-spin" style={{ "--w": U(5.5), "--d": "3.2s", background: "conic-gradient(transparent 0 78%,rgba(255,255,255,.95) 88%,transparent 96%)" }} />}
+      <div style={{ position: "absolute", left: "50%", top: NU(15 * 0.62), width: U(26), height: U(15), transform: "translateX(-50%)" }}>
+        <svg viewBox="0 0 40 23" width="100%" height="100%" style={{ display: "block", overflow: "visible" }}>
           <defs>
-            <linearGradient id="cc1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ecfeff" /><stop offset=".5" stopColor="#a5f3fc" /><stop offset="1" stopColor="#a78bfa" /></linearGradient>
+            <linearGradient id="wm-cg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fff" /><stop offset=".5" stopColor="#a5f3fc" /><stop offset="1" stopColor="#c4b5fd" /></linearGradient>
+            <linearGradient id="wm-cg2" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stopColor="#7dd3fc" /><stop offset="1" stopColor="#f5d0fe" /></linearGradient>
+            <clipPath id="wm-cc"><polygon points="2,20 6,6 14,13 20,2 26,13 34,6 38,20" /></clipPath>
           </defs>
-          <path d="M2 18L4 6L10 11L15 2L20 11L26 6L28 18Z" fill="url(#cc1)" stroke="#fff" strokeWidth=".8" strokeLinejoin="round" />
-          <path d="M15 2L10 11L15 18L20 11Z" fill="#fff" opacity=".35" />
-          <path d="M4 6L10 11L8 18L2 18Z" fill="#67e8f9" opacity=".35" />
-          <circle cx="15" cy="2" r="1.6" fill="#fff" /><circle cx="4" cy="6" r="1.2" fill="#e9d5ff" /><circle cx="26" cy="6" r="1.2" fill="#e9d5ff" />
+          <polygon points="2,20 6,6 14,13 20,2 26,13 34,6 38,20" fill="url(#wm-cg)" stroke="#fff" strokeWidth=".8" strokeLinejoin="round" />
+          <polygon points="14,13 20,2 26,13 20,20" fill="url(#wm-cg2)" opacity=".75" />
+          <polygon points="2,20 6,6 14,13 10,20" fill="#fff" opacity=".35" />
+          <circle cx="6" cy="6" r="1.6" fill="#fff" /><circle cx="20" cy="2.5" r="1.8" fill="#fff" /><circle cx="34" cy="6" r="1.6" fill="#fff" />
+          {!calm && <g clipPath="url(#wm-cc)"><rect x="-20" y="-2" width="9" height="28" fill="#fff" opacity=".85" transform="skewX(-20)"><animate attributeName="x" values="-20;56" dur="2.4s" repeatCount="indefinite" /></rect></g>}
         </svg>
       </div>
-      {tw.map((q, i) => <span key={i} className="wm-star" style={{ left: q.l, top: q.t, marginLeft: -3, "--dl": q.dl, "--t": "1.5s", background: "#e0f2fe" }} />)}
+      {st.map(([x, y, d], i) => <span key={i} className="wm-star" style={{ left: x + "%", top: y + "%", marginLeft: -3, "--dl": d + "s", "--t": "1.8s" }} />)}
     </>
   );
 }
@@ -416,6 +453,49 @@ function DivineRainbow({ calm }) {
   );
 }
 
+// Starry Orbit: วงโคจรเอียงรอบรูป — เส้นหลังรูป (ชั้นล่าง) + เส้นหน้ารูป (ชั้นบน ผ่าน VoiceAura.Front) ดาวเคราะห์โคจรผ่านทั้งสองฝั่ง
+function OrbitArc({ front, calm }) {
+  const gid = "wm-og-" + (front ? "f" : "b");
+  const d = front ? "M-7 50 A57 20 0 0 0 107 50" : "M-7 50 A57 20 0 0 1 107 50";
+  return (
+    <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ position: "absolute", inset: 0, overflow: "visible" }}>
+      <defs>
+        <linearGradient id={gid} x1="0" x2="1"><stop offset="0" stopColor="#22d3ee" stopOpacity="0" /><stop offset=".5" stopColor="#a5b4fc" /><stop offset="1" stopColor="#22d3ee" stopOpacity="0" /></linearGradient>
+        <radialGradient id="wm-pl" cx=".35" cy=".3"><stop offset="0" stopColor="#fff7d6" /><stop offset="1" stopColor="#f59e0b" /></radialGradient>
+      </defs>
+      <g transform="rotate(-22 50 50)">
+        <path d={d} fill="none" stroke={"url(#" + gid + ")"} strokeWidth="2.6" strokeLinecap="round" opacity={front ? 0.95 : 0.55} />
+        {!calm && (
+          <g>
+            <circle r="4.6" fill="url(#wm-pl)" />
+            <ellipse rx="8.2" ry="1.8" fill="none" stroke="#fde68a" strokeWidth="1" transform="rotate(-20)" />
+            <animate attributeName="opacity" values={front ? "0;0;1;1" : "1;1;0;0"} keyTimes="0;.499;.5;1" dur="4.2s" repeatCount="indefinite" calcMode="discrete" />
+            <animateMotion dur="4.2s" repeatCount="indefinite" path="M-7 50 A57 20 0 1 1 107 50 A57 20 0 1 1 -7 50" />
+          </g>
+        )}
+      </g>
+    </svg>
+  );
+}
+function StarryOrbit({ calm }) {
+  return (
+    <>
+      <div className="wm-ring" style={{ inset: NU(0.5), "--w": U(3.4), background: "conic-gradient(from 200deg,#38bdf8,#6366f1,#22d3ee,#e0f2fe,#38bdf8)", filter: "drop-shadow(0 0 5px rgba(56,189,248,.8))" }} />
+      <div className="wm-ring" style={{ inset: U(3), "--w": U(1.2), background: "rgba(255,255,255,.35)" }} />
+      <OrbitArc front={false} calm={calm} />
+    </>
+  );
+}
+StarryOrbit.Front = function StarryOrbitFront({ calm }) {
+  const st = calm ? [] : [[8, 24, 0], [86, 30, 0.6], [76, 84, 1.1], [18, 78, 0.3]];
+  return (
+    <>
+      <OrbitArc front calm={calm} />
+      {st.map(([x, y, d], i) => <span key={i} className="wm-star" style={{ left: x + "%", top: y + "%", marginLeft: -3, "--dl": d + "s", "--t": "1.8s" }} />)}
+    </>
+  );
+};
+
 export const EFFECTS = {
   fire: FireRing,
   hearts: FloatingHearts,
@@ -423,6 +503,7 @@ export const EFFECTS = {
   neon: NeonPulse,
   sakura: SakuraBloom,
   galaxy: GalaxyStars,
+  orbit: StarryOrbit,
   lightning: LightningRing,
   butterfly: ButterflyDream,
   phoenix: GoldenPhoenix,
@@ -466,6 +547,11 @@ export function VoiceAura({ aura, active, lite, forceCalm, children }) {
         </div>
       )}
       <div style={{ position: "relative", zIndex: 1 }}>{children}</div>
+      {Fx && Fx.Front && mounted && (
+        <div className={"wm-aura wm-aura-front" + (shown ? " on" : "") + (calm ? " calm" : "")} aria-hidden="true" style={{ zIndex: 2 }}>
+          <div className="wm-aura-core"><Fx.Front calm={calm} /></div>
+        </div>
+      )}
     </div>
   );
 }
