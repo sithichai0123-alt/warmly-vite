@@ -510,7 +510,7 @@ function agoLabel(ms){
 function timeAgo(ts){return agoLabel(ts?ts.toMillis():0);}
 
 // ── Shared UI ─────────────────────────────────────────────
-function Av({init,bg,tc,size=40,online,grad,isSelf,uid,dotK,noDot}){
+function Av({init,bg,tc,size=40,online,grad,isSelf,uid,dotK,noDot,flush}){
   const _users=useContext(UsersCtx);
   const _u=uid?_users[uid]:null;
   // รูปของตัวเอง/คนอื่นดึงจากฐานข้อมูล (ทุกคนเห็นเหมือนกัน) สำรองจากเครื่องตัวเอง
@@ -519,7 +519,7 @@ function Av({init,bg,tc,size=40,online,grad,isSelf,uid,dotK,noDot}){
   const core = selfImg
     ? <img data-aura-circle src={selfImg} alt={init} referrerPolicy="no-referrer" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",display:"block",border:"2px solid "+(grad?T.brand:T.border)}}/>
     : <div data-aura-circle style={{width:size,height:size,borderRadius:"50%",background:grad?T.brandGrad:(bg||T.card),color:grad?T.onBrand:(tc||T.brand2),display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.32,fontWeight:700,boxShadow:grad?"0 0 16px rgba(124,92,252,.5)":"none"}}>{init}</div>;
-  return(<div style={{position:"relative",flexShrink:0}}>
+  return(<div style={{position:"relative",flexShrink:0,...(flush?{display:"flex"}:null)}}>
     {frame
       ? (frame.conic
           ? <AnimFrame frame={frame} size={size}>{core}</AnimFrame>
@@ -1632,11 +1632,11 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                       border:"2.5px solid "+(isSpeaking&&!auraId?T.green:"transparent"), // ไม่แสดงเส้นวงบาง ๆ รอบรูปตอนไม่ได้พูด
                       boxShadow:isSpeaking&&!auraId?"0 0 16px rgba(16,185,129,.5)":"none",
                       transition:"all .2s"}}>
-                      <Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} grad={isMe} isSelf={isMe} size={48} noDot/>
+                      <Av uid={m.uid} init={m.init} bg={T.card} tc={T.brand2} grad={isMe} isSelf={isMe} size={48} noDot flush/>
                     </div>
                 );
                 return(
-                  <div key={key+i} data-seat={key} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,position:"relative"}}>
+                  <div key={key+i} data-seat={key} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,position:"relative"}}>
                     {stage&&<RoleBadge role={stageRole(inRoom,m)} T={T}/>}
                     {!stage&&isHost&&!isMe&&(
                       <div style={{position:"absolute",top:-10,right:-12,display:"flex",gap:3,zIndex:2}}>
@@ -1648,18 +1648,8 @@ function VoiceRoomsPage({user,onAppearance,joinReq,onJoinReqHandled}){
                       ?<VoiceAura aura={auraId} active={isSpeaking&&showMicOn} lite={memberList.length>AURA_LITE_ROOM_SIZE}>{avatarBtn}</VoiceAura>
                       :avatarBtn}
                     <div style={{fontSize:13,color:T.brand2,fontWeight:700,maxWidth:56,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",position:"relative",zIndex:1,...(resolveTextFx(m.uid?_users[m.uid]:null,"voiceName")?{padding:"4px 8px",margin:"-4px -8px"}:null)}}><FxT uid={m.uid} area="voiceName" fallback={isMe?"คุณ":m.name}>{m.name}</FxT></div>
-                    {/* ไมค์ animation เมื่อพูด */}
-                    {isSpeaking?(
-                      <div style={{display:"flex",alignItems:"flex-end",gap:1.5,height:14}}>
-                        {[3,6,9,6,3].map((h,j)=>(
-                          <div key={j} style={{width:2.5,borderRadius:2,background:T.green,
-                            animation:`mic-wave ${0.4+j*0.08}s ease-in-out infinite alternate`,
-                            animationDelay:`${j*60}ms`}}/>
-                        ))}
-                      </div>
-                    ):(
-                      <span style={{fontSize:13,color:T.muted}}>{showMicOn?"🎙️":"🔇"}</span>
-                    )}
+                    {/* ไม่แสดงไอคอนไมค์/คลื่นเสียงใต้ชื่อแล้ว — เหลือเฉพาะ 🔇 เมื่อปิดไมค์ */}
+                    {!showMicOn&&!isSpeaking&&<span style={{fontSize:13,color:T.muted,lineHeight:1}}>🔇</span>}
                   </div>
                 );
               };
