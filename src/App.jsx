@@ -517,13 +517,13 @@ function Av({init,bg,tc,size=40,online,grad,isSelf,uid,dotK,noDot}){
   const selfImg = (_u&&(_u.avatar||_u.photo)) || (isSelf ? ls.get("avatarImg","") : "");
   const frame = _u&&_u.frame&&FRAMES[_u.frame];
   const core = selfImg
-    ? <img src={selfImg} alt={init} referrerPolicy="no-referrer" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",display:"block",border:"2px solid "+(grad?T.brand:T.border)}}/>
-    : <div style={{width:size,height:size,borderRadius:"50%",background:grad?T.brandGrad:(bg||T.card),color:grad?T.onBrand:(tc||T.brand2),display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.32,fontWeight:700,boxShadow:grad?"0 0 16px rgba(124,92,252,.5)":"none"}}>{init}</div>;
+    ? <img data-aura-circle src={selfImg} alt={init} referrerPolicy="no-referrer" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",display:"block",border:"2px solid "+(grad?T.brand:T.border)}}/>
+    : <div data-aura-circle style={{width:size,height:size,borderRadius:"50%",background:grad?T.brandGrad:(bg||T.card),color:grad?T.onBrand:(tc||T.brand2),display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.32,fontWeight:700,boxShadow:grad?"0 0 16px rgba(124,92,252,.5)":"none"}}>{init}</div>;
   return(<div style={{position:"relative",flexShrink:0}}>
     {frame
       ? (frame.conic
           ? <AnimFrame frame={frame} size={size}>{core}</AnimFrame>
-          : <div style={{padding:Math.max(2,Math.round(size*.07)),borderRadius:"50%",background:frame.bg,boxShadow:frame.glow,display:"inline-block",lineHeight:0}}>{core}</div>)
+          : <div data-aura-circle style={{padding:Math.max(2,Math.round(size*.07)),borderRadius:"50%",background:frame.bg,boxShadow:frame.glow,display:"inline-block",lineHeight:0}}>{core}</div>)
       : core}
     {online?<div style={{position:"absolute",bottom:1,right:1,width:Math.max(8,size*.2),height:Math.max(8,size*.2),borderRadius:"50%",background:T.green,border:"2px solid "+T.bg}}/>
       :(PRESENCE_ENABLED&&!noDot&&uid&&size>=DOT_MIN_SIZE?<PresenceDot uid={uid} size={size} bg={T.bg} {...(dotK?{k:dotK}:null)}/>:null)}
@@ -3800,7 +3800,7 @@ function AnimFrame({frame,size,children}){
   const pad=Math.max(2,Math.round(size*.07));
   const sp=Math.max(8,Math.round(size*.22));
   return(
-    <div style={{position:"relative",padding:pad,borderRadius:"50%",display:"inline-block",lineHeight:0,boxShadow:frame.glow,"--g":frame.glowColor||"rgba(167,139,250,.7)",animation:frame.pulse?"wmGlow 2s ease-in-out infinite":undefined}}>
+    <div data-aura-circle style={{position:"relative",padding:pad,borderRadius:"50%",display:"inline-block",lineHeight:0,boxShadow:frame.glow,"--g":frame.glowColor||"rgba(167,139,250,.7)",animation:frame.pulse?"wmGlow 2s ease-in-out infinite":undefined}}>
       <div style={{position:"absolute",inset:0,borderRadius:"50%",overflow:"hidden"}}>
         <div style={{position:"absolute",left:"-30%",top:"-30%",width:"160%",height:"160%",background:"conic-gradient("+frame.conic+")",animation:"wmSpin "+(frame.speed||3)+"s linear infinite",willChange:"transform"}}/>
       </div>

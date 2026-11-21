@@ -1,6 +1,6 @@
 // Voice Aura — ตัวแสดงแอนิเมชันรอบรูปโปรไฟล์ (CSS ล้วน ไม่มีเสียง ไม่ตรวจจับเสียงเอง)
 // ทำงานจากสถานะ "กำลังพูด" ที่ LiveKit รายงานอยู่แล้ว (speaking map ของ useVoice) เท่านั้น
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { VOICE_AURA_ENABLED, AURA_FADE_MS, AURA_SCALE } from "./config.js";
 import { AURA_BY_ID, equippedAura } from "./catalog.js";
 
@@ -658,6 +658,37 @@ function useFade(active, ms) {
   return { mounted, shown };
 }
 
+
+// วัดวงกลมรูปโปรไฟล์จริง (องค์ประกอบที่มี data-aura-circle) เพื่อให้วงเอฟเฟกต์เท่ากับรูปพอดี เป็นวงกลมเสมอ
+// ไม่พึ่งขนาดของกล่องห่อ (ที่อาจกว้าง/สูงกว่ารูปและทำให้วงเป็นวงรี) — ไม่เจอองค์ประกอบ = ใช้ CSS เดิม
+function useCircleBox(ref, on) {
+  const [box, setBox] = useState(null);
+  useLayoutEffect(() => {
+    if (!on) return undefined;
+    const w = ref.current;
+    if (!w) return undefined;
+    const measure = () => {
+      const c = w.querySelector("[data-aura-circle]");
+      if (!c) { setBox(null); return; }
+      const wr = w.getBoundingClientRect(), cr = c.getBoundingClientRect();
+      const d = Math.round(Math.min(cr.width, cr.height) * 2) / 2;
+      const cx = Math.round((cr.left - wr.left + cr.width / 2) * 2) / 2, cy = Math.round((cr.top - wr.top + cr.height / 2) * 2) / 2;
+      setBox(p => (p && p.d === d && p.cx === cx && p.cy === cy ? p : d > 0 ? { d, cx, cy } : null));
+    };
+    measure();
+    let ro = null;
+    if (typeof ResizeObserver !== "undefined") { ro = new ResizeObserver(measure); ro.observe(w); }
+    return () => { if (ro) ro.disconnect(); };
+  }, [ref, on]);
+  return box;
+}
+// วงหลัก (ขอบนอก) ห่างรูป 3px → กล่องเอฟเฟกต์ = (รูป+6) ขยาย 1/AURA_SCALE เท่า แล้วย่อกลับด้วย CSS
+function boxStyle(box) {
+  if (!box) return undefined;
+  const L = (box.d + 6) / AURA_SCALE;
+  return { left: box.cx - L / 2, top: box.cy - L / 2, right: "auto", bottom: "auto", width: L, height: L };
+}
+
 // ห่อรูปโปรไฟล์: <VoiceAura aura="fire" active={กำลังพูดและไมค์เปิด}>…รูป…</VoiceAura>
 // ชั้นเอฟเฟกต์อยู่ "ใต้" รูป/ปุ่ม และ pointer-events:none จึงไม่บังรูป ชื่อ หรือปุ่มควบคุมใด ๆ
 export function VoiceAura({ aura, active, lite, forceCalm, children }) {
@@ -665,17 +696,20 @@ export function VoiceAura({ aura, active, lite, forceCalm, children }) {
   const reduced = usePrefersReduced();
   const { mounted, shown } = useFade(!!active, AURA_FADE_MS);
   const Fx = EFFECTS[aura];
+  const wrapRef = useRef(null);
+  const box = useCircleBox(wrapRef, !!Fx && mounted);
+  const bs = boxStyle(box);
   const calm = mode === "reduced" || reduced || !!lite || !!forceCalm;
   return (
-    <div style={{ position: "relative" }}>
+    <div ref={wrapRef} style={{ position: "relative" }}>
       {Fx && mounted && (
-        <div className={"wm-aura" + (shown ? " on" : "") + (calm ? " calm" : "")} aria-hidden="true" data-aura={aura}>
+        <div className={"wm-aura" + (shown ? " on" : "") + (calm ? " calm" : "")} aria-hidden="true" data-aura={aura} style={bs}>
           <div className="wm-aura-core"><Fx calm={calm} /></div>
         </div>
       )}
       <div style={{ position: "relative", zIndex: 1 }}>{children}</div>
       {Fx && Fx.Front && mounted && (
-        <div className={"wm-aura wm-aura-front" + (shown ? " on" : "") + (calm ? " calm" : "")} aria-hidden="true" style={{ zIndex: 2 }}>
+        <div className={"wm-aura wm-aura-front" + (shown ? " on" : "") + (calm ? " calm" : "")} aria-hidden="true" style={{ ...bs, zIndex: 2 }}>
           <div className="wm-aura-core"><Fx.Front calm={calm} /></div>
         </div>
       )}
