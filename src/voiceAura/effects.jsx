@@ -667,12 +667,15 @@ function useCircleBox(ref, on) {
     if (!on) return undefined;
     const w = ref.current;
     if (!w) return undefined;
+    // ใช้ขนาด/ตำแหน่งแบบ layout (offsetWidth/offsetLeft) ไม่ใช่ getBoundingClientRect — ไม่ถูกคูณซ้ำเมื่อมีองค์ประกอบแม่ที่ถูกย่อ/ขยาย (transform/zoom)
     const measure = () => {
       const c = w.querySelector("[data-aura-circle]");
       if (!c) { setBox(null); return; }
-      const wr = w.getBoundingClientRect(), cr = c.getBoundingClientRect();
-      const d = Math.round(Math.min(cr.width, cr.height) * 2) / 2;
-      const cx = Math.round((cr.left - wr.left + cr.width / 2) * 2) / 2, cy = Math.round((cr.top - wr.top + cr.height / 2) * 2) / 2;
+      let x = 0, y = 0, n = c;
+      while (n && n !== w) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+      if (n !== w) { setBox(null); return; }
+      const cw = c.offsetWidth, ch = c.offsetHeight;
+      const d = Math.min(cw, ch), cx = x + cw / 2, cy = y + ch / 2;
       setBox(p => (p && p.d === d && p.cx === cx && p.cy === cy ? p : d > 0 ? { d, cx, cy } : null));
     };
     measure();
