@@ -5,8 +5,8 @@ export function RoleBadge({ role, T }) {
   if (role !== "host" && role !== "cohost") return null;
   return (
     <span data-role-badge={role} title={role === "host" ? "เจ้าของห้อง" : "รองเจ้าของห้อง"}
-      style={{ position: "absolute", top: -4, left: "calc(50% - 36px)", zIndex: 3, width: 22, height: 22, borderRadius: "50%",
-        background: role === "host" ? "#F59E0B" : "#6366F1", border: "2px solid " + T.card, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, lineHeight: 1 }}>
+      style={{ position: "absolute", top: 0, left: "calc(50% - 33px)", zIndex: 3, width: 16, height: 16, borderRadius: "50%",
+        background: role === "host" ? "#F59E0B" : "#6366F1", border: "1.5px solid " + T.card, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, lineHeight: 1 }}>
       {role === "host" ? "👑" : "🛡️"}
     </span>
   );
