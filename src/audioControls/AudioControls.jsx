@@ -23,7 +23,9 @@ function OutputPicker({ ios }) {
         </select>
         <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>{active ? "กำลังส่งเสียงไป: " + active.label : "ตอนนี้ใช้ลำโพง/หูฟังตามที่เครื่องเลือก (ยังไม่พบบลูทูธที่เชื่อมต่อ)"}</div>
       </>) : (
-        <div style={{ fontSize: 13, color: C.yellow, marginTop: 2, lineHeight: 1.5 }}>{ios ? "⚠️ iPhone/iPad ให้เว็บเลือกเสียงออกเองไม่ได้ — เลือกบลูทูธ/AirPlay จากศูนย์ควบคุมของเครื่อง (ปัดจากมุมขวาบน แล้วแตะไอคอนเสียง)" : "ℹ️ เบราว์เซอร์มือถือเลือกเสียงออกจากเว็บไม่ได้ (ปกติ ไม่ใช่ข้อผิดพลาด) — เสียงเพื่อนจะออกลำโพงหรือบลูทูธตามที่เครื่องเลือก ปรับความดังด้วยปุ่มเสียงข้างเครื่อง"}</div>
+        ios ? <div style={{ fontSize: 13, color: C.yellow, marginTop: 2, lineHeight: 1.5 }}>⚠️ iPhone/iPad ให้เว็บเลือกเสียงออกเองไม่ได้ — เลือกบลูทูธ/AirPlay จากศูนย์ควบคุมของเครื่อง (ปัดจากมุมขวาบน แล้วแตะไอคอนเสียง)</div>
+        : r.viaInput ? <div data-ac-bt style={{ fontSize: 13, color: C.text, marginTop: 2, lineHeight: 1.5 }}>🎧 ใช้หูฟังอยู่: <b>{r.viaInput}</b> — เสียงพูดและเสียงเพื่อนผ่านหูฟัง{getSpeakerMode() ? <span style={{ color: C.yellow }}> · ถ้าเสียงเพื่อนยังออกลำโพง ให้เอาติ๊ก "โหมดเสียงผ่านลำโพง" ออกแล้วเข้าห้องใหม่</span> : null}</div>
+        : <div style={{ fontSize: 13, color: C.muted, marginTop: 2, lineHeight: 1.5 }}>ℹ️ ตอนนี้ใช้ลำโพงเครื่อง — เชื่อมบลูทูธ/เสียบหูฟังแล้วเปิดไมค์ แอปจะสลับเสียงไปที่หูฟังให้เอง</div>
       )}
     </div>
   );

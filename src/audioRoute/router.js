@@ -3,11 +3,11 @@
 //   • ใช้ได้เฉพาะเบราว์เซอร์ที่รองรับ setSinkId (Chrome/Edge/Samsung Internet) — iPhone/Safari ไม่รองรับ → แผงเสียงบอกวิธีเลือกเอง
 //   • ผู้ใช้เลือกอุปกรณ์เองในแผงเสียงได้ (ค่า "อัตโนมัติ" = ให้บลูทูธ/หูฟังมาก่อน)
 import { AUDIO_ROUTE_ENABLED, RECHECK_DELAYS_MS } from "./config.js";
-import { decideOutput, pairedInput, describeOutputs } from "./logic.js";
+import { decideOutput, pairedInput, describeOutputs, isBluetoothLabel, isExternalLabel } from "./logic.js";
 import { getRouteState, patchRouteState, getSpeakerMode } from "./store.js";
 
 const rooms = new Set();
-let activeSpk = false, timers = [], listening = false, appliedId = null, busy = false, again = false;
+let activeSpk = false, appliedIn = null, timers = [], listening = false, appliedId = null, busy = false, again = false;
 
 const md = () => (typeof navigator !== "undefined" ? navigator.mediaDevices : undefined);
 export function canChooseOutput() {
@@ -35,13 +35,30 @@ export async function reviveRemoteAudio() {
   return { total: els.length, live: live.length, playing: live.filter(el => !el.paused).length };
 }
 
+const isIOSLike = () => { try { const ua = navigator.userAgent || ""; return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1); } catch (e) { return false; } };
+
+// Android Chrome ไม่มี setSinkId (เลือกเสียงออกตรง ๆ ไม่ได้) — แต่ถ้าเลือก "ไมค์ของหูฟังบลูทูธ" Android จะสลับทั้งเสียงพูดและเสียงที่ได้ยินไปที่หูฟังให้เอง
+// คืนชื่ออุปกรณ์ที่ใช้อยู่ (null = ใช้ของเครื่อง)
+async function applyInputOnly() {
+  if (isIOSLike() || !md() || !md().enumerateDevices) return null;   // iPhone: ระบบเลือกให้เอง/เลือกจากศูนย์ควบคุม
+  const devices = await md().enumerateDevices();
+  const ins = devices.filter(d => d && d.kind === "audioinput" && d.deviceId && d.deviceId !== "default" && d.deviceId !== "communications");
+  const hp = ins.find(d => isBluetoothLabel(d.label)) || ins.find(d => isExternalLabel(d.label)) || null;
+  const target = hp ? hp.deviceId : (appliedIn ? "default" : null);   // ถอดหูฟัง: คืนไมค์ของเครื่อง · ไม่เคยสลับ = ไม่แตะ
+  if (target && target !== appliedIn) {
+    for (const room of rooms) { try { await room.switchActiveDevice("audioinput", target, target !== "default"); } catch (e) { console.warn("audioRoute input-only", e); } }
+    appliedIn = target === "default" ? null : target;
+  }
+  return appliedIn && hp ? (hp.label || "หูฟัง") : null;
+}
+
 async function apply() {
   if (!AUDIO_ROUTE_ENABLED || !rooms.size) return;
   if (busy) { again = true; return; }
   busy = true;
   try {
     const supported = canChooseOutput();
-    if (!supported) { patchRouteState({ supported: false, outputs: [], activeId: null }); return; }
+    if (!supported) { const via = await applyInputOnly(); patchRouteState({ supported: false, outputs: [], activeId: null, viaInput: via }); return; }
     const devices = await md().enumerateDevices();
     const st = getRouteState();
     const { device } = decideOutput(devices, st.pref);
@@ -79,8 +96,8 @@ export const audioRoute = {
     if (!rooms.size) {
       timers.forEach(clearTimeout); timers = [];
       if (listening && md() && md().removeEventListener) { md().removeEventListener("devicechange", onDeviceChange); listening = false; }
-      appliedId = null;
-      patchRouteState({ activeId: null });
+      appliedId = null; appliedIn = null;
+      patchRouteState({ activeId: null, viaInput: null });
     }
   },
   refresh: apply,
