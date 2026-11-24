@@ -3,7 +3,8 @@
 import { useAudioPrefs, setMicGain, setMusicVolume, setMusicMuted, useMicStatus } from "./store.js";
 import { MIC_GAIN_MAX } from "./config.js";
 import { isIOS } from "./ytVolume.js";
-import { AUDIO_ROUTE_ENABLED, useRouteState, setRoutePref, audioRoute } from "../audioRoute/index.js";
+import { useState } from "react";
+import { AUDIO_ROUTE_ENABLED, useRouteState, setRoutePref, audioRoute, reviveRemoteAudio } from "../audioRoute/index.js";
 
 const C = { onBrand: "var(--on-primary, #fff)", card: "var(--panel-background, #221F33)", surface: "var(--surface-background, #1A1825)", border: "var(--border-color, #2E2A45)", borderHi: "var(--border-strong, #4F46A8)", brand2: "var(--secondary-color, #A78BFA)", text: "var(--text-primary, #F0EEFF)", sub: "var(--text-secondary, #9B94C4)", muted: "var(--text-muted, #8A84B0)", yellow: "var(--warning-color, #F59E0B)" };
 const range = { width: "100%", accentColor: "var(--secondary-color,#A78BFA)", height: 28, cursor: "pointer" };
@@ -22,8 +23,27 @@ function OutputPicker({ ios }) {
         </select>
         <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>{active ? "กำลังส่งเสียงไป: " + active.label : "ตอนนี้ใช้ลำโพง/หูฟังตามที่เครื่องเลือก (ยังไม่พบบลูทูธที่เชื่อมต่อ)"}</div>
       </>) : (
-        <div style={{ fontSize: 13, color: C.yellow, marginTop: 2, lineHeight: 1.5 }}>{ios ? "⚠️ iPhone/iPad ให้เว็บเลือกเสียงออกเองไม่ได้ — เลือกบลูทูธ/AirPlay จากศูนย์ควบคุมของเครื่อง (ปัดจากมุมขวาบน แล้วแตะไอคอนเสียง)" : "⚠️ เบราว์เซอร์นี้เลือกเสียงออกจากเว็บไม่ได้ — ใช้ Chrome หรือเลือกอุปกรณ์เสียงที่ตัวเครื่อง"}</div>
+        <div style={{ fontSize: 13, color: C.yellow, marginTop: 2, lineHeight: 1.5 }}>{ios ? "⚠️ iPhone/iPad ให้เว็บเลือกเสียงออกเองไม่ได้ — เลือกบลูทูธ/AirPlay จากศูนย์ควบคุมของเครื่อง (ปัดจากมุมขวาบน แล้วแตะไอคอนเสียง)" : "ℹ️ เบราว์เซอร์มือถือเลือกเสียงออกจากเว็บไม่ได้ (ปกติ ไม่ใช่ข้อผิดพลาด) — เสียงเพื่อนจะออกลำโพงหรือบลูทูธตามที่เครื่องเลือก ปรับความดังด้วยปุ่มเสียงข้างเครื่อง"}</div>
       )}
+    </div>
+  );
+}
+
+// ได้ยินเพื่อนไหม: สั่งเล่นเสียงเพื่อนใหม่ + บอกสภาพจริง (มีกี่แทร็ก เล่นอยู่กี่แทร็ก)
+function FriendAudioTest() {
+  const [res, setRes] = useState(null), [busy, setBusy] = useState(false);
+  async function run() { setBusy(true); try { setRes(await reviveRemoteAudio()); } catch (e) { setRes({ err: true }); } setBusy(false); }
+  const msg = !res ? "" : res.err ? "ทดสอบไม่สำเร็จ ลองใหม่อีกครั้ง"
+    : res.total === 0 ? "ยังไม่มีเสียงเพื่อนส่งมา (เพื่อนยังไม่เปิดไมค์ หรือยังไม่ได้พูดสักครั้ง)"
+    : res.playing === res.live ? "รับเสียงเพื่อน " + res.live + " คนอยู่และกำลังเล่น ✅ ถ้ายังไม่ได้ยิน ลองเพิ่มเสียงด้วยปุ่มข้างเครื่อง (ตอนอยู่ในห้องให้กดปุ่มเสียงดูว่าเป็นแถบ \"เสียงสนทนา/สายโทรศัพท์\")"
+    : "พบเสียงเพื่อน " + res.live + " คน แต่เล่นอยู่ " + res.playing + " — กดอีกครั้ง หรือแตะที่หน้าจอแล้วลองใหม่";
+  return (
+    <div data-ac-friend style={{ marginTop: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: C.sub }}>👂 ไม่ได้ยินเพื่อนพูด?</span>
+        <button type="button" data-ac-friend-test onClick={run} disabled={busy} style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 700, padding: "3px 10px", borderRadius: 8, border: "1px solid " + C.borderHi, background: "transparent", color: C.brand2, cursor: "pointer" }}>{busy ? "กำลังตรวจ…" : "เปิดเสียงเพื่อนอีกครั้ง"}</button>
+      </div>
+      {msg && <div style={{ fontSize: 13, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>{msg}</div>}
     </div>
   );
 }
@@ -60,6 +80,7 @@ export default function AudioControls({ micOn, onToggleMic, connected, hasMusic 
         {ios && <div style={{ fontSize:13, color: C.yellow }}>⚠️ iPhone/iPad ไม่อนุญาตให้เว็บปรับเสียงเพลง — ใช้ปุ่มเสียงข้างเครื่องแทน</div>}
       </div>
       {AUDIO_ROUTE_ENABLED && connected && <OutputPicker ios={ios} />}
+      {AUDIO_ROUTE_ENABLED && connected && <FriendAudioTest />}
     </div>
   );
 }
