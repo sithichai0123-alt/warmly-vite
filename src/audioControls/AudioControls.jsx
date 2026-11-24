@@ -24,8 +24,17 @@ function OutputPicker({ ios }) {
         <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>{active ? "กำลังส่งเสียงไป: " + active.label : "ตอนนี้ใช้ลำโพง/หูฟังตามที่เครื่องเลือก (ยังไม่พบบลูทูธที่เชื่อมต่อ)"}</div>
       </>) : (
         ios ? <div style={{ fontSize: 13, color: C.yellow, marginTop: 2, lineHeight: 1.5 }}>⚠️ iPhone/iPad ให้เว็บเลือกเสียงออกเองไม่ได้ — เลือกบลูทูธ/AirPlay จากศูนย์ควบคุมของเครื่อง (ปัดจากมุมขวาบน แล้วแตะไอคอนเสียง)</div>
-        : r.viaInput ? <div data-ac-bt style={{ fontSize: 13, color: C.text, marginTop: 2, lineHeight: 1.5 }}>🎧 ใช้หูฟังอยู่: <b>{r.viaInput}</b> — เสียงพูดและเสียงเพื่อนผ่านหูฟัง{getSpeakerMode() ? <span style={{ color: C.yellow }}> · ถ้าเสียงเพื่อนยังออกลำโพง ให้เอาติ๊ก "โหมดเสียงผ่านลำโพง" ออกแล้วเข้าห้องใหม่</span> : null}</div>
-        : <div style={{ fontSize: 13, color: C.muted, marginTop: 2, lineHeight: 1.5 }}>ℹ️ ตอนนี้ใช้ลำโพงเครื่อง — เชื่อมบลูทูธ/เสียบหูฟังแล้วเปิดไมค์ แอปจะสลับเสียงไปที่หูฟังให้เอง</div>
+        : <>
+          {r.inputs && r.inputs.length > 0 && (
+            <select data-ac-input-select value={r.inputs.some(o => o.id === r.pref) ? r.pref : "auto"} onChange={e => { setRoutePref(e.target.value); audioRoute.refresh(); }} style={{ width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 10, border: "1px solid " + C.border, background: C.card, color: C.text, fontFamily: "inherit", fontSize: 14 }}>
+              <option value="auto">อัตโนมัติ (ใช้บลูทูธ/หูฟังเมื่อเชื่อมต่อ)</option>
+              {r.inputs.map(o => <option key={o.id} value={o.id}>{(o.kind === "builtin" ? "📱 " : "🎧 ") + o.label}</option>)}
+            </select>
+          )}
+          {r.viaInput
+            ? <div data-ac-bt style={{ fontSize: 13, color: C.text, marginTop: 4, lineHeight: 1.5 }}>🎧 ใช้อยู่: <b>{r.viaInput}</b> — เสียงพูดและเสียงเพื่อนผ่านอุปกรณ์นี้{getSpeakerMode() ? <span style={{ color: C.yellow }}> · ถ้าเสียงเพื่อนยังออกลำโพง ให้เอาติ๊ก "โหมดเสียงผ่านลำโพง" ออกแล้วเข้าห้องใหม่</span> : null}</div>
+            : <div style={{ fontSize: 13, color: C.muted, marginTop: 4, lineHeight: 1.5 }}>ℹ️ ตอนนี้ใช้ลำโพงเครื่อง — เชื่อมบลูทูธแล้วเปิดไมค์ แอปจะสลับให้เอง ถ้าไม่สลับ ให้เลือกหูฟังจากรายการด้านบน{r.inputs && r.inputs.length === 0 ? " (รายการจะขึ้นหลังเปิดไมค์)" : ""}</div>}
+        </>
       )}
     </div>
   );
