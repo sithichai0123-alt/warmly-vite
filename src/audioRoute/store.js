@@ -17,3 +17,9 @@ export function patchRouteState(patch) {
 }
 export const subscribeRoute = f => { subs.add(f); return () => subs.delete(f); };
 export const useRouteState = () => useSyncExternalStore(subscribeRoute, getRouteState, () => state);
+
+// โหมดเสียงผ่านลำโพง (WebAudio): ส่งเสียงเพื่อนผ่านเส้นทางเสียงสื่อของเครื่อง แทนเส้นทางเสียงสายสนทนา — ใช้เมื่อมือถือแสดงว่าเพื่อนพูดแต่ไม่มีเสียง
+// ปิดเป็นค่าเริ่มต้น (ไม่กระทบคนที่ได้ยินปกติ) · มีผลตอนเข้าห้องครั้งถัดไป
+const SPK_KEY = "wm_speakerMode";
+export function getSpeakerMode() { try { return window.localStorage.getItem(SPK_KEY) === "1"; } catch (e) { return false; } }
+export function setSpeakerMode(on) { try { window.localStorage.setItem(SPK_KEY, on ? "1" : "0"); } catch (e) { /* ignore */ } }

@@ -8,7 +8,7 @@ import { TextFx, FxGallery, FxSettings, MsgFxButton, makeTextFxApi, resolveTextF
 import { APP_MODE_ENABLED, useAppMode, ThemeScope, AppearanceModal, makeThemeApi, useThemeAccountSync, useSharedThemeSync, OwnerScope, resolveOwnerTheme, THEME_SERVER_PURCHASE } from "./themes/index.js"; // ระบบธีมรายหน้า (แยกไฟล์ — ปิดได้ที่ themes/config.js)
 import { makeChatCleanup } from "./chatCleanup/index.js"; // ลบข้อความเก่าเกิน 100 ในแชทรวม/แชทห้องเสียง (แยกไฟล์ — ปิดได้ที่ chatCleanup/config.js)
 import { AUDIO_CONTROLS_ENABLED, AudioControls, useAudioPrefs, getAudioPrefs, createMicGainController, applyYtVolume, applyYtVolumeWhenReady, setMusicMuted } from "./audioControls/index.js"; // ปรับเสียงไมค์/เพลงแยกกัน (แยกไฟล์ — ปิดได้ที่ audioControls/config.js)
-import { audioRoute } from "./audioRoute/index.js"; // ส่งเสียงไปหูฟังบลูทูธเมื่อเชื่อมต่ออยู่ (ปิดได้ที่ audioRoute/config.js)
+import { audioRoute, getSpeakerMode } from "./audioRoute/index.js"; // ส่งเสียงไปหูฟังบลูทูธเมื่อเชื่อมต่ออยู่ (ปิดได้ที่ audioRoute/config.js)
 import { ImageViewerProvider, useImageViewer } from "./imageViewer/index.js"; // ดูรูปเต็มจอ (แยกไฟล์ — ปิดได้ที่ imageViewer/config.js)
 import { PRESENCE_ENABLED, PRESENCE_WINDOW_ENABLED, useOnlineCount, DOT_MIN_SIZE, PresenceProvider, PresenceDot, PresenceText, makePresenceApi, usePresencePrefs, setPresencePrefs, useIsOnline, usePresenceStateOf } from "./presence/index.js"; // สถานะออนไลน์ จุดเขียว/เทา (แยกไฟล์ — ปิดได้ที่ presence/config.js)
 import { CHAT_DELETE_ENABLED, makeChatDeleteApi, makeClientFallback } from "./chatDelete/index.js"; // ลบข้อความแชทส่วนตัว (ทีละข้อความ/ทั้งหมด) ผ่าน Backend — ปิดได้ที่ chatDelete/config.js
@@ -1102,7 +1102,7 @@ function useVoice(){
     leftRef.current=false;pausedRef.current=false;setPaused(false);connectingRef.current=true;lastConnRef.current={roomId,identity,name};wantMicRef.current=!(opts&&opts.mic===false);
     setError("");
     const room=new Room({
-      adaptiveStream:true,dynacast:true,
+      adaptiveStream:true,dynacast:true,webAudioMix:getSpeakerMode(),
       audioCaptureDefaults:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},
     });
     roomRef.current=room;
