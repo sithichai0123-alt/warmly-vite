@@ -40,16 +40,19 @@ const isIOSLike = () => { try { const ua = navigator.userAgent || ""; return /iP
 // Android Chrome ไม่มี setSinkId (เลือกเสียงออกตรง ๆ ไม่ได้) — แต่ถ้าเลือก "ไมค์ของหูฟังบลูทูธ" Android จะสลับทั้งเสียงพูดและเสียงที่ได้ยินไปที่หูฟังให้เอง
 // คืนชื่ออุปกรณ์ที่ใช้อยู่ (null = ใช้ของเครื่อง)
 async function applyInputOnly() {
-  if (isIOSLike() || !md() || !md().enumerateDevices) return null;   // iPhone: ระบบเลือกให้เอง/เลือกจากศูนย์ควบคุม
+  if (isIOSLike() || !md() || !md().enumerateDevices) return { via: null, inputs: [] };   // iPhone: ระบบเลือกให้เอง/เลือกจากศูนย์ควบคุม
   const devices = await md().enumerateDevices();
   const ins = devices.filter(d => d && d.kind === "audioinput" && d.deviceId && d.deviceId !== "default" && d.deviceId !== "communications");
-  const hp = ins.find(d => isBluetoothLabel(d.label)) || ins.find(d => isExternalLabel(d.label)) || null;
+  const pref = getRouteState().pref;   // เบราว์เซอร์ที่เลือกเสียงออกไม่ได้: ค่าที่เลือกในแผง = ไมค์/หูฟังที่จะใช้ ("auto" = หาเอง)
+  const manual = pref && pref !== "auto" ? ins.find(d => d.deviceId === pref) : null;
+  const hp = manual || ins.find(d => isBluetoothLabel(d.label)) || ins.find(d => isExternalLabel(d.label)) || null;
   const target = hp ? hp.deviceId : (appliedIn ? "default" : null);   // ถอดหูฟัง: คืนไมค์ของเครื่อง · ไม่เคยสลับ = ไม่แตะ
   if (target && target !== appliedIn) {
     for (const room of rooms) { try { await room.switchActiveDevice("audioinput", target, target !== "default"); } catch (e) { console.warn("audioRoute input-only", e); } }
     appliedIn = target === "default" ? null : target;
   }
-  return appliedIn && hp ? (hp.label || "หูฟัง") : null;
+  const inputs = ins.map((d, i) => ({ id: d.deviceId, label: d.label || ("ไมค์ " + (i + 1)), kind: isBluetoothLabel(d.label) ? "bluetooth" : isExternalLabel(d.label) ? "external" : "builtin" }));
+  return { via: appliedIn && hp ? (hp.label || "หูฟัง") : null, inputs };
 }
 
 async function apply() {
@@ -58,7 +61,7 @@ async function apply() {
   busy = true;
   try {
     const supported = canChooseOutput();
-    if (!supported) { const via = await applyInputOnly(); patchRouteState({ supported: false, outputs: [], activeId: null, viaInput: via }); return; }
+    if (!supported) { const r = await applyInputOnly(); patchRouteState({ supported: false, outputs: [], activeId: null, viaInput: r.via, inputs: r.inputs }); return; }
     const devices = await md().enumerateDevices();
     const st = getRouteState();
     const { device } = decideOutput(devices, st.pref);
