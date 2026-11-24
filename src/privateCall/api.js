@@ -34,8 +34,12 @@ export function makePrivateCallApi({ db, doc, collection, setDoc, updateDoc, del
     // เริ่มโทร (ผู้โทรยืนยันแล้ว) — ถ้าปลายทางไม่ว่างจะ throw code "busy" และไม่สร้างอะไรเลย
     async start(me, { peer, fromName, toName }) {
       if (!me || !peer || me === peer) bad("ข้อมูลไม่ถูกต้อง", "invalid");
-      const pin = await getDoc(inboxRef(peer));
-      if (pin.exists() && inboxLive(pin.data(), now())) bad("ผู้ใช้นี้กำลังสายไม่ว่าง", "busy");
+      // ตรวจ "ไม่ว่าง" จากกล่องของปลายทาง — ถ้ากฎฐานข้อมูลไม่ให้อ่านกล่องคนอื่น (permission-denied) ให้ข้ามไป
+      // ฝั่งผู้รับจะตอบ "ไม่ว่าง" ให้เองอยู่แล้วถ้ากำลังคุยสายอื่น
+      try {
+        const pin = await getDoc(inboxRef(peer));
+        if (pin.exists() && inboxLive(pin.data(), now())) bad("ผู้ใช้นี้กำลังสายไม่ว่าง", "busy");
+      } catch (e) { if (e && e.code === "busy") throw e; }
       const ref = doc(collection(db, "calls"));
       const callId = ref.id;
       await setDoc(ref, { from: me, to: peer, fromName: String(fromName || "").slice(0, 40), toName: String(toName || "").slice(0, 40), status: "ringing", createdAt: serverTimestamp() });
