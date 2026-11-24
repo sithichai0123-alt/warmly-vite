@@ -103,6 +103,14 @@ export function CallProvider({ api, uid, myName, guest, nameOf, Name, isUserGues
     }, e => console.error("callInbox", e));
   }, [api, uid, enabled]);
 
+  // สายเข้าที่กำลังดัง: ดูสถานะสายจริงด้วย — ผู้โทรวางสาย/หมดเวลา → ปิดหน้าจอสายเข้าทันที
+  // (กฎฐานข้อมูลอาจไม่ให้ผู้โทรลบกล่องสายเข้าของเรา จึงพึ่งกล่องอย่างเดียวไม่ได้)
+  const incomingId = incoming && incoming.callId;
+  useEffect(() => {
+    if (!incomingId) return undefined;
+    return api.watchCall(incomingId, d => { if (!d || d.status !== "ringing") setIncoming(prev => (prev && prev.callId === incomingId ? null : prev)); }, () => {});
+  }, [api, incomingId]);
+
   useEffect(() => {
     if (!incoming) { if (ringtone.current) ringtone.current.stop(); return undefined; }
     if (!ringtone.current) ringtone.current = createRingtone();
