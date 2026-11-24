@@ -4,10 +4,10 @@
 //   • ผู้ใช้เลือกอุปกรณ์เองในแผงเสียงได้ (ค่า "อัตโนมัติ" = ให้บลูทูธ/หูฟังมาก่อน)
 import { AUDIO_ROUTE_ENABLED, RECHECK_DELAYS_MS } from "./config.js";
 import { decideOutput, pairedInput, describeOutputs } from "./logic.js";
-import { getRouteState, patchRouteState } from "./store.js";
+import { getRouteState, patchRouteState, getSpeakerMode } from "./store.js";
 
 const rooms = new Set();
-let timers = [], listening = false, appliedId = null, busy = false, again = false;
+let activeSpk = false, timers = [], listening = false, appliedId = null, busy = false, again = false;
 
 const md = () => (typeof navigator !== "undefined" ? navigator.mediaDevices : undefined);
 export function canChooseOutput() {
@@ -29,7 +29,7 @@ const guardAll = () => audioEls().forEach(guardEl);
 // ปุ่ม "เปิดเสียงเพื่อนอีกครั้ง": สั่งเล่นทุกแทร็กเสียงของห้อง แล้วรายงานสภาพจริง (ไว้ตรวจเมื่อได้ยินเพื่อนไม่ชัด/ไม่ได้ยิน)
 export async function reviveRemoteAudio() {
   const els = audioEls();
-  await Promise.all(els.map(el => { try { el.muted = false; if (el.volume === 0) el.volume = 1; const r = el.play(); return r && r.catch ? r.catch(() => {}) : null; } catch (e) { return null; } }));
+  await Promise.all(els.map(el => { try { if (!getSpeakerMode()) { el.muted = false; if (el.volume === 0) el.volume = 1; } const r = el.play(); return r && r.catch ? r.catch(() => {}) : null; } catch (e) { return null; } }));
   await new Promise(r => setTimeout(r, 300));
   const live = els.filter(el => { const t = el.srcObject && el.srcObject.getAudioTracks ? el.srcObject.getAudioTracks() : []; return t.length && t.some(x => x.readyState === "live"); });
   return { total: els.length, live: live.length, playing: live.filter(el => !el.paused).length };
@@ -69,7 +69,7 @@ const onDeviceChange = () => { apply(); };
 export const audioRoute = {
   attach(room) {
     if (!AUDIO_ROUTE_ENABLED || !room) return;
-    rooms.add(room);
+    rooms.add(room); activeSpk = getSpeakerMode();
     if (!listening && md() && md().addEventListener) { md().addEventListener("devicechange", onDeviceChange); listening = true; }
     try { room.on("trackSubscribed", () => setTimeout(() => { guardAll(); if (appliedId) setElementsSink(appliedId); }, 0)); room.on("localTrackPublished", () => schedule()); } catch (e) { /* ignore */ }
     apply(); schedule();
@@ -84,4 +84,5 @@ export const audioRoute = {
     }
   },
   refresh: apply,
+  speakerModeActive: () => activeSpk,   // โหมดเสียงผ่านลำโพงที่ใช้อยู่ในห้องตอนนี้ (ตั้งตอนเข้าห้อง)
 };
