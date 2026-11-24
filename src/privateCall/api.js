@@ -75,6 +75,11 @@ export function makePrivateCallApi({ db, doc, collection, setDoc, updateDoc, del
       await setDoc(inboxRef(d.from), { callId, dir: "out", other: d.to, from: d.from, status: "accepted", t });
       return { from: d.from };
     },
+    // ผู้รับ: แจ้งผู้โทรว่าเครื่องเรากำลังดังแล้ว (best effort)
+    async ack(callId) {
+      try { const sv = await viaServer("ack", { callId }); if (sv) return true; } catch (e) { return false; }
+      try { await updateDoc(callRef(callId), { ringingAt: serverTimestamp() }); return true; } catch (e) { return false; }
+    },
     decline: (callId, me, reason) => finish(callId, me, reason === "busy" ? "busy" : "declined"),
     cancel: (callId, me) => finish(callId, me, "cancelled"),
     miss: (callId, me) => finish(callId, me, "missed"),

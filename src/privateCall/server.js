@@ -50,6 +50,18 @@ export async function finishCall({ db, FieldValue }, uid, { callId, status }) {
   return { ok: true, changed: true };
 }
 
+// ผู้รับ: เครื่องได้รับสายเข้าแล้ว (กำลังดัง) — ให้ผู้โทรรู้ว่าเครื่องปลายทางดังจริง
+export async function ackCall({ db, FieldValue }, uid, { callId }) {
+  if (!UID_RE.test(String(callId || ""))) throw httpError(400, "ข้อมูลไม่ถูกต้อง", "invalid");
+  const ref = db.collection("calls").doc(callId);
+  const sn = await ref.get();
+  const d = sn.exists ? sn.data() : null;
+  if (!d || d.to !== uid) throw httpError(403, "ไม่ใช่สายของคุณ", "forbidden");
+  if (d.status !== "ringing" || d.ringingAt) return { ok: true, changed: false };
+  await ref.update({ ringingAt: FieldValue.serverTimestamp() });
+  return { ok: true, changed: true };
+}
+
 export function makeCallHandler(getAdmin) {
   return async function handler(req, res) {
     res.setHeader("Cache-Control", "no-store");
@@ -66,6 +78,7 @@ export function makeCallHandler(getAdmin) {
       const out = a === "start" ? await startCall(admin, tok.uid, body)
         : a === "accept" ? await acceptCall(admin, tok.uid, body)
         : a === "finish" ? await finishCall(admin, tok.uid, body)
+        : a === "ack" ? await ackCall(admin, tok.uid, body)
         : null;
       if (!out) return res.status(400).json({ error: "คำสั่งไม่ถูกต้อง" });
       return res.status(200).json(out);
