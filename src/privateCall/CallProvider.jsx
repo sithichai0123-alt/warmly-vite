@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createCallAudio } from "./audio.js";
 import { setCallActive } from "./store.js";
-import { createRingtone } from "./ringtone.js";
+import { createRingtone, createRingback } from "./ringtone.js";
 import { showBanner, hideBanner } from "../social/bus.js";
 import { RING_TIMEOUT_MS, MAX_CALL_MS } from "./config.js";
 import { canStartCall, reasonText, incomingRing, callRoomName, fmtDuration, endText, TERMINAL, toMs } from "./logic.js";
@@ -26,6 +26,7 @@ export function CallProvider({ api, uid, myName, guest, nameOf, Name, isUserGues
   const unwatch = useRef(null), ringTimer = useRef(null), connectP = useRef(null), startedBusy = useRef(false);
   const P = useRef({}); P.current = { nameOf, blocked, myName, uid, api };
   const ringtone = useRef(null);
+  const ringback = useRef(null);
   incomingRef.current = incoming; confirmRef.current = confirm;
 
   const audio = useRef(null);
@@ -50,6 +51,7 @@ export function CallProvider({ api, uid, myName, guest, nameOf, Name, isUserGues
   const onCallDoc = useCallback((d) => {
     const c = callRef.current; if (!c) return;
     if (!d) { endLocal("ended"); return; }
+    if (d.status === "ringing" && d.ringingAt && c.phase === "ringing" && !c.delivered) { setCallState({ ...c, delivered: true }); return; }
     if (d.status === "accepted" && c.phase !== "active") {
       const started = toMs(d.acceptedAt) || Date.now();
       if (ringTimer.current) { clearTimeout(ringTimer.current); ringTimer.current = null; }
@@ -99,7 +101,7 @@ export function CallProvider({ api, uid, myName, guest, nameOf, Name, isUserGues
       if (!ring) { setIncoming(null); return; }
       if (P.current.blocked && P.current.blocked.has(ring.from)) { api.decline(ring.callId, uid, "declined").catch(() => {}); return; }
       if (callRef.current || confirmRef.current) { api.decline(ring.callId, uid, "busy").catch(() => {}); return; }
-      setIncoming(prev => (prev && prev.callId === ring.callId ? prev : { ...ring, name: P.current.nameOf(ring.from) || ring.fromName || "ผู้ใช้" }));
+      setIncoming(prev => { if (prev && prev.callId === ring.callId) return prev; api.ack(ring.callId).catch(() => {}); return { ...ring, name: P.current.nameOf(ring.from) || ring.fromName || "ผู้ใช้" }; });
     }, e => console.error("callInbox", e));
   }, [api, uid, enabled]);
 
@@ -110,6 +112,17 @@ export function CallProvider({ api, uid, myName, guest, nameOf, Name, isUserGues
     if (!incomingId) return undefined;
     return api.watchCall(incomingId, d => { if (!d || d.status !== "ringing") setIncoming(prev => (prev && prev.callId === incomingId ? null : prev)); }, () => {});
   }, [api, incomingId]);
+
+  // ผู้โทร: เสียงรอสาย "ตู๊ด… ตู๊ด…" ระหว่างรออีกฝ่ายรับ + เวลาที่รอไปแล้ว (ใช้บอกว่าเครื่องปลายทางยังไม่ดัง)
+  const callerRinging = !!call && call.role === "caller" && call.phase === "ringing";
+  const [ringWait, setRingWait] = useState(0);
+  useEffect(() => {
+    if (!callerRinging) { if (ringback.current) ringback.current.stop(); setRingWait(0); return undefined; }
+    if (!ringback.current) ringback.current = createRingback();
+    ringback.current.start();
+    const t0 = Date.now(); const iv = setInterval(() => setRingWait(Date.now() - t0), 1000);
+    return () => { clearInterval(iv); if (ringback.current) ringback.current.stop(); };
+  }, [callerRinging]);
 
   useEffect(() => {
     if (!incoming) { if (ringtone.current) ringtone.current.stop(); return undefined; }
@@ -188,7 +201,7 @@ export function CallProvider({ api, uid, myName, guest, nameOf, Name, isUserGues
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{call.phase === "ringing" ? <>{"📞 กำลังโทรหา "}{Name ? <Name uid={call.peer} /> : peerName}{"…"}</> : <>{"📞 คุยส่วนตัวกับ "}{Name ? <Name uid={call.peer} /> : peerName}</>}</div>
-              <div style={{ fontSize:13, color: C.sub }}>{call.phase === "ringing" ? "รออีกฝ่ายรับสาย (ไมค์ยังไม่เปิด)" : <span data-call-timer>{fmtDuration(Date.now() - call.startedAt)}</span>}{call.phase === "active" && " • " + (aud.connected ? (aud.micOn ? "🎙️ ไมค์เปิด" : "🔇 ไมค์ปิด") : "⏳ กำลังเชื่อมต่อเสียง")}</div>
+              <div style={{ fontSize:13, color: C.sub }}>{call.phase === "ringing" ? (call.delivered ? "🔔 เครื่องของอีกฝ่ายกำลังดัง — รอรับสาย" : ringWait >= 8000 ? "⏳ ยังไม่ดังที่เครื่องอีกฝ่าย (อาจไม่ได้เปิดแอปอยู่)" : "📶 กำลังเรียก…") : <span data-call-timer>{fmtDuration(Date.now() - call.startedAt)}</span>}{call.phase === "active" && " • " + (aud.connected ? (aud.micOn ? "🎙️ ไมค์เปิด" : "🔇 ไมค์ปิด") : "⏳ กำลังเชื่อมต่อเสียง")}</div>
             </div>
             {call.phase === "active" && <button type="button" data-call-mic onClick={() => audio.current.setMic(!aud.micOn)} style={btn(aud.micOn ? C.brand : "#3A3552", { padding: "8px 12px", fontSize: 14 })}>{aud.micOn ? "🎙️" : "🔇"}</button>}
             <button type="button" data-call-end onClick={hangup} style={btn(C.red, { padding: "8px 12px", fontSize: 14 })}>{call.phase === "ringing" ? "ยกเลิก" : "📵 วางสาย"}</button>
