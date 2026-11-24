@@ -5,7 +5,8 @@
 // ต้องรับสายจากทั้งสองฝ่ายก่อนถึงจะเปิดไมค์ได้: ผู้โทร = กดยืนยันโทร, ผู้รับ = accept()
 import { inboxLive } from "./logic.js";
 
-export function makePrivateCallApi({ db, doc, collection, setDoc, updateDoc, deleteDoc, getDoc, onSnapshot, serverTimestamp, now = () => Date.now() }) {
+// server(action, body) → Promise<Response> (ไม่บังคับ): ทำผ่าน api/call.js ก่อน — เซิร์ฟเวอร์ยังไม่พร้อม (501/เน็ตล่ม) ค่อยเขียนตรงจากเครื่อง
+export function makePrivateCallApi({ db, doc, collection, setDoc, updateDoc, deleteDoc, getDoc, onSnapshot, serverTimestamp, now = () => Date.now(), server }) {
   const callRef = (id) => doc(db, "calls", id);
   const inboxRef = (uid) => doc(db, "callInbox", uid);
   const bad = (m, code) => { throw Object.assign(new Error(m), { code }); };
@@ -16,7 +17,19 @@ export function makePrivateCallApi({ db, doc, collection, setDoc, updateDoc, del
       if (sn.exists() && (sn.data() || {}).callId === callId) await deleteDoc(inboxRef(uid)); // ไม่ลบกล่องของสายใหม่กว่า
     } catch (e) { /* best effort */ }
   }
+  // เรียกเซิร์ฟเวอร์: คืนผลลัพธ์ · null = ใช้ทางเดิมแทน · error = เซิร์ฟเวอร์ปฏิเสธจริง (ส่งต่อให้ผู้ใช้เห็น)
+  async function viaServer(action, body) {
+    if (!server) return null;
+    let r;
+    try { r = await server(action, body); } catch (e) { return null; }
+    let data = {}; try { data = await r.json(); } catch (e) { /* */ }
+    if (r.ok) return data;
+    if (r.status === 501 || r.status === 404 || r.status >= 502) return null;
+    bad(data.error || ("server " + r.status), data.code || (r.status === 409 ? "busy" : "server-" + r.status));
+  }
   async function finish(callId, me, status, extra) {
+    const sv = await viaServer("finish", { callId, status });
+    if (sv) return !!sv.changed;
     const sn = await getDoc(callRef(callId));
     if (!sn.exists()) return false;
     const d = sn.data() || {};
@@ -34,6 +47,8 @@ export function makePrivateCallApi({ db, doc, collection, setDoc, updateDoc, del
     // เริ่มโทร (ผู้โทรยืนยันแล้ว) — ถ้าปลายทางไม่ว่างจะ throw code "busy" และไม่สร้างอะไรเลย
     async start(me, { peer, fromName, toName }) {
       if (!me || !peer || me === peer) bad("ข้อมูลไม่ถูกต้อง", "invalid");
+      const sv = await viaServer("start", { peer, fromName, toName });
+      if (sv && sv.callId) return sv.callId;
       // ตรวจ "ไม่ว่าง" จากกล่องของปลายทาง — ถ้ากฎฐานข้อมูลไม่ให้อ่านกล่องคนอื่น (permission-denied) ให้ข้ามไป
       // ฝั่งผู้รับจะตอบ "ไม่ว่าง" ให้เองอยู่แล้วถ้ากำลังคุยสายอื่น
       try {
@@ -49,6 +64,8 @@ export function makePrivateCallApi({ db, doc, collection, setDoc, updateDoc, del
     },
     // ผู้รับกดรับสาย: ต้องเป็นสายที่โทรหาเรา และยังดังอยู่เท่านั้น
     async accept(callId, me) {
+      const sv = await viaServer("accept", { callId });
+      if (sv) return { from: sv.from };
       const sn = await getDoc(callRef(callId));
       const d = sn.exists() ? sn.data() : null;
       if (!d || d.to !== me || d.status !== "ringing") bad("สายนี้ถูกยกเลิกหรือหมดเวลาแล้ว", "gone");

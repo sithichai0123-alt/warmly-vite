@@ -4269,7 +4269,7 @@ const dmApi=makeDmApi({db,doc,setDoc,onSnapshot,collection,query,where,serverTim
 const chatDeleteApi=makeChatDeleteApi({getToken:()=>realUserToken("guest"),fallback:makeClientFallback({db,getUid,doc,collection,query,orderBy,limit,getDocs,getDoc,deleteDoc,setDoc,writeBatch})}); // เรียก /api/chat-delete (ลบจริงที่เซิร์ฟเวอร์ ตรวจสิทธิ์เองทุกครั้ง)
 const friendsApi=makeFriendsApi({db,doc,setDoc,deleteDoc,getDoc,onSnapshot,collection,query,where,serverTimestamp});
 const inviteApi=makeInviteApi({db,doc,setDoc,deleteDoc,onSnapshot,collection,serverTimestamp});
-const callApi=makePrivateCallApi({db,doc,collection,setDoc,updateDoc,deleteDoc,getDoc,onSnapshot,serverTimestamp});
+const callApi=makePrivateCallApi({db,doc,collection,setDoc,updateDoc,deleteDoc,getDoc,onSnapshot,serverTimestamp,server:(action,body)=>voiceFetch("/api/call",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,...body})})});
 const photosApi=makePhotosApi({db,doc,setDoc,onSnapshot}); // เก็บรูปโปรไฟล์ที่ profilePhotos/{uid} (แยกจาก users)
 const presenceApi=makePresenceApi({db,doc,setDoc,collection,onSnapshot,serverTimestamp,query,where,getDoc}); // เก็บสถานะออนไลน์ที่ presence/{uid} (แยกจาก users)
 const SCALE_FB={db,collection,query,orderBy,limit,where,onSnapshot,documentId,getDocs,getCountFromServer}; // ส่งให้โมดูล scale (เหมือนโมดูลอื่นที่รับฟังก์ชัน Firebase จากที่นี่)
